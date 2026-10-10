@@ -41,7 +41,7 @@ inline constexpr std::array<UiCharacterInfo,26> UiCharacters{{
 inline constexpr std::array<unsigned,26> UiCharacterDrivers{{
  4,13,5,12, 6,22,7,17, 0,1,2,15, 3,14,16,23, 8,9,10,11, 20,21,19,18, 24,25
 }};
-// First six choices match GarageChoices and the existing vehicle sprite keys.
+// Choices match GarageChoices (VehiclesPerDriver per driver) and the vehicle sprite keys.
 inline constexpr const char* UiVehicleNames[3][12]={
  {"Standard Kart S","Booster Seat","Mini Beast","Standard Bike S","Bullet Bike","Bit Bike","Cheep Charger","Tiny Titan","Blue Falcon","Quacker","Magikruiser","Jet Bubble"},
  {"Standard Kart M","Classic Dragster","Wild Wing","Standard Bike M","Mach Bike","Sugarscoot","Super Blooper","Daytripper","Sprinter","Zip Zip","Sneakster","Dolphin Dasher"},
@@ -72,12 +72,14 @@ public:
  unsigned vehicleChoice(unsigned slot)const;
  unsigned vehicleSlot(unsigned choice)const;
  unsigned engineClassMovie(unsigned slot)const;
- // The race runtime starts Solo VS with all 24 retail drivers and their six
- // starting machines. Other choices stay browsable, but accepting one reports
+ // The race runtime starts races with all 24 retail drivers and all twelve
+ // machines each. Other choices stay browsable, but accepting one reports
  // "Not available" on its own page rather than at the final confirmation.
- static bool raceMode(UiMode mode){return mode==UiMode::VS;}
+ static bool raceMode(UiMode mode){return mode==UiMode::VS||mode==UiMode::GrandPrix||mode==UiMode::TimeTrials;}
+ // Only the original 150cc physics runs (Kinoko's class rate 1.0).
+ static bool raceEngineClass(UiEngineClass c){return c==UiEngineClass::CC150;}
  static bool raceDriver(unsigned driver){return driver<24;}
- static bool raceVehicle(unsigned choice){return choice<6;}
+ static bool raceVehicle(unsigned choice){return choice<12;}
  bool supportsRace()const;
 };
 struct UiQuad {unsigned sprite;float x,y,w,h,alpha=1;uint32_t tint=0xffffffff;bool bottom=false;float u0=0,v0=0,u1=1,v1=1;unsigned movie=~0u;std::array<uint32_t,4> corners{{0xffffffff,0xffffffff,0xffffffff,0xffffffff}};bool additive=false;unsigned vehicleIcon=~0u;uint32_t vehicleColor0=0,vehicleColor1=0xffffffff;};

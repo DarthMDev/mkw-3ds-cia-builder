@@ -99,17 +99,25 @@ using mkw::Courses;
 using mkw::CourseCount;
 static unsigned courseChoice=0,driverChoice=0,vehicleChoice=0;
 static bool fullRace=false,automaticDrift=false;
+// Time Trials: one racer, no item boxes, a Triple Mushroom at the start, and
+// the best finish per course kept on the SD card (milliseconds, 0 = none).
+static bool timeTrial=false,newRecord=false;
+static std::array<uint32_t,32> bestTimes{};
+static constexpr const char* BestTimesPath="sdmc:/3ds/mkw-3ds/best-times.bin";
+static void loadBestTimes(){bestTimes={};if(FILE* f=fopen(BestTimesPath,"rb")){if(fread(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)!=bestTimes.size())bestTimes={};fclose(f);}}
+static void saveBestTimes(){if(FILE* f=fopen(BestTimesPath,"wb")){fwrite(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f);fclose(f);}}
+static void formatTime(char* out,size_t size,uint32_t ms){snprintf(out,size,"%u:%02u.%03u",unsigned(ms/60000),unsigned(ms/1000%60),unsigned(ms%1000));}
 static bool courseAvailable(unsigned i){return Courses[i].supported&&exists("Race/Common.szs")&&exists(Courses[i].archive)&&exists(Courses[i].models)&&(!*Courses[i].sky||exists(Courses[i].sky));}
 static void showControls(bool ready){
     consoleClear();printf("MKW/ MARIO KART RECOMPILED 3DS\n%s / manual drift\n",Courses[courseChoice].name);
     printf("3DS CONTROLS\nCircle Pad: steer  A: accelerate\nB: brake  R: hop/drift  L: use item\nD-pad: trick / bike wheelie\nSTART: maps/pause  SELECT: restart\nX/Y: character  B+X/Y: vehicle\n");
     if(!ready)printf("Missing selected course data.\n");
 }
-static const auto& selectedVehicle(){return mkw::GarageChoices[driverChoice*6+vehicleChoice];}
+static const auto& selectedVehicle(){return mkw::GarageChoices[driverChoice*mkw::VehiclesPerDriver+vehicleChoice];}
 static void configure(K::System::RaceConfig* config,void* context) {
     if(replayData){config->setGhost(replayData);config->raceScenario().players[0].type=K::System::RaceConfig::Player::Type::Ghost;return;}
     auto& s=config->raceScenario();s.course=Courses[courseChoice].id;
-    if(fullRace){static_cast<mkw::RaceGrid*>(context)->configure(*config,driverChoice*6+vehicleChoice,12);s.players[0].driftIsAuto=automaticDrift;return;}
+    if(fullRace){static_cast<mkw::RaceGrid*>(context)->configure(*config,driverChoice*mkw::VehiclesPerDriver+vehicleChoice,timeTrial?1:12);s.players[0].driftIsAuto=automaticDrift;return;}
     auto& p=s.players[0];p.type=K::System::RaceConfig::Player::Type::Local;
     const auto& driver=selectedVehicle();
     p.character=static_cast<K::Character>(driver.character);p.vehicle=static_cast<K::Vehicle>(driver.vehicle);p.driftIsAuto=false;
@@ -498,7 +506,7 @@ int main() {
         if(FILE* f=fopen("sdmc:/3ds/mkw-3ds/menu-result.json","w")){fprintf(f,"{\"pass\":%s,\"pages\":%u,\"transition_frames\":%u,\"top_only\":true}\n",ok&&captured==expected?"true":"false",unsigned(std::size(pages)),motionFrames);fclose(f);}else ok=false;
         report(ok?"MENU SCREENSHOT PASS":"MENU SCREENSHOT FAIL");renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();renderer.shutdown();gfxExit();return ok?0:4;
     }
-    auto applySelection=[&](){courseChoice=menu.selection.course;driverChoice=menu.selection.driver;vehicleChoice=menu.selection.vehicle;automaticDrift=menu.selection.automatic;};
+    auto applySelection=[&](){timeTrial=menu.selection.mode==mkw::UiMode::TimeTrials;newRecord=false;if(timeTrial)loadBestTimes();courseChoice=menu.selection.course;driverChoice=menu.selection.driver;vehicleChoice=menu.selection.vehicle;automaticDrift=menu.selection.automatic;};
     if(fullRace){if(runMenu()!=mkw::UiAction::StartRace){finishAutoplay();renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();mkw::SoundSystem::instance().stop();mkw::MenuMovieAudio::shutdown();renderer.shutdown();gfxExit();return 0;}applySelection();menu.raceStarted();raceLoadStart=svcGetSystemTick();}
     bool dataReady=exists("Race/Common.szs")&&courseAvailable(courseChoice);
     if(dataReady&&(kQa&&exists("sdmc:/3ds/mkw-3ds/trace-test.txt"))) {
@@ -558,7 +566,7 @@ int main() {
     // runs four races (RaceMenu::IsFinalRace) and scores them all.
     auto resultsStorage=std::make_unique<mkw::RaceResultsFlow>();auto& results=*resultsStorage;mkw::RaceFlowInput resultsInput;bool resultsReported=false;
     struct VsSet {unsigned race=0,driver=~0u;std::array<uint16_t,12> points{};bool next=false;};
-    auto vsSetStorage=std::make_unique<VsSet>();auto& vsSet=*vsSetStorage;
+    auto vsSetStorage=std::make_unique<VsSet>();auto& vsSet=*vsSetStorage;bool nextRaceQueued=false;
     auto startVsRace=[&](bool restart){
         if(restart)return;
         if(vsSet.next&&vsSet.race<mkw::RaceResultsFlow::VSRaces&&vsSet.driver==driverChoice)++vsSet.race;
@@ -606,12 +614,13 @@ int main() {
         for(unsigned p=0;p<n;++p){
             const unsigned i=order[p];auto& r=rows[p];
             r.racer=uint8_t(i);r.character=uint8_t(scenario.players[i].character);r.human=i==0;
-            r.previous=vsSet.points[i];r.gain=uint16_t(mkw::RaceResultsFlow::points(n,p+1));
+            r.previous=vsSet.points[i];r.gain=timeTrial?0:uint16_t(mkw::RaceResultsFlow::points(n,p+1));
             vsSet.points[i]=uint16_t(std::min(99999u,unsigned(r.previous)+r.gain));
             if(kQa&&length>0&&size_t(length)<sizeof line)length+=snprintf(line+length,sizeof line-size_t(length)," %u:%u+%u",i,unsigned(r.previous),unsigned(r.gain));
         }
         report(line);
-        results.fill(rows.data(),n,vsSet.race>=mkw::RaceResultsFlow::VSRaces);
+        // Time Trials: Next returns to the course choice; no set to finish.
+        results.fill(rows.data(),n,!timeTrial&&vsSet.race>=mkw::RaceResultsFlow::VSRaces);
     };
     auto startIntro=[&](){
         intro.stop();
@@ -760,6 +769,7 @@ int main() {
         if(!raceGrid.reset()){trackLoadFailed=true;report("FAIL course CPU route: race suspended; choose another map");}
         raceItems->resetFromCourse(raceGrid.count());
         if(!raceItems->oddsReady()){trackLoadFailed=true;report("FAIL original item odds load");}
+        if(timeTrial){raceItems->reset({},raceGrid.count());raceItems->give(0,mkw::ItemKind::TripleMushroom);newRecord=false;}
         if(reload){if(!opponents.load()){trackLoadFailed=true;report("FAIL opponent graphics load");}}
         else opponents.resetAnimation();
         LOGF("race_grid count=%u opponents=%u route=%d item_boxes=%u",raceGrid.count(),opponents.count(),raceGrid.routeReady(),unsigned(raceItems->boxes().size()));
@@ -836,10 +846,10 @@ int main() {
             unsigned count=garageControls?72:12;
             bool pass=true;
             for(unsigned choice=0;choice<count;++choice){
-                driverChoice=garageControls?choice/6:choice;vehicleChoice=garageControls?choice%6:0;
+                driverChoice=garageControls?choice/mkw::VehiclesPerDriver:choice;vehicleChoice=garageControls?choice%mkw::VehiclesPerDriver:0;
                 if(choice){scenes.currentScene()->heap()->enableAllocation();scenes.changeSiblingScene(2);}
                 pass&=mkw::runControlChecks(scenes);
-                char path[96];snprintf(path,sizeof path,"sdmc:/3ds/mkw-3ds/controls-choice-%u.json",garageControls?driverChoice*6+vehicleChoice:driverChoice);rename("sdmc:/3ds/mkw-3ds/controls-result.json",path);
+                char path[96];snprintf(path,sizeof path,"sdmc:/3ds/mkw-3ds/controls-choice-%u.json",garageControls?driverChoice*mkw::VehiclesPerDriver+vehicleChoice:driverChoice);rename("sdmc:/3ds/mkw-3ds/controls-result.json",path);
             }
             if(FILE* f=fopen(garageControls?"garage_controls-result.json":"roster-result.json","w")){fprintf(f,"{\"pass\":%s,\"characters\":%u}\n",pass?"true":"false",count);fclose(f);}
             for(auto& texture:sparkTexture)texture.reset();for(auto& texture:*effectTextures)texture.reset();renderer.shutdown();gfxExit();return pass?0:3;
@@ -989,7 +999,8 @@ int main() {
             if((down&KEY_TOUCH)&&menu.page==mkw::UiPage::Race)bottomScreen.toggleView();
             if(menu.page!=mkw::UiPage::Race&&menu.page!=mkw::UiPage::Results){
                 if(menu.page==mkw::UiPage::Pause)raceSound.pause(true);
-                auto action=runMenu();renderer.setDeferred(deferredRace);if(action==mkw::UiAction::Exit)break;
+                // A Grand Prix's next race starts without visiting the menus.
+                auto action=nextRaceQueued?mkw::UiAction::StartRace:runMenu();nextRaceQueued=false;renderer.setDeferred(deferredRace);if(action==mkw::UiAction::Exit)break;
                 if(action==mkw::UiAction::ResumeRace)raceSound.pause(false);
                 if(action==mkw::UiAction::StartRace||action==mkw::UiAction::RestartRace){
                     raceLoadStart=svcGetSystemTick();
@@ -1041,14 +1052,14 @@ int main() {
             }
             if(animationTest&&frames&&frames%fixtureFrames==0&&frames/fixtureFrames<fixtureChoices){
                 renderer.waitForGpu();unsigned index=frames/fixtureFrames;
-                driverChoice=garageTest?index/6:index;vehicleChoice=garageTest?index%6:0;
+                driverChoice=garageTest?index/mkw::VehiclesPerDriver:index;vehicleChoice=garageTest?index%mkw::VehiclesPerDriver:0;
                 scenes.currentScene()->heap()->enableAllocation();scenes.changeSiblingScene(2);courseObjects.invalidate();
                 animationPass&=loadDriver();prepareGarageFixture();driftEffects.reset();raceEffects.reset();resetKartFx();accumulator=0;
             }
             if(qaMode&&((down&KEY_SELECT)||(!replay&&(down&(KEY_X|KEY_Y))))){
                 renderer.waitForGpu();
                 if(!replay&&(down&(KEY_X|KEY_Y))){
-                    if(held&KEY_B)vehicleChoice=(vehicleChoice+6+(down&KEY_Y?1:-1))%6;
+                    if(held&KEY_B)vehicleChoice=(vehicleChoice+mkw::VehiclesPerDriver+(down&KEY_Y?1:-1))%mkw::VehiclesPerDriver;
                     else driverChoice=(driverChoice+mkw::StarterDrivers.size()+(down&KEY_Y?1:-1))%mkw::StarterDrivers.size();
                 }
                 scenes.currentScene()->heap()->enableAllocation();scenes.changeSiblingScene(2);courseObjects.invalidate();
@@ -1191,7 +1202,13 @@ int main() {
                     if(flow.stage<=1&&stage>=2)raceEvents.emit(mkw::RaceEvent::Start,physicsSteps);
                     if(cameraInput.beforeRespawn&&!flow.fall)raceEvents.emit(mkw::RaceEvent::Fall,physicsSteps,cameraInput.oobRequest);
                     if(respawnStart)raceEvents.emit(mkw::RaceEvent::Respawn,physicsSteps);
-                    if(cameraInput.finished&&!flow.finished){raceEvents.emit(mkw::RaceEvent::Finish,physicsSteps,int(raceGrid.rank()));results.finish();}
+                    if(cameraInput.finished&&!flow.finished){
+                        raceEvents.emit(mkw::RaceEvent::Finish,physicsSteps,int(raceGrid.rank()));results.finish();
+                        if(timeTrial&&courseChoice<bestTimes.size()){
+                            const auto& t=race->player(0).raceTimer();const uint32_t ms=uint32_t(t.min)*60000u+uint32_t(t.sec)*1000u+uint32_t(t.mil);
+                            if(ms&&(!bestTimes[courseChoice]||ms<bestTimes[courseChoice])){bestTimes[courseChoice]=ms;newRecord=true;saveBestTimes();}
+                        }
+                    }
                     {
                         using Flow=mkw::RaceResultsFlow;
                         const uint32_t events=results.step(resultsInput);resultsInput={};
@@ -1207,7 +1224,7 @@ int main() {
                             // The race has faded to black (RaceResultsFlow::Leaving).
                             sectionFadeIn=true;
                             vsSet.next=results.chosen()==0&&!results.finalRace();
-                            if(menu.page==mkw::UiPage::Results){menu.cursor=unsigned(std::max(0,results.chosen()));menu.input({false,false,false,false,true});}
+                            if(menu.page==mkw::UiPage::Results){menu.cursor=unsigned(std::max(0,results.chosen()));nextRaceQueued=menu.input({false,false,false,false,true})==mkw::UiAction::StartRace;}
                         }
                         flowUi.step(results);
                     }
@@ -1486,7 +1503,7 @@ int main() {
             if(fullRace){
                 auto* race=K::System::RaceManager::Instance();auto& timer=race->timerManager().currentTimer();
                 uiRace.count=raceGrid.count();uiRace.milliseconds=timer.min*60000+timer.sec*1000+timer.mil;
-                for(unsigned i=0;i<uiRace.count;++i){auto p=K::Kart::KartObjectManager::Instance()->object(i)->pos();uiRace.racers[i]={raceGrid.garageChoice(i)/6,raceGrid.rank(i),raceGrid.lap(i),raceGrid.finished(i),p.x,p.z};}
+                for(unsigned i=0;i<uiRace.count;++i){auto p=K::Kart::KartObjectManager::Instance()->object(i)->pos();uiRace.racers[i]={raceGrid.garageChoice(i)/mkw::VehiclesPerDriver,raceGrid.rank(i),raceGrid.lap(i),raceGrid.finished(i),p.x,p.z};}
                 // Only pages drawn over the race compose here; a page the race is
                 // leaving for (e.g. the course choice after Next Race) is loaded
                 // by runMenu once the race is released.
@@ -1611,7 +1628,13 @@ int main() {
             // Stereo layers (Mario Kart 7's): the HUD and result boards 4 px
             // behind the screen; the full-screen wipe and the pause menu on the
             // screen plane.
-            if(fullRace&&!intro.active()){auto* race=K::System::RaceManager::Instance();raceHud.drawOverlay(renderer,*raceItems,unsigned(race->stage()),race->timer(),raceGrid.rank(),raceGrid.lap(),raceGrid.finished(),physicsSteps,results.finishFrame(),results.hudSlide());}
+            if(fullRace&&!intro.active()){auto* race=K::System::RaceManager::Instance();raceHud.drawOverlay(renderer,*raceItems,unsigned(race->stage()),race->timer(),raceGrid.rank(),raceGrid.lap(),raceGrid.finished(),physicsSteps,results.finishFrame(),results.hudSlide());
+                if(timeTrial&&courseChoice<bestTimes.size()&&!results.hudGone()){
+                    // Best time under the lap counter; NEW RECORD! once beaten.
+                    char best[32];if(bestTimes[courseChoice]){char t[16];formatTime(t,sizeof t,bestTimes[courseChoice]);snprintf(best,sizeof best,"BEST %s",t);}else snprintf(best,sizeof best,"BEST -:--.---");
+                    renderer.drawScreenText(best,392-6*float(std::strlen(best)),62,1.f,0xffffffffu);
+                    if(newRecord)renderer.drawScreenText("NEW RECORD!",200-33*2,84,2.f,0xffe040ffu);
+                }}
             renderer.setScreenDepth(renderer.stereoLayer(mkw::stereo::HudLayer));
             if(fullRace)flowUi.drawResults(renderer,results);
             renderer.setScreenDepth(0);
@@ -1663,7 +1686,7 @@ int main() {
             std::vector<uint8_t> pixels(400*240*3);if(renderer.captureTop(pixels.data()))if(FILE* f=fopen("sdmc:/3ds/mkw-3ds/capture-live-drift.ppm","wb")){fprintf(f,"P6\n400 240\n255\n");fwrite(pixels.data(),1,pixels.size(),f);fclose(f);}capturedBlue=true;
         }
         if(animationTest&&frames%fixtureFrames==fixtureFrames-1){
-            std::vector<uint8_t> pixels(400*240*3);char path[96];snprintf(path,sizeof path,"sdmc:/3ds/mkw-3ds/capture-choice-%u.ppm",driverChoice*6+vehicleChoice);
+            std::vector<uint8_t> pixels(400*240*3);char path[96];snprintf(path,sizeof path,"sdmc:/3ds/mkw-3ds/capture-choice-%u.ppm",driverChoice*mkw::VehiclesPerDriver+vehicleChoice);
             if(renderer.captureTop(pixels.data()))if(FILE* f=fopen(path,"wb")){fprintf(f,"P6\n400 240\n255\n");fwrite(pixels.data(),1,pixels.size(),f);fclose(f);}
         }
         if(animationTest&&frames==fixtureFrames*fixtureChoices){
