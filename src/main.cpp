@@ -1065,6 +1065,16 @@ int main() {
             auto trick=K::System::Trick::None;
             if(held&KEY_DUP)trick=K::System::Trick::Up;else if(held&KEY_DDOWN)trick=K::System::Trick::Down;
             else if(held&KEY_DLEFT)trick=K::System::Trick::Left;else if(held&KEY_DRIGHT)trick=K::System::Trick::Right;
+            // X/Y trick: the D-pad is out of reach while the thumb steers on the
+            // Circle Pad. The pad picks the direction like a Wii Remote shake with
+            // the stick held; neutral is Up (a wheelie on bikes). QA owns X/Y.
+            else if(!qaMode&&(held&(KEY_X|KEY_Y))){
+                constexpr int Tilt=60;
+                if(pad.dy<=-Tilt&&std::abs(pad.dy)>=std::abs(pad.dx))trick=K::System::Trick::Down;
+                else if(pad.dx<=-Tilt&&std::abs(pad.dx)>std::abs(pad.dy))trick=K::System::Trick::Left;
+                else if(pad.dx>=Tilt&&std::abs(pad.dx)>std::abs(pad.dy))trick=K::System::Trick::Right;
+                else trick=K::System::Trick::Up;
+            }
             // Preserve the Wii input lattice used by ghost records.
             int stick=std::clamp(int(std::lround(pad.dx*7.f/156.f)),-7,7);
             if(garageTest){buttons=1;stick=frames%fixtureFrames<32?-4:4;}
