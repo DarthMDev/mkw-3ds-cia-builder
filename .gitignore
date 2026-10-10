@@ -1,0 +1,24 @@
+# macOS metadata
+._*
+.DS_Store
+
+# Build logs
+*.log
+build-cia-log.txt
+
+# Game data, extracted disc assets, and build outputs
+build/
+data/
+assets/
+sd-card/
+emulator/
+
+# Toolchain, virtual environment, and node packages
+.toolchain/
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+
+# Local Python packaging artifacts
+vendor/gclib/*.egg-info/

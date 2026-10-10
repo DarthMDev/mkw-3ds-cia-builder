@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Incremental native ARM11 build. No game data downloaded or embedded by default."""
+import argparse, concurrent.futures, hashlib, json, os, subprocess
+from pathlib import Path
+from build_hardware_sdk import build_citro3d
+ROOT=Path(__file__).resolve().parents[1]
+def main():
+ p=argparse.ArgumentParser();p.add_argument('--jobs',type=int,default=6)
+ # Release (the CIA builder): no test hooks, logs or engine assert text; no build paths.
+ p.add_argument('--release',action='store_true');a=p.parse_args()
+ dkp=Path(os.environ.get('DEVKITPRO','/opt/devkitpro'));out=ROOT/'build';out.mkdir(exist_ok=True)
+ citro=build_citro3d(out,dkp)
+ kin=ROOT/'vendor/kinoko';cxx=dkp/'devkitARM/bin/arm-none-eabi-g++'
+ # DVLE 0: scene shader; DVLE 1: NW4R EF particles (src/effect.v.pica).
+ subprocess.run([str(dkp/'tools/bin/picasso'),'-o',str(out/'mkw.shbin'),str(ROOT/'src/mkw.v.pica'),str(ROOT/'src/effect.v.pica')],check=True)
+ (out/'shader_data.hpp').write_text('#pragma once\n#include <cstdint>\nalignas(4) static const uint8_t mkw_shader[]={'+','.join(map(str,(out/'mkw.shbin').read_bytes()))+'};\n')
+ arch=['-march=armv6k','-mtune=mpcore','-mfloat-abi=hard','-mtp=soft']
+ flags=arch+['-std=gnu++23','-O2','-g','-D__3DS__','-DREVOLUTION','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fcheck-new','-fno-strict-aliasing','-ffp-contract=off','-Wall','-Wno-psabi','-I'+str(kin/'include'),'-I'+str(kin/'source'),'-I'+str(ROOT/'include'),'-I'+str(ROOT/'vendor/citro3d/include'),'-I'+str(dkp/'libctru/include'),'-I'+str(out)]
+ # Kinoko alone is built for link-time optimization: its many one-line
+ # KartObjectProxy accessors live in .cc files and inline only at link time.
+ # Same IEEE semantics (-ffp-contract=off, no fast-math); the app keeps
+ # ordinary objects, so the linker --wrap list below is unaffected.
+ if a.release:flags+=['-DMKW_RELEASE','-DKINOKO_QUIET','-ffile-prefix-map='+str(ROOT)+'/=']
+ lto=['-flto=auto']
+ codegen=['-O2','-g','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fno-strict-aliasing','-ffp-contract=off']
+ sources=[p for p in sorted((kin/'source').rglob('*.cc')) if not p.name.startswith('._') and p.name not in ('main.cc','KReplaySystem.cc','Context.cc')]+[p for p in sorted((ROOT/'src').glob('*.cpp')) if not p.name.startswith('._')]
+ # All headers invalidate objects; conservative but reproducible.
+ headers=[out/'shader_data.hpp']+list(kin.rglob('*.hh'))+list((ROOT/'include').rglob('*.hpp'))+list((ROOT/'vendor/citro3d/include').rglob('*.h'))+list((dkp/'libctru/include').rglob('*.h'))
+ signature=hashlib.sha256((' '.join(flags+lto)+subprocess.check_output([str(cxx),'--version'],text=True)).encode()+b''.join(p.read_bytes() for p in sorted(headers) if not p.name.startswith('._'))).hexdigest()
+ stamp=out/'compile-signature';changed=not stamp.exists() or stamp.read_text()!=signature
+ def compile(src):
+  obj=out/'obj'/src.relative_to(ROOT).with_suffix('.o');obj.parent.mkdir(parents=True,exist_ok=True)
+  objstamp=obj.with_suffix(".sig")
+  if not obj.exists() or not objstamp.exists() or objstamp.read_text()!=signature or src.stat().st_mtime>obj.stat().st_mtime:
+   r=subprocess.run([str(cxx),*flags,*(lto if src.is_relative_to(kin) else []),'-c',str(src),'-o',str(obj)],capture_output=True,text=True,errors="replace")
+   if r.returncode:raise RuntimeError(str(src)+'\n'+r.stdout+r.stderr)
+   objstamp.write_text(signature)
+   print(src.relative_to(ROOT),flush=True)
+  return obj
+ with concurrent.futures.ThreadPoolExecutor(max_workers=a.jobs) as pool:objs=list(pool.map(compile,sources))
+ stamp.write_text(signature)
+ elf=out/'mkw-3ds.elf'
+ # The background menu asset loader allocates LINEAR memory; src/linear_lock.cpp
+ # serializes every LINEAR heap call, including those made inside Citro3D/libctru.
+ wraps=['-Wl,--wrap='+name for name in ('linearAlloc','linearMemAlign','linearRealloc','linearGetSize','linearFree','linearSpaceFree','fopen')]
+ subprocess.run([str(cxx),*arch,*lto,*codegen,'-specs=3dsx.specs','-Wl,--gc-sections',*wraps,'-Wl,-Map,'+str(out/'mkw-3ds.map'),*[str(o) for o in objs],str(citro),'-L'+str(dkp/'libctru/lib'),'-lctru','-lm','-o',str(elf)],check=True)
+ subprocess.run([str(dkp/'tools/bin/3dsxtool'),str(elf),str(out/'mkw-3ds.3dsx')],check=True)
+ subprocess.run([str(dkp/'devkitARM/bin/arm-none-eabi-size'),str(elf)],check=True)
+ (out/'build-receipt.json').write_text(json.dumps({'hardware_sdk':json.loads((out/'hardware-sdk/receipt.json').read_text()),'shader_sha256':hashlib.sha256((out/'mkw.shbin').read_bytes()).hexdigest(),'libctru_sha256':hashlib.sha256((dkp/'libctru/lib/libctru.a').read_bytes()).hexdigest(),'kinoko_commit':subprocess.check_output(['git','-C',str(kin),'rev-parse','HEAD'],text=True).strip(),'sha256':hashlib.sha256((out/'mkw-3ds.3dsx').read_bytes()).hexdigest(),'flags':flags,'sources':{str(s.relative_to(ROOT)):hashlib.sha256(s.read_bytes()).hexdigest() for s in sources}},indent=2)+'\n')
+if __name__=='__main__':main()
