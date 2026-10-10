@@ -167,7 +167,9 @@ def stage_package(version,cci,keep_stage):
 def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('disc',nargs='?',type=Path,help='your Mario Kart Wii (USA) ISO or WBFS (not needed once extracted and cooked)')
-    p.add_argument('--version',default='0.1.0')
+    # The HOME Menu refreshes a title's cached icon and banner only when its
+    # version rises: bump tools/release/VERSION for every build you share.
+    p.add_argument('--version',default=(Path(__file__).parent/'VERSION').read_text().strip())
     p.add_argument('--jobs',type=int,default=max(1,(os.cpu_count() or 2)-1))
     p.add_argument('--cci',action='store_true',help='also build a cartridge image for emulators')
     p.add_argument('--force-cook',action='store_true',help='re-run every cook step')
