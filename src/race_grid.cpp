@@ -99,14 +99,14 @@ Vec3 EnemyRoute::target(unsigned segment,unsigned racer,Vec3 pos,float lookahead
 }
 
 void RaceGrid::configure(Kinoko::System::RaceConfig& config,unsigned localChoice,unsigned count){
-    constexpr unsigned driverCount=GarageChoices.size()/6;
-    static_assert(GarageChoices.size()%6==0&&driverCount>=Capacity);
+    constexpr unsigned driverCount=GarageChoices.size()/VehiclesPerDriver;
+    static_assert(GarageChoices.size()%VehiclesPerDriver==0&&driverCount>=Capacity);
     count_=std::clamp(count,1u,Capacity);localChoice%=GarageChoices.size();
     auto& scenario=config.raceScenario();scenario.playerCount=count_;
-    const unsigned localDriver=localChoice/6;
+    const unsigned localDriver=localChoice/VehiclesPerDriver;
     for(unsigned i=0;i<Capacity;++i){auto& p=scenario.players[i];
         if(i>=count_){p.type=Kinoko::System::RaceConfig::Player::Type::None;continue;}
-        choices_[i]=i?((localDriver+i)%driverCount)*6:localChoice;
+        choices_[i]=i?((localDriver+i)%driverCount)*VehiclesPerDriver:localChoice;
         const auto& choice=GarageChoices[choices_[i]];
         p.character=static_cast<Kinoko::Character>(choice.character);p.vehicle=static_cast<Kinoko::Vehicle>(choice.vehicle);
         p.type=i?Kinoko::System::RaceConfig::Player::Type::CPU:Kinoko::System::RaceConfig::Player::Type::Local;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cook six supported vehicles for each retail driver from a local disc."""
+"""Cook all twelve vehicles for each retail driver from a local disc."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -20,14 +20,26 @@ from unpack_szs import unpack
 VEHICLES = {
     "s": [(0, "Standard Kart S", "sdf_kart"), (3, "Baby Booster", "sa_kart"),
           (6, "Mini Beast", "sb_kart"), (18, "Standard Bike S", "sdf_bike"),
-          (21, "Bullet Bike", "sa_bike"), (24, "Bit Bike", "sb_bike")],
+          (21, "Bullet Bike", "sa_bike"), (24, "Bit Bike", "sb_bike"),
+          (9, "Cheep Charger", "sc_kart"), (12, "Tiny Titan", "sd_kart"),
+          (15, "Blue Falcon", "se_kart"), (27, "Quacker", "sc_bike"),
+          (30, "Magikruiser", "sd_bike"), (33, "Jet Bubble", "se_bike")],
     "m": [(1, "Standard Kart M", "mdf_kart"), (4, "Classic Dragster", "ma_kart"),
           (7, "Wild Wing", "mb_kart"), (19, "Standard Bike M", "mdf_bike"),
-          (22, "Mach Bike", "ma_bike"), (25, "Sugarscoot", "mb_bike")],
+          (22, "Mach Bike", "ma_bike"), (25, "Sugarscoot", "mb_bike"),
+          (10, "Super Blooper", "mc_kart"), (13, "Daytripper", "md_kart"),
+          (16, "Sprinter", "me_kart"), (28, "Zip Zip", "mc_bike"),
+          (31, "Sneakster", "md_bike"), (34, "Dolphin Dasher", "me_bike")],
     "l": [(2, "Standard Kart L", "ldf_kart"), (5, "Offroader", "la_kart"),
           (8, "Flame Flyer", "lb_kart"), (20, "Standard Bike L", "ldf_bike"),
-          (23, "Flame Runner", "la_bike"), (26, "Wario Bike", "lb_bike")],
+          (23, "Flame Runner", "la_bike"), (26, "Wario Bike", "lb_bike"),
+          (11, "Piranha Prowler", "lc_kart"), (14, "Jetsetter", "ld_kart"),
+          (17, "Honeycoupe", "le_kart"), (29, "Shooting Star", "lc_bike"),
+          (32, "Spear", "ld_bike"), (35, "Phantom", "le_bike")],
 }
+# Per driver, in the menu's choice order (UiVehicleNames): the six starting
+# vehicles, then the six unlockable ones.
+VEHICLES_PER_DRIVER = 12
 EXTRA_NAMES = ["handle", "f_sus", "swingarm", "r_sus", "arm_fl", "arm_fr", "arm_rl", "arm_rr", "sus_fr"]
 
 
@@ -50,10 +62,11 @@ def inspect_kart(archive):
 
 
 def write_native_garage(choices):
-    if len(choices) != len(ROSTER) * 6:
-        raise ValueError("The native garage requires six vehicles per retail driver")
+    if len(choices) != len(ROSTER) * VEHICLES_PER_DRIVER:
+        raise ValueError("The native garage requires every vehicle for every retail driver")
     lines = ["#pragma once", "#include <array>", "namespace mkw {",
-             "// Generated from the original starter vehicles and kartDriverDispParam.bin.",
+             "// Generated from the original vehicles and kartDriverDispParam.bin.",
+             f"inline constexpr unsigned VehiclesPerDriver={VEHICLES_PER_DRIVER}; // menu choice order, UiVehicleNames",
              "struct GarageChoice {const char* name;const char* prefix;unsigned character,vehicle;float seatY,seatZ;bool bike;unsigned extrasMask;bool bodyAnimation;unsigned extraAnimationMask;};",
              "inline constexpr std::array<const char*,9> GarageExtraNames{{" + ",".join(json.dumps(n) for n in EXTRA_NAMES) + "}};",
              f"inline constexpr std::array<GarageChoice,{len(choices)}> GarageChoices{{{{"]
@@ -84,9 +97,13 @@ def cook_choice(choice, output, *, source_root=None, export_root=None, models_on
     if choice["bike"]:
         mapping = {"body": "body", "driver": "model", "tire_fl": "tire_f", "tire_fr": "tire_r"}
     else:
-        mapping = {"body": "body", "driver": "model", "tire_fl": "tire_fl", "tire_fr": "tire_fr"}
-        mapping.update(tire_rl="tire_rl" if "tire_rl" in source_parts else "tire_fl",
-                       tire_rr="tire_rr" if "tire_rr" in source_parts else "tire_fr")
+        # Most karts model only the front pair and reuse it at the rear; the
+        # Blue Falcon models tire_fr and the rear pair, reusing tire_fr on the left.
+        front_left = "tire_fl" if "tire_fl" in source_parts else "tire_fr"
+        front_right = "tire_fr" if "tire_fr" in source_parts else "tire_fl"
+        mapping = {"body": "body", "driver": "model", "tire_fl": front_left, "tire_fr": front_right}
+        mapping.update(tire_rl="tire_rl" if "tire_rl" in source_parts else front_left,
+                       tire_rr="tire_rr" if "tire_rr" in source_parts else front_right)
     mapping.update((part, part) for part in EXTRA_NAMES if part in source_parts)
     choice["extrasMask"] = sum(1 << i for i, name in enumerate(EXTRA_NAMES) if name in source_parts)
     choice["bodyAnimation"] = bool(part_clips.get("body"))
@@ -225,7 +242,7 @@ def cook_audit(audit, args):
     manifest = dict(audit, choices=cooked, extraNames=EXTRA_NAMES)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, indent=2) + "\n")
-    if len(cooked) == len(ROSTER) * 6:
+    if len(cooked) == len(ROSTER) * VEHICLES_PER_DRIVER:
         write_native_garage(cooked)
 
 
