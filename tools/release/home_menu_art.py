@@ -4,7 +4,7 @@
 Inputs are this tree's unpacked menu archives (assets/menu-ui, from the
 player's Scene/UI) and the cooked title music (sd-card movies/title_bgm.wav).
 Nothing here ships: the release builder runs it on the player's machine.
-Outputs: icon.png (48x48, Mario in the Standard Kart), banner.png (256x128), banner.wav (16-bit stereo,
+Outputs: icon.png (48x48, the Standard Kart M), banner.png (256x128), banner.wav (16-bit stereo,
 under 3 s, as the HOME Menu requires).
 """
 import argparse, sys, wave
@@ -30,19 +30,13 @@ def banner(path):
     out=Image.new('RGBA',(256,128),(255,255,255,255));out.alpha_composite(fit,((256-fit.width)//2,0));out.save(path)
 
 def icon(path):
-    # Mario in the Standard Kart, cut from the title screen art. That image
-    # also holds the bottom of the Wii ring (top left) and the kart's grey
-    # drop shadow; both are painted out to the white backdrop first.
-    art=np.array(decode_tpl(UI/'Title/title/timg/tt_title_screen_mario2.tpl').convert('RGB')).astype(int)
-    r,g,b=art[...,0],art[...,1],art[...,2];yy,xx=np.mgrid[:art.shape[0],:art.shape[1]]
-    grey=art.max(-1)-art.min(-1)<25
-    ring=(xx<510)&(yy<90)&~((r>g+40)&(r>b+40))
-    shadow=grey&((xx<445)|((yy>245)&(xx<620)))
-    art[ring|shadow]=255
-    kart=Image.fromarray(art.astype(np.uint8)).crop((395,10,700,272))
-    side=max(kart.size)+12;square=Image.new('RGB',(side,side),(255,255,255))
-    square.paste(kart,((side-kart.width)//2,(side-kart.height)//2))
-    square.resize((48,48),Image.LANCZOS).save(path)
+    # The Standard Kart M side view from the vehicle select screen (96x50),
+    # centred on white.
+    kart=decode_tpl(UI/'MenuSingle/control/timg/st_mdf_kart.tpl').convert('RGBA')
+    kart=kart.resize((48,48*kart.height//kart.width),Image.LANCZOS)
+    square=Image.new('RGBA',(48,48),(255,255,255,255))
+    square.alpha_composite(kart,(0,(48-kart.height)//2))
+    square.save(path)
 
 def sound(source,path,seconds=2.9,fade=.4):
     with wave.open(str(source)) as w:
