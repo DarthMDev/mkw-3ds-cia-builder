@@ -83,7 +83,7 @@ def decode_tpl(path):
 def cook_sprite(source, name, output):
     original = decode_tpl(source)
     record = cook_image_sprite(original, name, output)
-    record.update(source=str(source.relative_to(ROOT)), source_sha256=digest(source))
+    record.update(source=source.relative_to(ROOT).as_posix(), source_sha256=digest(source))
     return record
 
 
@@ -121,7 +121,7 @@ def cook_world(source, model, name, clip, output):
     target = output / "models" / (name + ".gmdl")
     shutil.copyfile(output / "models" / (parts[0]["name"] + ".gmdl"), target)
     record = {"name": name, "path": "models/" + name + ".gmdl",
-              "source": str(source.relative_to(ROOT)), "source_sha256": digest(source),
+              "source": source.relative_to(ROOT).as_posix(), "source_sha256": digest(source),
               "sourceModel": model, "minimum": [min(v[i] for v in vertices) for i in range(3)],
               "maximum": [max(v[i] for v in vertices) for i in range(3)],
               "triangles": len(vertices) // 3, "limitations": data["limitations"]}

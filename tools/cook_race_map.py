@@ -121,7 +121,7 @@ def cook_course(index, course, out):
             'startLeft': [float(v) for v in start_left], 'startRight': [float(v) for v in start_right],
             'startCheckpoint': [list(start['left']), list(start['right'])],
             't3xBytes': png.with_suffix('.t3x').stat().st_size + overview.with_suffix('.t3x').stat().st_size, 'stats': stats,
-            'sources': {str(p.relative_to(ROOT)): digest(p) for p in
+            'sources': {p.relative_to(ROOT).as_posix(): digest(p) for p in
                         [folder / 'course.kcl', folder / 'course.kmp'] +
                         [rb.course_path(f'models/{n}.gmdl') for n in parts]}}
 
@@ -282,8 +282,8 @@ def cook_atlas(out, cci, manifest):
     subprocess.run([TEX3DS, '-f', 'rgba8', '-z', 'none', '-o', str(png.with_suffix('.t3x')), str(png)], check=True, stdout=subprocess.DEVNULL)
     manifest['atlas'] = {'texture': 'textures/race_bottom_ui.t3x', 'size': list(atlas.size),
                          't3xBytes': png.with_suffix('.t3x').stat().st_size, 'ordinals': texts,
-                         'mk7Source': {'cci' if cci and Path(cci).is_file() else 'shipped': str(cci) if cci and Path(cci).is_file() else str(MK7_SHIPPED.relative_to(ROOT)), 'archive': '/UI/race.szs', 'markers': MK7_MARKERS},
-                         'sources': {str(Path(p).relative_to(ROOT)): digest(p) for p in sorted(set(sources))}}
+                         'mk7Source': {'cci' if cci and Path(cci).is_file() else 'shipped': str(cci) if cci and Path(cci).is_file() else MK7_SHIPPED.relative_to(ROOT).as_posix(), 'archive': '/UI/race.szs', 'markers': MK7_MARKERS},
+                         'sources': {Path(p).relative_to(ROOT).as_posix(): digest(p) for p in sorted(set(sources))}}
     return atlas.size, rects
 
 
@@ -386,7 +386,7 @@ def main():
         raise SystemExit('Cook every course before writing the header (missing maps)')
     atlas_size, rects = cook_atlas(a.output, a.mk7_cci, manifest)
     timer, timer_source = timer_layout()
-    manifest['timer'] = {'source': str(timer_source.relative_to(ROOT)), 'sha256': digest(timer_source), 'panes': timer}
+    manifest['timer'] = {'source': timer_source.relative_to(ROOT).as_posix(), 'sha256': digest(timer_source), 'panes': timer}
     manifest_path.write_text(json.dumps(manifest, indent=1) + '\n')
     write_header(manifest, atlas_size, rects, timer, timer_source)
     print(json.dumps({'maps': len(manifest['courses']), 'atlas': atlas_size,

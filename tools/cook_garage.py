@@ -159,7 +159,7 @@ def cook_choice(choice, output, *, source_root=None, export_root=None, models_on
                                      str(source_file), str(bank), source_model],
                                     check=True, capture_output=True, text=True)
             receipt = json.loads(result.stdout)
-            receipt.update(source=str(source_file.relative_to(ROOT)), source_sha256=sha256(source_file),
+            receipt.update(source=source_file.relative_to(ROOT).as_posix(), source_sha256=sha256(source_file),
                            sha256=sha256(bank))
             bank.with_suffix(".json").write_text(json.dumps(receipt, indent=2) + "\n")
             choice["animationBanks"].append(name)

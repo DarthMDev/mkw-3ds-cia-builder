@@ -219,7 +219,7 @@ def cook_audio(path):
             output.writeframesraw(interleaved.tobytes());written += count
     if written != samples: raise ValueError(f'THP sample count mismatch {written} != {samples}')
     partial.replace(destination)
-    receipt = dict(source=str(path.relative_to(ROOT)), sourceSha256=hashlib.sha256(data).hexdigest(), path='movies/title.wav', channels=channels, sampleRate=rate, samples=samples, seconds=samples/rate, codec='retail Nintendo DSP ADPCM decoded to PCM16', sha256=digest_file(destination))
+    receipt = dict(source=path.relative_to(ROOT).as_posix(), sourceSha256=hashlib.sha256(data).hexdigest(), path='movies/title.wav', channels=channels, sampleRate=rate, samples=samples, seconds=samples/rate, codec='retail Nintendo DSP ADPCM decoded to PCM16', sha256=digest_file(destination))
     destination.with_suffix('.audio.json').write_text(json.dumps(receipt, indent=2)+'\n')
     print(f'Original intro audio ready: {channels}ch {rate}Hz, {written} samples, {samples/rate:.3f}s', flush=True)
     return receipt
@@ -238,13 +238,13 @@ def main():
                    'thp/battle/battle_cup_select.thp'):
         path = extract_movies([source])[0]
         if not any(Path(record['source']).stem == path.stem for record in records):
-            records.append(dict(source=str(path.relative_to(ROOT)), regions=[]))
+            records.append(dict(source=path.relative_to(ROOT).as_posix(), regions=[]))
     intro_path = extract_movies(['thp/title/title.thp'])[0]
     audio = cook_audio(intro_path)
     if args.audio_only: return
     intro = ThpMovie(intro_path)
     width, height = intro.frame(0).size
-    records.append(dict(source=str(intro_path.relative_to(ROOT)), regions=[dict(key='intro_movie', crop=[0, 0, width, height])]))
+    records.append(dict(source=intro_path.relative_to(ROOT).as_posix(), regions=[dict(key='intro_movie', crop=[0, 0, width, height])]))
     specs = [make_spec(record, Path(record['source']).stem) for record in records]
     write_header(specs)
     chosen = [spec for spec in specs if not args.only or spec['name'] in args.only]
