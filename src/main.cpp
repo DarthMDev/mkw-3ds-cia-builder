@@ -134,7 +134,7 @@ static constexpr bool kQa=true;
 static void report(const char* text) {
     if(FILE* f=fopen("sdmc:/3ds/mkw-3ds/runtime.log","a")){fprintf(f,"%s\n",text);fclose(f);}
 }
-#define LOGF(...) do{LOGF(__VA_ARGS__);}while(0)
+#define LOGF(...) do{char logLine_[256];snprintf(logLine_,sizeof logLine_,__VA_ARGS__);report(logLine_);}while(0)
 #endif
 // QA captures: a stereo frame also writes its right eye beside the left
 // (name.ppm -> name-right.ppm).
@@ -1076,15 +1076,26 @@ int main() {
             auto trick=K::System::Trick::None;
             if(held&KEY_DUP)trick=K::System::Trick::Up;else if(held&KEY_DDOWN)trick=K::System::Trick::Down;
             else if(held&KEY_DLEFT)trick=K::System::Trick::Left;else if(held&KEY_DRIGHT)trick=K::System::Trick::Right;
-            // X/Y trick: the D-pad is out of reach while the thumb steers on the
-            // Circle Pad. The pad picks the direction like a Wii Remote shake with
-            // the stick held; neutral is Up (a wheelie on bikes). QA owns X/Y.
-            else if(!qaMode&&(held&(KEY_X|KEY_Y))){
+            // The D-pad is out of reach while the thumb steers on the Circle Pad.
+            // The pad picks the direction like a Wii Remote shake with the stick
+            // held; neutral is Up (a wheelie on bikes).
+            auto padTrick=[&]{
                 constexpr int Tilt=60;
-                if(pad.dy<=-Tilt&&std::abs(pad.dy)>=std::abs(pad.dx))trick=K::System::Trick::Down;
-                else if(pad.dx<=-Tilt&&std::abs(pad.dx)>std::abs(pad.dy))trick=K::System::Trick::Left;
-                else if(pad.dx>=Tilt&&std::abs(pad.dx)>std::abs(pad.dy))trick=K::System::Trick::Right;
-                else trick=K::System::Trick::Up;
+                if(pad.dy<=-Tilt&&std::abs(pad.dy)>=std::abs(pad.dx))return K::System::Trick::Down;
+                if(pad.dx<=-Tilt&&std::abs(pad.dx)>std::abs(pad.dy))return K::System::Trick::Left;
+                if(pad.dx>=Tilt&&std::abs(pad.dx)>std::abs(pad.dy))return K::System::Trick::Right;
+                return K::System::Trick::Up;
+            };
+            // R off a ramp (Mario Kart 7): a press shortly before or on a trick
+            // ramp's lip (Kinoko's Trickable window) tricks instead of hopping.
+            // X/Y still trick and wheelie anywhere. QA owns X/Y.
+            static unsigned rampTrickFrames=0;
+            if(down&KEY_R)rampTrickFrames=8;else if(rampTrickFrames)--rampTrickFrames;
+            const bool rampTrick=fullRace&&rampTrickFrames&&(held&KEY_R)&&
+                K::Kart::KartObjectManager::Instance()->object(0)->status().onBit(K::Kart::eStatus::Trickable);
+            if(trick==K::System::Trick::None){
+                if(rampTrick){trick=padTrick();buttons=(buttons&~10u)|(held&KEY_B?2u:0u);}
+                else if(!qaMode&&(held&(KEY_X|KEY_Y)))trick=padTrick();
             }
             // Preserve the Wii input lattice used by ghost records.
             int stick=std::clamp(int(std::lround(pad.dx*7.f/156.f)),-7,7);
@@ -1231,6 +1242,8 @@ int main() {
                     flow.stage=stage;flow.preview=intro.active();flow.fall=cameraInput.beforeRespawn;flow.respawn=cameraInput.inRespawn;flow.finished=cameraInput.finished;
                     const auto view=cameraDirector->view();
                     raceHud.stepWorld(*raceItems,mkw::normalized(view.eye-view.target,{0,0,1}),stage>=1);
+                    // QA heartbeat: a freeze shows as the last line written.
+                    if(kQa&&physicsSteps%300==0){const auto& hi=raceItems->hud(0);LOGF("hb step=%u stage=%u lap=%u rank=%u finished=%d item=%d",physicsSteps,stage,raceGrid.lap(),raceGrid.rank(),int(raceGrid.finished()),int(hi.item));}
                     mkw::LakituInput jugem;
                     jugem.kart=kart;jugem.stage=stage;jugem.timer=race->timer();jugem.lap=raceGrid.lap();jugem.lapCount=3;
                     jugem.introHeld=intro.active();jugem.finished=raceGrid.finished();jugem.cameraForward=view.target-view.eye;
