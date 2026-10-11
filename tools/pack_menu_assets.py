@@ -46,7 +46,7 @@ def main():
     atlases = {s['key'] for s in manifest['borderSlices']}
     files = set()
     for key, record in manifest['sprites'].items():
-        if key in used or key in atlases:
+        if key in used or key in atlases or key.startswith('text_'):
             files.add(record['path'])
     models = sorted(ASSETS.glob('models/ui_driver_*')) + sorted(ASSETS.glob('models/ui_back_*')) + sorted(ASSETS.glob('models/ui_machine_*'))
     for path in models:

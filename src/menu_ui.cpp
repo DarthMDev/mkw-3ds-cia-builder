@@ -316,9 +316,18 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
   Pose name=control("CharacterSelectName","CharacterSelectName");c.panel("character_name",name);c.text(UiCharacters[s.characterDriver(s.cursor)].name,"character_name",name,0xffffffff,"mii_name");
   const unsigned selDriver=s.characterDriver(s.cursor);
   if(mkw::modEngine().isModLoaded()&&mkw::modEngine().characterSkinCount(selDriver)>0){
+   const char* skinName=mkw::modEngine().characterSkinName(selDriver,mkw::modEngine().characterSkin(selDriver));
    char skinDesc[64];
-   std::snprintf(skinDesc,sizeof skinDesc,"Skin: < %s > (L / R)",mkw::modEngine().characterSkinName(selDriver,mkw::modEngine().characterSkin(selDriver)));
+   std::snprintf(skinDesc,sizeof skinDesc,"Skin: < %s > (L / R)",skinName);
    c.chrome("Characters",skinDesc);
+   char skinLabel[64];
+   std::snprintf(skinLabel,sizeof skinLabel,"Skin: %s",skinName);
+   c.panel("button_free",{-110.f,75.f,0.65f,0.55f});
+   c.label(skinLabel,-110.f,75.f,100.f,18.f,0xffffffff,0);
+   c.panel("button_free",{-165.f,75.f,0.25f,0.55f});
+   c.label("[L]",-165.f,75.f,35.f,18.f,0xffe066ff,0);
+   c.panel("button_free",{-55.f,75.f,0.25f,0.55f});
+   c.label("[R]",-55.f,75.f,35.f,18.f,0xffe066ff,0);
   }else{
    c.chrome("Characters");
   }
@@ -399,8 +408,10 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
     char desc[48];
     std::snprintf(desc,sizeof desc,"Page %u/%u (L / R to flip)",cupPage+1,(totalCups+7)/8);
     c.chrome("Cups",desc);
-    c.label("< Prev",-150.f,95.f,80.f,22.f,0xffffffaa,0);
-    c.label("Next >", 150.f,95.f,80.f,22.f,0xffffffaa,0);
+    c.panel("button_free",{-150.f,95.f,0.5f,0.55f});
+    c.label("< Prev",-150.f,95.f,75.f,20.f,0xffffffff,0);
+    c.panel("button_free",{150.f,95.f,0.5f,0.55f});
+    c.label("Next >",150.f,95.f,75.f,20.f,0xffffffff,0);
    }else c.chrome("Cups");
   }else{
    for(unsigned i=0;i<4;++i){Pose p=child(courses,numbered("CourseSelectCourse",i));

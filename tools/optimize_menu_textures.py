@@ -79,12 +79,16 @@ def resample(image, size):
     return image.convert('RGBa').resize(size, Image.Resampling.LANCZOS).convert('RGBA')
 
 
-def encode(image, name):
-    png = WORK / (name + '.png')
+def encode(image, name, temp_name=None):
+    png = WORK / ((temp_name or name) + '.png')
     image.save(png)
     target = ASSETS / 'textures' / (name + '.t3x')
     subprocess.run([TEX3DS, '-f', 'rgba8', '-z', 'lz11', '-o', str(target), str(png)], check=True,
                    stdout=subprocess.DEVNULL)
+    try:
+        png.unlink()
+    except Exception:
+        pass
     return target.stat().st_size
 
 
@@ -99,7 +103,7 @@ def fit_sprite(key, record, screen):
     content = resample(content, target)
     canvas = Image.new('RGBA', (pow2(target[0]), pow2(target[1])))
     canvas.paste(content, (0, 0))
-    size = encode(canvas, record['name'])
+    size = encode(canvas, record['name'], temp_name=f"{record['name']}_{key}")
     return {'u': target[0] / canvas.width, 'v': target[1] / canvas.height, 'texture': list(canvas.size),
             'content': list(target), 'bytes': canvas.width * canvas.height * 4, 'file': size,
             'sourceBytes': record['padded'][0] * record['padded'][1] * 4}
@@ -206,9 +210,9 @@ def main():
     by_atlas = {key: [] for key in atlas_keys}
     for index, s in enumerate(slices):
         by_atlas[s['key']].append((index, s))
-    used = [k for k in screen if k in records and k not in by_atlas]
+    used = [k for k in records if (k in screen or k.startswith('text_')) and k not in by_atlas]
     with ThreadPoolExecutor(max_workers=a.jobs) as pool:
-        sprite_results = dict(zip(used, pool.map(lambda k: fit_sprite(k, records[k], screen[k]), used)))
+        sprite_results = dict(zip(used, pool.map(lambda k: fit_sprite(k, records[k], screen.get(k)), used)))
         atlas_results = dict(zip(atlas_keys, pool.map(lambda k: fit_atlas(k, records[k], by_atlas[k], screen.get(k)), atlas_keys)))
     slice_uvs = {}
     for result in atlas_results.values():

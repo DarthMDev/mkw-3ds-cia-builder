@@ -388,6 +388,16 @@ int main() {
                 if(menu.page==mkw::UiPage::Cup){
                     if(touch.px<80)input.pageLeft=true;
                     else if(touch.px>240)input.pageRight=true;
+                }else if(menu.page==mkw::UiPage::Character){
+                    if(touch.py>140&&touch.px<160){
+                        if(touch.px<70)input.pageLeft=true;
+                        else if(touch.px>90)input.pageRight=true;
+                    }
+                }else if(menu.page==mkw::UiPage::Settings){
+                    if(touch.py<90)menu.cursor=0;
+                    else if(touch.py<150)menu.cursor=1;
+                    else menu.cursor=2;
+                    input.accept=true;
                 }
             }
             if(!revealed)input={};
@@ -566,6 +576,7 @@ int main() {
         driverChoice=menu.selection.driver;
         vehicleChoice=menu.selection.vehicle;
         automaticDrift=menu.selection.automatic;
+        mkw::modEngine().setActiveTrackArchive(mkw::course(courseChoice).archive);
     };
     if(fullRace){if(runMenu()!=mkw::UiAction::StartRace){finishAutoplay();renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();mkw::SoundSystem::instance().stop();mkw::MenuMovieAudio::shutdown();mkw::modEngine().shutdown();renderer.shutdown();gfxExit();return 0;}applySelection();menu.raceStarted();raceLoadStart=svcGetSystemTick();}
     bool dataReady=exists("Race/Common.szs")&&courseAvailable(courseChoice);
