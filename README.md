@@ -1,6 +1,6 @@
 # Mario Kart Wii for Nintendo 3DS
 
-A native Nintendo 3DS port and CIA builder for **Mario Kart Wii**, originally developed by **dudewhat** and continued with features and fixes from **MiniBandit**.
+A native Nintendo 3DS port and CIA builder for **Mario Kart Wii**, originally developed by **dudewhat** and continued with features and fixes.
 
 This repository contains **no copyrighted Nintendo assets**. It builds an installable CIA on your own computer directly from your legally dumped retail Mario Kart Wii disc.
 
@@ -157,7 +157,8 @@ Contributions are welcome! Please check out [CONTRIBUTING.md](CONTRIBUTING.md) f
 ## Credits & Acknowledgements
 
 - **dudewhat** (Discord) — Original author and creator of the Mario Kart Wii 3DS port, hardware renderer, DSP audio engine, and CIA packaging pipeline.
-- **MiniBandit** — Gameplay improvements (Grand Prix, Time Trials, 12 vehicles, controls, speedometer, visual effects) and Windows builder support.
+- **DarthMDev** — Repository maintenance, Windows build support, project documentation, architecture archive, and mod support (in progress).
+- **MiniBandit** — Gameplay improvements (Grand Prix, Time Trials, 12 vehicles, controls, visual effects) and Windows builder support.
 - [Kinoko](https://github.com/vabold/Kinoko) by **vabold**, **snailspeed3**, and contributors — Cleanroom C++ reimplementation of Mario Kart Wii physics and game mechanics.
 - [citro3d](https://github.com/devkitPro/citro3d) & [libctru](https://github.com/devkitPro/libctru) by the **devkitPro team** — Nintendo 3DS homebrew libraries and toolchain.
 - [noclip.website](https://github.com/magcius/noclip.website) by **Jasper (magcius)** — Model and format parsing infrastructure.
