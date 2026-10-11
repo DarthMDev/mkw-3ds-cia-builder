@@ -77,7 +77,7 @@ if movie_manifest.get('version')!=1 or not movie_manifest.get('everySourceFrame'
 files[assets/'models/menu-movies.json']=Path('models/menu-movies.json')
 for movie in movie_manifest['streams']:
  relative=Path(movie['path']);source_relative=Path(movie['source']);source=ROOT/source_relative
- if relative.parent!=Path('movies') or relative.suffix!='.gmv' or '..' in source_relative.parts or not str(source_relative).startswith('data/extracted/thp/'):raise ValueError('Invalid menu movie path')
+ if relative.parent!=Path('movies') or relative.suffix!='.gmv' or '..' in source_relative.parts or not source_relative.as_posix().startswith('data/extracted/thp/'):raise ValueError('Invalid menu movie path')
  if digest_file(source)!=movie['sourceSha256']:raise ValueError('Menu movie source changed: '+str(source_relative))
  path=assets/relative
  with path.open('rb') as stream:header=stream.read(64)
@@ -215,11 +215,11 @@ import sys
 for archive in ('menu.pak','race.pak'):
  if (assets/archive).is_file():files[assets/archive]=Path(archive)
 if '--list' in sys.argv:
- print(json.dumps({str(rel):str(src) for src,rel in files.items()}))
+ print(json.dumps({rel.as_posix():str(src) for src,rel in files.items()}))
  raise SystemExit(0)
 manifest={}
 for src,rel in files.items():
- dest=out/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest);manifest[str(rel)]=hashlib.sha256(dest.read_bytes()).hexdigest()
+ dest=out/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest);manifest[rel.as_posix()]=hashlib.sha256(dest.read_bytes()).hexdigest()
 controls='''MKW 3DS - native Wii menu asset port, 32 race archives and 10 arena asset sets
 Copy the 3ds folder to the SD card root. Launch mkw-3ds.3dsx with Homebrew Launcher.
 Menu: D-pad / Circle Pad choose, A confirm, B back. A or START skips the opening.
