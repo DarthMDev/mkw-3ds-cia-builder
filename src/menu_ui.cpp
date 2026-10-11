@@ -296,7 +296,10 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
    for(unsigned j=0;j<4;++j)c.movie("mode_movie_",std::min(s.cursor,3u),base.c_str(),panes[j],p,1,j*.25f,i*.25f,(j+1)*.25f,(i+1)*.25f);
    c.movieOverlay(base.c_str(),p);
    c.text(modes[i],base.c_str(),p,0xffffffff);if(s.cursor==i)c.glow("mode",p,modes[i]);}
-  c.chrome("Single Player",UiHelpMode[std::min(s.cursor,3u)]);break;
+  if(mkw::modEngine().isModLoaded()){
+   c.button("button",4,{0.f,-155.f,0.7f,0.7f},"Settings");
+  }
+  c.chrome("Single Player",s.cursor==4?"Pulsar & Retro Rewind Settings":UiHelpMode[std::min(s.cursor,3u)]);break;
  }
  case UiPage::EngineClass:{
   const char* names[]={"50cc","100cc",mkw::modEngine().is200ccEnabled()?"200cc":"150cc","Mirror"};const char* variants[]={"Button50cc","Button100cc","Button150cc","ButtonMirror"};
@@ -310,7 +313,16 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
  case UiPage::Character:{
   Pose parent=control("CharacterSelectNULL","CharacterSelectNULL");constexpr unsigned within[]={0,1,4,6,2,3,5,7};
   for(unsigned i=0;i<s.count();++i){char group[48];std::snprintf(group,sizeof group,"CharacterSelect4_%u",i<24?i/8:3);Pose p=child(parent,numbered(group,i<24?within[i%8]:i-24));c.button("character",i,p);c.icon("driver_",s.characterDriver(i),c.buttonState("character",i).c_str(),"chara",p);if(s.cursor==i)c.glow("character",p,nullptr,s.characterDriver(i));}
-  Pose name=control("CharacterSelectName","CharacterSelectName");c.panel("character_name",name);c.text(UiCharacters[s.characterDriver(s.cursor)].name,"character_name",name,0xffffffff,"mii_name");c.chrome("Characters");break;
+  Pose name=control("CharacterSelectName","CharacterSelectName");c.panel("character_name",name);c.text(UiCharacters[s.characterDriver(s.cursor)].name,"character_name",name,0xffffffff,"mii_name");
+  const unsigned selDriver=s.characterDriver(s.cursor);
+  if(mkw::modEngine().isModLoaded()&&mkw::modEngine().characterSkinCount(selDriver)>0){
+   char skinDesc[64];
+   std::snprintf(skinDesc,sizeof skinDesc,"Skin: < %s > (L / R)",mkw::modEngine().characterSkinName(selDriver,mkw::modEngine().characterSkin(selDriver)));
+   c.chrome("Characters",skinDesc);
+  }else{
+   c.chrome("Characters");
+  }
+  break;
  }
  case UiPage::Vehicle:{
   Pose parent=control("MachineSelectNULL6","MachineSelectNULL");
@@ -368,7 +380,7 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
     else{p.alpha*=std::clamp(300.f-t,0.f,255.f)/255.f;if(p.alpha<=0)continue;}
    }
    c.panel(base,p);
-   c.icon("cup_",globalCup%8,base,"icon",p);
+   c.icon("cup_",globalCup<44?globalCup:(globalCup%8),base,"icon",p);
    const char* cName=mkw::cupName(globalCup);
    if(slot==selectedSlot){c.text(cName,base,p);if(pickCup)c.glow("cup",p,cName,slot);}
   }
@@ -387,6 +399,8 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
     char desc[48];
     std::snprintf(desc,sizeof desc,"Page %u/%u (L / R to flip)",cupPage+1,(totalCups+7)/8);
     c.chrome("Cups",desc);
+    c.label("< Prev",-150.f,95.f,80.f,22.f,0xffffffaa,0);
+    c.label("Next >", 150.f,95.f,80.f,22.f,0xffffffaa,0);
    }else c.chrome("Cups");
   }else{
    for(unsigned i=0;i<4;++i){Pose p=child(courses,numbered("CourseSelectCourse",i));
@@ -456,6 +470,16 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
  case UiPage::QuitConfirm:
   c.chrome("Quit this race?");c.button("button",0,{0,50,1,1},"Yes");c.button("button",1,{0,-55,1,1},"No");break;
  case UiPage::Error:c.chrome("Race unavailable");c.button("button",0,{0,0,1,1},"Choose another course");break;
+ case UiPage::Settings:{
+  c.chrome("Retro Rewind Settings","Press A or Left / Right to toggle");
+  char speedText[48];
+  std::snprintf(speedText,sizeof speedText,"Speed: %s",mkw::modEngine().is200ccEnabled()?"200cc":"150cc");
+  char brakeText[48];
+  std::snprintf(brakeText,sizeof brakeText,"Brake Drift: %s",mkw::modEngine().isBrakeDriftEnabled()?"ON":"OFF");
+  const char* captions[]={speedText,brakeText,"Back"};
+  for(unsigned i=0;i<3;++i)c.button("button",i,{0,60.f-float(i)*70.f,1.f,1.f},captions[i]);
+  break;
+ }
  default:break;
  }
  c.notice();

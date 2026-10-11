@@ -67,19 +67,58 @@ ModEngine& ModEngine::instance() {
 ModEngine::ModEngine() = default;
 ModEngine::~ModEngine() = default;
 
+struct CharacterSkinTableEntry {
+    const char* names[8];
+};
+
+static const CharacterSkinTableEntry RETRO_SKIN_TABLE[24] = {
+    {{"Mario (Fire)", "Mario (Builder)", "Snowman", "Mario (SM64)", "Mario (SNES)", "Mario (Happi)", nullptr}},
+    {{"Baby Peach (Cherub)", "Pikachu", "Lemmy", "Kirby", nullptr}},
+    {{"Waluigi (Athletic)", "Waluigi (Vampire)", "Wiggler", "Waluigi (Mariachi)", "Captain Falcon", nullptr}},
+    {{"Dark Bowser", "Bowser (Santa)", "Chargin' Chuck", "Boom Boom", "Bowser (Fury)", "Meowser", nullptr}},
+    {{"Baby Daisy (Touring)", "Rocky Wrench", "Connie", "Talking Flower", "Baby Daisy (Raincoat)", nullptr}},
+    {{"Dry Bones (Dark)", "Dry Bones (Gold)", "Goomba", "Peepa", nullptr}},
+    {{"Baby Wario", "Baby Mario (Koala)", "Coin Coffer", "Shy Guy", "Paper Mario", "Cheep Cheep", nullptr}},
+    {{"Luigi (Ice)", "Luigi (Vacation)", "Monty Mole", "Sonic", "Don-Chan", nullptr}},
+    {{"Captain Toad", "Toad (Builder)", "Swoop", "Toadsworth", "Tuxie", "Toad (Pit Crew)", nullptr}},
+    {{"DK (Yeti)", "DK (Gladiator)", "Kritter", "Pokey", "King K. Rool", "Pianta", nullptr}},
+    {{"Yoshi (Black)", "Yoshi (Kangaroo)", "Piranha Plant", "Yoshi (Light-Blue)", nullptr}},
+    {{"Wario (Cowboy)", "Wario (Hiker)", "King Bob-omb", "Wario (Metal)", "Morton", "Snooza Koopa", nullptr}},
+    {{"Baby Waluigi", "Professor E. Gadd", "Spike", "Fuzzy", "Virus Trio", nullptr}},
+    {{"Toadette (Summer)", "Toadette (Soft Server)", "Blooper", "Para-Biddybud", nullptr}},
+    {{"Koopa Paratroopa", "Lakitu", "Koopa (Freerunning)", "Koopa (Sailor)", "Sidestepper", nullptr}},
+    {{"Daisy (Black/Teal)", "Daisy (Farmer)", "Daisy (Swimwear)", "Ludwig", "Bill Board", "Daisy (Yukata)", nullptr}},
+    {{"Peach (Ice)", "Peach (Explorer)", "Peach (Halloween)", "Peach (Touring)", "Shantae", nullptr}},
+    {{"Birdo (White)", "Mega Man", "Dolphin", "Shadow", nullptr}},
+    {{"Diddy Kong (All-Star)", "Dixie Kong", "The Chimp", "Iggy", "Fox McCloud", nullptr}},
+    {{"King Boo (Dark Moon)", "Gooper Blooper", "Goku", "King Boo (Aristocrat)", nullptr}},
+    {{"Bowser Jr. (Pirate)", "Hammer Bro", "Kamek", "Bowser Jr. (Wonder)", "Nabbit", "Ant Trooper", nullptr}},
+    {{"Dry Bowser (Dark)", "Lubba", "Petey Piranha", "Plessie", nullptr}},
+    {{"Zapple Kong", "Chain Chomp", "Funky Kong (Link)", "Funky Kong (Dripped Up)", "R.O.B.", "Jaxi", "Donkey Kong Jr.", nullptr}},
+    {{"Rosalina (Aurora)", "Rosalina (Touring)", "Pauline", "Rosalina (Crystal Blue)", "Honey Queen", "Rosalina (Pro Racer)", nullptr}}
+};
+
 void ModEngine::init() {
     if (initialized_) {
         return;
     }
     initialized_ = true;
 
+    for (size_t d = 0; d < 24; ++d) {
+        characterSkinNames_[d].clear();
+        for (size_t s = 0; s < 8 && RETRO_SKIN_TABLE[d].names[s]; ++s) {
+            characterSkinNames_[d].push_back(RETRO_SKIN_TABLE[d].names[s]);
+        }
+        characterSkins_[d] = 0;
+    }
+
     loadSettings();
 
     // Check for Pulsar mod manifest in standard locations
     static constexpr const char* MANIFEST_CANDIDATES[] = {
         "sdmc:/3ds/mkw-3ds/pulsar_manifest.json",
-        "pulsar_manifest.json",
-        "romfs:/pulsar_manifest.json"
+        "romfs:/pulsar_manifest.json",
+        "pulsar_manifest.json"
     };
 
     for (const char* path : MANIFEST_CANDIDATES) {
@@ -484,6 +523,39 @@ const char* courseName(unsigned index) {
 
 const char* cupName(unsigned cupIndex) {
     return modEngine().cupName(cupIndex);
+}
+
+unsigned ModEngine::characterSkin(unsigned driverId) const {
+    if (driverId < 26) return characterSkins_[driverId];
+    return 0;
+}
+
+void ModEngine::setCharacterSkin(unsigned driverId, unsigned slot) {
+    if (driverId < 26) characterSkins_[driverId] = slot;
+}
+
+void ModEngine::cycleCharacterSkin(unsigned driverId, int dir) {
+    if (driverId >= 26) return;
+    unsigned maxSkins = characterSkinCount(driverId);
+    if (maxSkins == 0) return;
+    int cur = int(characterSkins_[driverId]);
+    cur += dir;
+    if (cur < 0) cur = int(maxSkins);
+    else if (unsigned(cur) > maxSkins) cur = 0;
+    characterSkins_[driverId] = unsigned(cur);
+}
+
+unsigned ModEngine::characterSkinCount(unsigned driverId) const {
+    if (driverId < 26) return characterSkinNames_[driverId].size();
+    return 0;
+}
+
+const char* ModEngine::characterSkinName(unsigned driverId, unsigned slot) const {
+    if (slot == 0) return "Default";
+    if (driverId < 26 && slot <= characterSkinNames_[driverId].size()) {
+        return characterSkinNames_[driverId][slot - 1].c_str();
+    }
+    return "Default";
 }
 
 } // namespace mkw

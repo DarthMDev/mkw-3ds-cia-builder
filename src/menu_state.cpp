@@ -1,5 +1,6 @@
 #include <mkw/menu_ui.hpp>
 #include <mkw/course_catalog.hpp>
+#include <mkw/mod_engine.hpp>
 #include <algorithm>
 #include <cmath>
 
@@ -63,11 +64,60 @@ unsigned moveGrid(UiPage page,unsigned cursor,unsigned count,unsigned columns,co
  }
  return cursor;
 }
+unsigned moveCupGrid(unsigned cursor,unsigned count,const UiInput& key){
+ if(count<=1)return 0;
+ const unsigned totalPages=(count+7)/8;
+ const unsigned page=cursor/8;
+ const unsigned pageBase=page*8;
+ const unsigned slot=cursor-pageBase;
+ const unsigned col=slot%4;
+ const unsigned row=slot/4;
+
+ if(key.right){
+  if(col==3){
+   unsigned nextPage=(page+1)%totalPages;
+   unsigned target=nextPage*8+row*4;
+   return std::min(target,count-1);
+  }else{
+   return std::min(cursor+1,count-1);
+  }
+ }
+ if(key.left){
+  if(col==0){
+   unsigned prevPage=(page+totalPages-1)%totalPages;
+   unsigned target=prevPage*8+row*4+3;
+   return std::min(target,count-1);
+  }else{
+   return cursor>0?cursor-1:0;
+  }
+ }
+ if(key.down){
+  if(row==1){
+   unsigned nextPage=(page+1)%totalPages;
+   unsigned target=nextPage*8+col;
+   return std::min(target,count-1);
+  }else{
+   return std::min(cursor+4,count-1);
+  }
+ }
+ if(key.up){
+  if(row==0){
+   unsigned prevPage=(page+totalPages-1)%totalPages;
+   unsigned target=prevPage*8+4+col;
+   return std::min(target,count-1);
+  }else{
+   return cursor>=4?cursor-4:cursor;
+  }
+ }
+ return cursor;
+}
 }
 
 unsigned MenuState::count()const{
  switch(page){
- case UiPage::License:case UiPage::Mode:case UiPage::EngineClass:return 4;
+ case UiPage::Mode:return mkw::modEngine().isModLoaded()?5:4;
+ case UiPage::Settings:return 3;
+ case UiPage::License:case UiPage::EngineClass:return 4;
  case UiPage::Results:return finalRace?1:2;
  case UiPage::MainMenu:return unsigned(UiMainMenuControls.size());
  case UiPage::Character:return unsigned(UiCharacterDrivers.size());
@@ -167,8 +217,25 @@ UiAction MenuState::input(UiInput key){
   case UiPage::Confirm:case UiPage::Error:
    enter(selection.mode==UiMode::GrandPrix?UiPage::Cup:selection.mode==UiMode::Battle?UiPage::BattleStage:selection.mode==UiMode::TimeTrials?UiPage::Ghost:UiPage::Course);break;
   case UiPage::QuitConfirm:enter(UiPage::Pause);cursor=2;break;
+  case UiPage::Settings:enter(UiPage::Mode);break;
   default:break;
   }
+  return UiAction::None;
+ }
+ if(page==UiPage::Character&&(key.pageLeft||key.pageRight)){
+  mkw::modEngine().cycleCharacterSkin(characterDriver(cursor),key.pageRight?1:-1);
+  focusAge=0;unavailable=false;
+  return UiAction::None;
+ }
+ if(page==UiPage::Settings&&(key.left||key.right)){
+  if(cursor==0){
+   mkw::modEngine().set200ccEnabled(!mkw::modEngine().is200ccEnabled());
+   mkw::modEngine().saveSettings();
+  }else if(cursor==1){
+   mkw::modEngine().setBrakeDriftEnabled(!mkw::modEngine().isBrakeDriftEnabled());
+   mkw::modEngine().saveSettings();
+  }
+  focusAge=0;unavailable=false;
   return UiAction::None;
  }
  if(key.switchType&&page==UiPage::EngineClass){
@@ -198,7 +265,8 @@ UiAction MenuState::input(UiInput key){
  }
  if(key.up||key.down||key.left||key.right){
   const unsigned previousCursor=cursor;
-  if(page==UiPage::MainMenu)cursor=moveMainMenu(cursor,key);
+  if(page==UiPage::Cup)cursor=moveCupGrid(cursor,count(),key);
+  else if(page==UiPage::MainMenu)cursor=moveMainMenu(cursor,key);
   else if(columns()==1){
    // Horizontal input also traverses a one-column control group, as it does
    // when navigating the same controls with the Wii controller sideways.
@@ -216,9 +284,21 @@ UiAction MenuState::input(UiInput key){
  case UiPage::License:selection.license=cursor;enter(UiPage::MainMenu);break;
  case UiPage::MainMenu:if(cursor==0)enter(UiPage::Mode);else unavailable=true;break;
  case UiPage::Mode:
+  if(cursor==4){enter(UiPage::Settings);break;}
   if(!raceMode(UiMode(cursor))){unavailable=true;break;}
   selection.mode=UiMode(cursor);
   enter(selection.mode==UiMode::GrandPrix?UiPage::EngineClass:selection.mode==UiMode::VS?UiPage::VSMode:selection.mode==UiMode::Battle?UiPage::BattleMode:UiPage::Character);break;
+ case UiPage::Settings:
+  if(cursor==0){
+   mkw::modEngine().set200ccEnabled(!mkw::modEngine().is200ccEnabled());
+   mkw::modEngine().saveSettings();
+  }else if(cursor==1){
+   mkw::modEngine().setBrakeDriftEnabled(!mkw::modEngine().isBrakeDriftEnabled());
+   mkw::modEngine().saveSettings();
+  }else{
+   enter(UiPage::Mode);
+  }
+  break;
  case UiPage::EngineClass:
   if(!raceEngineClass(UiEngineClass(cursor))){unavailable=true;break;}
   selection.engineClass=UiEngineClass(cursor);enter(UiPage::Character);break;

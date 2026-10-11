@@ -383,6 +383,13 @@ int main() {
             hidScanInput();unsigned down=hidKeysDown();
             unsigned navigation=down|hidKeysDownRepeat();
             mkw::UiInput input{bool(navigation&(KEY_DUP|KEY_CPAD_UP)),bool(navigation&(KEY_DDOWN|KEY_CPAD_DOWN)),bool(navigation&(KEY_DLEFT|KEY_CPAD_LEFT)),bool(navigation&(KEY_DRIGHT|KEY_CPAD_RIGHT)),bool(down&KEY_A),bool(down&KEY_B),bool(down&KEY_START),bool(down&KEY_Y),bool(down&(KEY_L|KEY_ZL)),bool(down&(KEY_R|KEY_ZR))};
+            touchPosition touch;hidTouchRead(&touch);
+            if(down&KEY_TOUCH){
+                if(menu.page==mkw::UiPage::Cup){
+                    if(touch.px<80)input.pageLeft=true;
+                    else if(touch.px>240)input.pageRight=true;
+                }
+            }
             if(!revealed)input={};
             if(autoplay){input=autopilot->menu(menu,revealed&&!transition.active());if(autopilot->finished())return leave(mkw::UiAction::Exit);}
             const auto beforeInput=menu;

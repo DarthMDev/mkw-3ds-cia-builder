@@ -1,6 +1,5 @@
 #pragma once
-
-#include <Common.hh>
+#include <mkw/course_catalog.hpp>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -144,6 +143,13 @@ public:
         }
     }
 
+    // Character Skins
+    unsigned characterSkin(unsigned driverId) const;
+    void setCharacterSkin(unsigned driverId, unsigned slot);
+    void cycleCharacterSkin(unsigned driverId, int dir);
+    unsigned characterSkinCount(unsigned driverId) const;
+    const char* characterSkinName(unsigned driverId, unsigned slot) const;
+
 private:
     ModEngine();
     ~ModEngine();
@@ -156,6 +162,8 @@ private:
     std::vector<ModCupDef> cups_;
     std::vector<std::string> stringStorage_;
     std::vector<CourseChoice> dynamicTracks_;
+    std::array<unsigned, 26> characterSkins_{};
+    std::array<std::vector<std::string>, 26> characterSkinNames_{};
 };
 
 inline ModEngine& modEngine() {
