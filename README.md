@@ -110,6 +110,16 @@ The build pipeline will:
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please check out [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Clean code and C++23 standards.
+- 3DS hardware and memory constraint guidelines (Old 3DS vs New 3DS).
+- AI assistance policy (AI code is allowed, but must be reviewed and tested).
+- Local build and emulator/hardware testing instructions.
+
+---
+
 ## Credits & Acknowledgements
 
 - **dudewhat** (Discord) — Original author and creator of the Mario Kart Wii 3DS port, hardware renderer, DSP audio engine, and CIA packaging pipeline.
