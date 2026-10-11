@@ -127,6 +127,7 @@ def stage_disc(disc):
         # NKit images mark themselves "NKIT" at 0x200; their trimmed data fails the checks.
         with open(disc,'rb') as f:f.seek(0x200);nkit=f.read(4)==b'NKIT'
         if nkit:raise SystemExit('This is an NKit image. Convert it to a normal ISO in Dolphin first (right-click the game, Convert File, ISO).')
+        log('unpacking and checking your disc: this takes a few minutes with no output')
         run([sys.executable,'tools/extract_disc.py',disc,'data/extracted'])
     r=json.loads(receipt.read_text());ident=DISC_MANIFEST['identity']
     if any(r['identity'][k]!=v for k,v in ident.items()):
@@ -175,6 +176,7 @@ def stage_cook(disc,jobs,force,check=False):
         commands=cmd if cmd and isinstance(cmd[0],list) else [cmd]
         if any('{disc}' in c for c in commands) and not disc:raise SystemExit(f"Cook step '{name}' needs the disc image path")
         start=time.monotonic()
+        log(f'step {[n for n,*_ in COOK_STEPS].index(name)+1}/{len(COOK_STEPS)}: {name}')
         for c in commands:
             scrub_appledouble();run([str(a).replace('{py}',sys.executable).replace('{disc}',str(disc)).replace('{jobs}',str(jobs)) for a in c])
         stamp.write_text(f'{time.monotonic()-start:.0f} s\n')
