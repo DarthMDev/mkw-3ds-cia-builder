@@ -2,6 +2,7 @@
 #include "mkw/bobomb.hpp"
 #include "mkw/item_box.hpp"
 #include "mkw/race_item_internal.hpp"
+#include "mkw/mod_engine.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -72,7 +73,8 @@ ItemActor& RaceItems::spawn(unsigned player,ItemKind kind,bool backwards,const V
     a.up=normalized(racers_[player].up,{0,1,0});
     const auto prop=itemProperties(unsigned(kind));a.scale=.8f;
     a.radius=prop.releasedContact*a.scale;a.terrainRadius=prop.terrain*a.scale;
-    if(shell(kind)){a.velocity=direction*(kind==ItemKind::BlueShell?150.f:115.f);a.lifetime=480;}
+    const float speedMul=mkw::modEngine().speedFactor();
+    if(shell(kind)){a.velocity=direction*(kind==ItemKind::BlueShell?150.f*speedMul:115.f*speedMul);a.lifetime=480;}
     // Green update 297f88 expires only after age 1500. Its launch starts a
     // bounce counter at 9 forward / 4 backward and destroys it below zero.
     if(kind==ItemKind::GreenShell){
@@ -82,7 +84,7 @@ ItemActor& RaceItems::spawn(unsigned player,ItemKind kind,bool backwards,const V
         // Drift-side aim/special movement predicates remain in the audit.
         const Vec3 motion=itemMotion(racers_[player]);const float speed=length(motion);
         const bool movingForward=dot(motion,racers_[player].forward)>0;
-        a.travelSpeed=backwards?(movingForward?30.f-speed:30.f+speed):(movingForward?85.f+speed:85.f-speed);
+        a.travelSpeed=(backwards?(movingForward?30.f-speed:30.f+speed):(movingForward?85.f+speed:85.f-speed))*speedMul;
         a.flightDirection=normalized(direction*(backwards?40.f:35.f)+(movingForward?(backwards?-motion:motion):Vec3{}),direction);
         a.velocity=a.flightDirection*a.travelSpeed;
     }

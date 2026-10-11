@@ -73,6 +73,8 @@ void ModEngine::init() {
     }
     initialized_ = true;
 
+    loadSettings();
+
     // Check for Pulsar mod manifest in standard locations
     static constexpr const char* MANIFEST_CANDIDATES[] = {
         "sdmc:/3ds/mkw-3ds/pulsar_manifest.json",
@@ -152,6 +154,26 @@ ItemKind ModEngine::onItemRoll(unsigned player, unsigned rank, ItemKind defaultI
     for (auto* hook : hooks_) {
         result = hook->onItemRoll(player, rank, result);
     }
+
+    // Custom items distribution filter (verified from Retro Rewind: Race/CustomItems.cpp)
+    if (settings_.customItems && result != ItemKind::None) {
+        const uint32_t bitfield = settings_.customItemsBitfield ? settings_.customItemsBitfield : PulsarPhysics::AllItemsBitfield;
+        const unsigned itemIdx = static_cast<unsigned>(result);
+        if (itemIdx < 19 && !(bitfield & (1u << itemIdx))) {
+            // Item disabled by rule: fallback to standard Mushroom if allowed, otherwise first allowed item
+            if (bitfield & (1u << static_cast<unsigned>(ItemKind::Mushroom))) {
+                result = ItemKind::Mushroom;
+            } else {
+                for (unsigned i = 0; i < 19; ++i) {
+                    if (bitfield & (1u << i)) {
+                        result = static_cast<ItemKind>(i);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     return result;
 }
 
@@ -365,6 +387,70 @@ bool ModEngine::loadManifest(const char* manifestPath) {
 
     modLoaded_ = true;
     return true;
+}
+
+struct SavedSettingsBinary {
+    uint32_t magic = 0x54544553; // 'SETT'
+    uint32_t version = 1;
+    uint8_t enable200cc = 0;
+    uint8_t brakeDrifting = 1;
+    uint8_t hardAI = 0;
+    uint8_t customItems = 0;
+    uint32_t customItemsBitfield = PulsarPhysics::AllItemsBitfield;
+    uint8_t defaultEngineClass = 2;
+    uint8_t reserved[19]{};
+};
+
+bool ModEngine::loadSettings(const char* path) {
+    if (!path) return false;
+    FILE* f = fopen(path, "rb");
+    if (!f) return false;
+
+    SavedSettingsBinary bin{};
+    size_t readCount = fread(&bin, 1, sizeof(bin), f);
+    fclose(f);
+
+    if (readCount < sizeof(uint32_t) * 2 || bin.magic != 0x54544553) {
+        return false;
+    }
+
+    settings_.enable200cc = bin.enable200cc != 0;
+    settings_.brakeDrifting = bin.brakeDrifting != 0;
+    settings_.hardAI = bin.hardAI != 0;
+    settings_.customItems = bin.customItems != 0;
+    settings_.customItemsBitfield = bin.customItemsBitfield ? bin.customItemsBitfield : PulsarPhysics::AllItemsBitfield;
+    settings_.defaultEngineClass = bin.defaultEngineClass;
+    return true;
+}
+
+bool ModEngine::saveSettings(const char* path) {
+    if (!path) return false;
+    char tempPath[128];
+    std::snprintf(tempPath, sizeof(tempPath), "%s.tmp", path);
+
+    FILE* f = fopen(tempPath, "wb");
+    if (!f) return false;
+
+    SavedSettingsBinary bin{};
+    bin.magic = 0x54544553;
+    bin.version = 1;
+    bin.enable200cc = settings_.enable200cc ? 1 : 0;
+    bin.brakeDrifting = settings_.brakeDrifting ? 1 : 0;
+    bin.hardAI = settings_.hardAI ? 1 : 0;
+    bin.customItems = settings_.customItems ? 1 : 0;
+    bin.customItemsBitfield = settings_.customItemsBitfield;
+    bin.defaultEngineClass = settings_.defaultEngineClass;
+
+    size_t written = fwrite(&bin, 1, sizeof(bin), f);
+    fclose(f);
+
+    if (written != sizeof(bin)) {
+        remove(tempPath);
+        return false;
+    }
+
+    remove(path);
+    return rename(tempPath, path) == 0;
 }
 
 // Global dynamic catalog accessors (course_catalog.hpp)

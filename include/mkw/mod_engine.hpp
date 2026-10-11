@@ -34,11 +34,24 @@ struct ModCupDef {
     std::array<ModTrackDef, 4> tracks{};
 };
 
+// Verified physics constants from Retro Rewind (rr-pulsar: Race/200ccParams.hpp & Race/200cc.cpp)
+namespace PulsarPhysics {
+    inline constexpr float SpeedFactor = 5.0f / 3.0f;          // 1.6666667f speed factor in 200cc
+    inline constexpr float CannonExit = 2.0f / 3.0f;           // Cannon exit speed ratio in 200cc
+    inline constexpr float BrakeDriftDecel = -1.5f;            // Deceleration during brake drift
+    inline constexpr float FastFallingBodyGravity = 0.39f;     // Body gravity multiplier when pulling stick back
+    inline constexpr float FastFallingWheelGravity = 0.3f;     // Wheel gravity multiplier when pulling stick back
+    inline constexpr float Weight200cc = 6.0f;                 // Kart weight in 200cc
+    inline constexpr uint32_t AllItemsBitfield = 0x7FFFF;      // Bitmask for all 19 standard items
+}
+
 // Runtime settings configurable by Pulsar-3DS or manifest
 struct ModSettings {
     bool enable200cc = false;
-    bool brakeDrifting = false;
+    bool brakeDrifting = true;
+    bool hardAI = false;
     bool customItems = false;
+    uint32_t customItemsBitfield = PulsarPhysics::AllItemsBitfield;
     uint8_t defaultEngineClass = 2; // 0=50cc, 1=100cc, 2=150cc, 3=200cc
 };
 
@@ -99,6 +112,14 @@ public:
 
     bool isBrakeDriftEnabled() const { return settings_.brakeDrifting; }
     void setBrakeDriftEnabled(bool enabled) { settings_.brakeDrifting = enabled; }
+
+    float speedFactor() const { return is200ccEnabled() ? PulsarPhysics::SpeedFactor : 1.0f; }
+    float cannonExitRatio() const { return is200ccEnabled() ? PulsarPhysics::CannonExit : 1.0f; }
+    float brakeDriftDeceleration() const { return PulsarPhysics::BrakeDriftDecel; }
+    uint32_t customItemsBitfield() const { return settings_.customItemsBitfield; }
+
+    bool loadSettings(const char* path = "sdmc:/3ds/mkw-3ds/pulsar_settings.bin");
+    bool saveSettings(const char* path = "sdmc:/3ds/mkw-3ds/pulsar_settings.bin");
 
     // Dynamic Course Catalog (Phase 2)
     unsigned cupCount() const;

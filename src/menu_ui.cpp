@@ -299,7 +299,7 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
   c.chrome("Single Player",UiHelpMode[std::min(s.cursor,3u)]);break;
  }
  case UiPage::EngineClass:{
-  const char* names[]={"50cc","100cc","150cc","Mirror"};const char* variants[]={"Button50cc","Button100cc","Button150cc","ButtonMirror"};
+  const char* names[]={"50cc","100cc",mkw::modEngine().is200ccEnabled()?"200cc":"150cc","Mirror"};const char* variants[]={"Button50cc","Button100cc","Button150cc","ButtonMirror"};
   for(unsigned i=0;i<4;++i){Pose p=control("ClassSelect2",variants[i]);auto base=c.buttonState("class",i);c.movieButton(base.c_str(),p);c.movie("class_movie_",s.engineClassMovie(i),base.c_str(),"black_base",p);c.movieOverlay(base.c_str(),p);c.icon("class_",i,base.c_str(),"kinoko_set_p",p);char caption[64];std::snprintf(caption,sizeof caption,"%s\n%s",names[i],i==0&&!s.selection.mixedEngineTypes?"Karts Only":i==1&&!s.selection.mixedEngineTypes?"Bikes Only":"Karts and Bikes");c.text(caption,base.c_str(),p);if(s.cursor==i)c.glow("class",p,caption);}
   {Pose toggle=control("ClassChange","ClassChange");char key[48];
    for(unsigned blink=0;blink<(preload?2u:1u);++blink){const unsigned frame=((s.age/30)+blink)%2;
