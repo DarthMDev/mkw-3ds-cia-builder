@@ -152,6 +152,13 @@ def stage_cook(disc,jobs,force,check=False):
     rerun=force
     for name,cmd,outputs in COOK_STEPS:
         stamp=stamps/(name.replace(' ','-')+'.done')
+        if name=='karts and bikes' and stamp.is_file():
+            gpath=ROOT/'sd-card/models/garage.json'
+            try:
+                if not gpath.is_file() or json.loads(gpath.read_text()).get('version')!=1 or len(json.loads(gpath.read_text()).get('choices',[]))!=288:
+                    stamp.unlink(missing_ok=True)
+            except Exception:
+                stamp.unlink(missing_ok=True)
         present=bool(outputs) and all((ROOT/o).exists() for o in outputs)
         # A fresh tree trusts only success stamps (a failed step can leave its
         # outputs half written) and, once a step runs, re-runs every later step.
