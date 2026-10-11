@@ -19,6 +19,7 @@ from gclib.gx_enums import ImageFormat, PaletteFormat
 from gclib.texture_utils import decode_image
 from PIL import Image
 from cook_race_hud import cook_hud
+from devkitpro import tool
 
 WORLD = {
     0: ("koura_green", "koura_green", None),
@@ -43,7 +44,6 @@ ICONS = {
 }
 
 
-from tex3ds_path import TEX3DS
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -95,7 +95,7 @@ def cook_image_sprite(original, name, output):
     target = output / "textures" / (name + ".png")
     target.parent.mkdir(parents=True, exist_ok=True)
     padded.save(target)
-    subprocess.run([TEX3DS, "-f", "rgba8", "-z", "none",
+    subprocess.run([str(tool('tex3ds')), "-f", "rgba8", "-z", "none",
                     "-o", str(target.with_suffix(".t3x")), str(target)], check=True, stdout=subprocess.DEVNULL)
     return {"name": name, "path": "textures/" + name + ".t3x", "width": width,
             "height": height, "padded": list(padded_size), "u": width / padded_size[0],

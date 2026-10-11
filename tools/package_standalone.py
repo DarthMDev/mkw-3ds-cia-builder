@@ -35,13 +35,14 @@ def stage_assets(stage):
     return assets
 def package(stage):
     assets=stage_assets(stage)
-    dkp=Path(os.environ.get('DEVKITPRO','/opt/devkitpro'))
+    from devkitpro import tool, root as devkitpro_root
+    dkp=devkitpro_root()
     smdh=OUT/'mkw-3ds.smdh'
-    subprocess.run([str(dkp/'tools/bin/smdhtool'),'--create','MKW/ MARIO KART RECOMPILED 3DS','32 race imports / 10 arena assets','MKW 3DS',str(dkp/'libctru/default_icon.png'),str(smdh)],check=True)
+    subprocess.run([str(tool('smdhtool')),'--create','MKW/ MARIO KART RECOMPILED 3DS','32 race imports / 10 arena assets','MKW 3DS',str(dkp/'libctru/default_icon.png'),str(smdh)],check=True)
     target=OUT/'mkw-3ds-standalone.3dsx'
     temporary=target.with_suffix('.tmp.3dsx')
     try:
-        subprocess.run([str(dkp/'tools/bin/3dsxtool'),str(OUT/'mkw-3ds.elf'),str(temporary),'--smdh='+str(smdh),'--romfs='+str(stage)],check=True)
+        subprocess.run([str(tool('3dsxtool')),str(OUT/'mkw-3ds.elf'),str(temporary),'--smdh='+str(smdh),'--romfs='+str(stage)],check=True)
         temporary.replace(target)
     finally:temporary.unlink(missing_ok=True)
     receipt={'file':str(target),'sha256':digest(target),'bytes':target.stat().st_size,

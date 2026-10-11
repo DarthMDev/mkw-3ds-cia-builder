@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import subprocess
 
+from devkitpro import arm
+
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "vendor/citro3d"
 
@@ -11,7 +13,7 @@ VENDOR = ROOT / "vendor/citro3d"
 def build_citro3d(output, dkp):
     output = Path(output) / "hardware-sdk"
     output.mkdir(parents=True, exist_ok=True)
-    compiler = Path(dkp) / "devkitARM/bin/arm-none-eabi-gcc"
+    compiler = arm("arm-none-eabi-gcc")
     files = sorted(p for directory in ("source", "include")
                    for p in (VENDOR / directory).rglob("*") if p.is_file() and not p.name.startswith("._"))
     hashes = {str(p.relative_to(VENDOR)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -42,7 +44,7 @@ def build_citro3d(output, dkp):
     temporary = library.with_suffix(".tmp.a")
     if temporary.exists():
         temporary.unlink()
-    subprocess.run([str(Path(dkp) / "devkitARM/bin/arm-none-eabi-ar"),
+    subprocess.run([str(arm("arm-none-eabi-ar")),
                     "rcs", str(temporary), *objects], check=True)
     temporary.replace(library)
     receipt.write_text(json.dumps({"inputs": identity, "library_sha256":

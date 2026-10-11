@@ -3,16 +3,17 @@
 import argparse, concurrent.futures, hashlib, json, os, subprocess
 from pathlib import Path
 from build_hardware_sdk import build_citro3d
+from devkitpro import tool, arm, root as devkitpro_root
 ROOT=Path(__file__).resolve().parents[1]
 def main():
  p=argparse.ArgumentParser();p.add_argument('--jobs',type=int,default=6)
  # Release (the CIA builder): no test hooks, logs or engine assert text; no build paths.
  p.add_argument('--release',action='store_true');a=p.parse_args()
- dkp=Path(os.environ.get('DEVKITPRO','/opt/devkitpro'));out=ROOT/'build';out.mkdir(exist_ok=True)
+ dkp=devkitpro_root();out=ROOT/'build';out.mkdir(exist_ok=True)
  citro=build_citro3d(out,dkp)
- kin=ROOT/'vendor/kinoko';cxx=dkp/'devkitARM/bin/arm-none-eabi-g++'
+ kin=ROOT/'vendor/kinoko';cxx=arm('arm-none-eabi-g++')
  # DVLE 0: scene shader; DVLE 1: NW4R EF particles (src/effect.v.pica).
- subprocess.run([str(dkp/'tools/bin/picasso'),'-o',str(out/'mkw.shbin'),str(ROOT/'src/mkw.v.pica'),str(ROOT/'src/effect.v.pica')],check=True)
+ subprocess.run([str(tool('picasso')),'-o',str(out/'mkw.shbin'),str(ROOT/'src/mkw.v.pica'),str(ROOT/'src/effect.v.pica')],check=True)
  (out/'shader_data.hpp').write_text('#pragma once\n#include <cstdint>\nalignas(4) static const uint8_t mkw_shader[]={'+','.join(map(str,(out/'mkw.shbin').read_bytes()))+'};\n')
  arch=['-march=armv6k','-mtune=mpcore','-mfloat-abi=hard','-mtp=soft']
  flags=arch+['-std=gnu++23','-O2','-g','-D__3DS__','-DREVOLUTION','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fcheck-new','-fno-strict-aliasing','-ffp-contract=off','-Wall','-Wno-psabi','-I'+str(kin/'include'),'-I'+str(kin/'source'),'-I'+str(ROOT/'include'),'-I'+str(ROOT/'vendor/citro3d/include'),'-I'+str(dkp/'libctru/include'),'-I'+str(out)]
@@ -44,7 +45,7 @@ def main():
  # serializes every LINEAR heap call, including those made inside Citro3D/libctru.
  wraps=['-Wl,--wrap='+name for name in ('linearAlloc','linearMemAlign','linearRealloc','linearGetSize','linearFree','linearSpaceFree','fopen')]
  subprocess.run([str(cxx),*arch,*lto,*codegen,'-specs=3dsx.specs','-Wl,--gc-sections',*wraps,'-Wl,-Map,'+str(out/'mkw-3ds.map'),*[str(o) for o in objs],str(citro),'-L'+str(dkp/'libctru/lib'),'-lctru','-lm','-o',str(elf)],check=True)
- subprocess.run([str(dkp/'tools/bin/3dsxtool'),str(elf),str(out/'mkw-3ds.3dsx')],check=True)
- subprocess.run([str(dkp/'devkitARM/bin/arm-none-eabi-size'),str(elf)],check=True)
+ subprocess.run([str(tool('3dsxtool')),str(elf),str(out/'mkw-3ds.3dsx')],check=True)
+ subprocess.run([str(arm('arm-none-eabi-size')),str(elf)],check=True)
  (out/'build-receipt.json').write_text(json.dumps({'hardware_sdk':json.loads((out/'hardware-sdk/receipt.json').read_text()),'shader_sha256':hashlib.sha256((out/'mkw.shbin').read_bytes()).hexdigest(),'libctru_sha256':hashlib.sha256((dkp/'libctru/lib/libctru.a').read_bytes()).hexdigest(),'kinoko_commit':subprocess.check_output(['git','-C',str(kin),'rev-parse','HEAD'],text=True).strip(),'sha256':hashlib.sha256((out/'mkw-3ds.3dsx').read_bytes()).hexdigest(),'flags':flags,'sources':{str(s.relative_to(ROOT)):hashlib.sha256(s.read_bytes()).hexdigest() for s in sources}},indent=2)+'\n')
 if __name__=='__main__':main()

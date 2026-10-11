@@ -33,7 +33,7 @@ PRUNE_AFTER={'course material overlay':['build/course-exports','build/object-exp
              'full roster':['assets/garage-parts']}
 
 COOK_STEPS=[
- ('Node packages',['npm','ci','--no-audit','--no-fund'],['node_modules/.package-lock.json']),
+ ('Node packages',['npm.cmd' if os.name=='nt' else 'npm','ci','--no-audit','--no-fund'],['node_modules/.package-lock.json']),
  ('BRRES exporters',['node','tools/bundle_cooker.mjs'],['build/export_brres.mjs']),
  # The game module, read as data (menu palettes, layouts, animation tables).
  ('game module',['{py}','tools/extract_disc.py','{disc}','data/extracted','--file','rel/StaticR.rel','--to','build/itembox-retail.rel'],['build/itembox-retail.rel']),
@@ -95,8 +95,9 @@ def shared_checkout():
 def stage_tools():
     from bootstrap_tools import tools
     makerom,bannertool=tools();log('makerom',makerom);log('bannertool',bannertool)
-    dkp=Path(os.environ.get('DEVKITPRO','/opt/devkitpro'))
-    for need in (dkp/'devkitARM',dkp/'libctru',dkp/'tools/bin'/('tex3ds'+('.exe' if os.name=='nt' else ''))):
+    from devkitpro import tool, root as devkitpro_root
+    dkp=devkitpro_root()
+    for need in (dkp/'devkitARM',dkp/'libctru',tool('tex3ds')):
         if not need.exists():raise SystemExit(f'Missing {need}: install devkitPro 3ds-dev (https://devkitpro.org/wiki/Getting_Started)')
     missing=[m for m in ('numpy','PIL','Crypto') if not __import__('importlib.util').util.find_spec(m)]
     if missing:raise SystemExit('Missing Python packages '+', '.join(missing)+': pip install -r requirements.txt')
