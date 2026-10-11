@@ -49,6 +49,9 @@ jobs:
   package:
     needs: compile
     runs-on: ubuntu-24.04
+    # Waits for the repository owner's approval (Settings > Environments >
+    # release): an attached update reaches every player through the QR codes.
+    environment: release
     steps:
       - uses: actions/checkout@v4
         with:

@@ -18,7 +18,7 @@ bool JobWorker::start(){
     // audio threads still preempt this one.
     if(!n3ds){u32 limit=0;APT_GetAppCpuTimeLimit(&limit);if(limit<80)APT_SetAppCpuTimeLimit(80);}
     s32 priority=0x30;svcGetThreadPriority(&priority,CUR_THREAD_HANDLE);
-    thread_=threadCreate(entry,this,32*1024,std::clamp<s32>(priority,0x1a,0x3f),n3ds?2:1,false);
+    thread_=threadCreate(entry,this,32*1024,std::clamp<s32>(priority+(n3ds?0:1),0x1a,0x3f),n3ds?2:1,false);
     return thread_!=nullptr;
 }
 void JobWorker::stop(){
@@ -35,13 +35,17 @@ void JobWorker::submit(Job& job){
 }
 void JobWorker::finish(Job& job){
     if(claim(job)){execute(job);return;}
-    while(job.state.load(std::memory_order_acquire)!=2)LightEvent_Wait(&done_);
+    while(job.state.load(std::memory_order_acquire)!=2){
+        if(LightEvent_WaitTimeout(&done_,20000000LL))svcSleepThread(500000LL);
+    }
 }
 void JobWorker::finishAll(){
     const unsigned n=count_.load(std::memory_order_relaxed);
     for(unsigned i=0;i<n;++i)finish(*jobs_[i]);
     // The worker leaves its claim loop before the queue indices are reused.
-    while(busy_.load(std::memory_order_acquire))LightEvent_Wait(&done_);
+    while(busy_.load(std::memory_order_acquire)){
+        if(LightEvent_WaitTimeout(&done_,20000000LL))svcSleepThread(500000LL);
+    }
     count_.store(0,std::memory_order_relaxed);next_.store(0,std::memory_order_relaxed);
     if(auto* worker=static_cast<RenderMetrics*>(metrics_)){
         renderMetrics.flushCalls+=worker->flushCalls;renderMetrics.flushBytes+=worker->flushBytes;

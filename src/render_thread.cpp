@@ -190,7 +190,9 @@ Renderer::FrameList* Renderer::acquire(){
     // List frame%2 last held frame-2: free once that frame has been drawn.
     if(frame>=2&&completed_.load(std::memory_order_acquire)+1<frame){
         const auto start=svcGetSystemTick();
-        while(completed_.load(std::memory_order_acquire)+1<frame)LightEvent_Wait(&done_);
+        while(completed_.load(std::memory_order_acquire)+1<frame){
+            if(LightEvent_WaitTimeout(&done_,50000000LL))svcSleepThread(1000000LL);
+        }
         recordWaitMs+=float((svcGetSystemTick()-start)*1000.0/SYSCLOCK_ARM11);
     }
     auto& list=*lists_[frame%2];
@@ -231,7 +233,9 @@ void Renderer::drain(){
     if(!(writeTarget_.load(std::memory_order_relaxed)&&recording_&&recording_->stereo.active()))submit();
     if(!thread_)return;
     const unsigned target=submitted_.load(std::memory_order_relaxed);
-    while(completed_.load(std::memory_order_acquire)!=target)LightEvent_Wait(&done_);
+    while(completed_.load(std::memory_order_acquire)!=target){
+        if(LightEvent_WaitTimeout(&done_,50000000LL))svcSleepThread(1000000LL);
+    }
 }
 void Renderer::setDeferred(bool on){
     on=on&&thread_;
