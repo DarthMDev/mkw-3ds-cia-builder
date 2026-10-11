@@ -1,4 +1,5 @@
 #include <mkw/menu_ui.hpp>
+#include <mkw/mod_engine.hpp>
 #include <mkw/menu_assets.hpp>
 #include <mkw/menu_movie_assets.hpp>
 #include <mkw/menu_animations.hpp>
@@ -13,6 +14,13 @@ namespace mkw {
 namespace {
 constexpr float XScale=400.f/608.f,YScale=225.f/456.f;
 constexpr const char* CupNames[]={"Mushroom Cup","Flower Cup","Star Cup","Special Cup","Shell Cup","Banana Cup","Leaf Cup","Lightning Cup"};
+inline const char* resolveCupName(unsigned index) {
+    if (mkw::modEngine().isModLoaded() && index < mkw::modEngine().cups().size()) {
+        const auto& cup = mkw::modEngine().cups()[index];
+        if (cup.name[0] != '\0') return cup.name;
+    }
+    return index < 8 ? CupNames[index] : "Custom Cup";
+}
 constexpr const char* CourseNames[]={"Luigi Circuit","Moo Moo Meadows","Mushroom Gorge","Toad's Factory","Mario Circuit","Coconut Mall","DK Summit","Wario's Gold Mine","Daisy Circuit","Koopa Cape","Maple Treeway","Grumble Volcano","Dry Dry Ruins","Moonview Highway","Bowser's Castle","Rainbow Road","GCN Peach Beach","DS Yoshi Falls","SNES Ghost Valley 2","N64 Mario Raceway","N64 Sherbet Land","GBA Shy Guy Beach","DS Delfino Square","GCN Waluigi Stadium","DS Desert Hills","GBA Bowser Castle 3","N64 DK's Jungle Parkway","GCN Mario Circuit","SNES Mario Circuit 3","DS Peach Gardens","GCN DK Mountain","N64 Bowser's Castle"};
 struct Pose {
  float x=0,y=0,sx=1,sy=1,delay=0,parentScaleX=1;
@@ -350,7 +358,7 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
     else{p.alpha*=std::clamp(300.f-t,0.f,255.f)/255.f;if(p.alpha<=0)continue;}
    }
    c.panel(base,p);c.icon("cup_",i,base,"icon",p);
-   if(i==selectedCup){c.text(CupNames[i],base,p);if(pickCup)c.glow("cup",p,CupNames[i],i);}
+   if(i==selectedCup){c.text(resolveCupName(i),base,p);if(pickCup)c.glow("cup",p,resolveCupName(i),i);}
   }
   if(pickCup){
    Pose movie=child(cups,control("CourseSelectMovie","RaceCupMovie"));

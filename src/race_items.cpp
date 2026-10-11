@@ -1,4 +1,5 @@
 #include "mkw/race_items.hpp"
+#include "mkw/mod_engine.hpp"
 #include "mkw/bullet_bill.hpp"
 #include "mkw/blooper.hpp"
 #include "mkw/item_box.hpp"
@@ -113,10 +114,10 @@ ItemKind RaceItems::choose(unsigned player){
         if((type==BulletObjectType&&bullet)||live[type]>=ItemObjectLimits[type])weights[i]=0;
     }
     unsigned total=0;for(auto weight:weights)total+=weight;
-    if(!total)return ItemKind::Mushroom; // zero-sum fallback
+    if(!total)return modEngine().onItemRoll(player,rank(player),ItemKind::Mushroom); // zero-sum fallback
     unsigned draw=random()%total;
-    for(unsigned i=0;i<19;++i){if(draw<weights[i])return ItemKind(i);draw-=weights[i];}
-    return ItemKind::None;
+    for(unsigned i=0;i<19;++i){if(draw<weights[i])return modEngine().onItemRoll(player,rank(player),ItemKind(i));draw-=weights[i];}
+    return modEngine().onItemRoll(player,rank(player),ItemKind::None);
 }
 ItemKind RaceItems::nextRouletteIcon(unsigned player,ItemKind previous){
     // Retail's roulette pictures are sampled uniformly from the nonzero row

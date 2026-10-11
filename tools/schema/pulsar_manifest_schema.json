@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pulsar-3DS Mod Manifest",
+  "description": "Configuration manifest schema for native Pulsar-3DS mods and Retro Rewind on Nintendo 3DS",
+  "type": "object",
+  "required": ["name", "version", "settings"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Display name of the mod or track pack"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the mod pack"
+    },
+    "author": {
+      "type": "string",
+      "description": "Author or team credit"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the mod pack contents"
+    },
+    "settings": {
+      "type": "object",
+      "description": "Gameplay and physics rules",
+      "properties": {
+        "engine_class": {
+          "type": "string",
+          "enum": ["50cc", "100cc", "150cc", "200cc"],
+          "default": "150cc",
+          "description": "Default engine class"
+        },
+        "enable_200cc": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables 200cc speed scaling factor (1.5x) in physics"
+        },
+        "brake_drift": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables brake drifting deceleration vector while maintaining drift state"
+        },
+        "custom_items": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enables custom item probability tables per position"
+        }
+      }
+    },
+    "cups": {
+      "type": "array",
+      "description": "Custom cup groupings",
+      "items": {
+        "type": "object",
+        "required": ["name", "tracks"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name of the cup"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Cup icon resource identifier"
+          },
+          "tracks": {
+            "type": "array",
+            "description": "Tracks belonging to this cup (up to 4)",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["name", "course_id", "archive"],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Course title"
+                },
+                "course_id": {
+                  "type": "integer",
+                  "description": "Internal Kinoko course ID mapping"
+                },
+                "archive": {
+                  "type": "string",
+                  "description": "Path to SZS course archive relative to root"
+                },
+                "laps": {
+                  "type": "integer",
+                  "default": 3,
+                  "minimum": 1,
+                  "maximum": 9,
+                  "description": "Number of laps for the track"
+                },
+                "music_stream_id": {
+                  "type": "integer",
+                  "description": "DSP ADPCM audio stream ID for course music"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

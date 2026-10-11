@@ -1,0 +1,13 @@
+{
+  "name": "Pulsar-3DS Vanilla / Retro Rewind Base",
+  "version": "1.0.0",
+  "author": "Retro Rewind Team / MKW-3DS",
+  "description": "Native modular modding manifest configuration for Mario Kart Wii (3DS)",
+  "settings": {
+    "engine_class": "150cc",
+    "enable_200cc": false,
+    "brake_drift": false,
+    "custom_items": false
+  },
+  "cups": []
+}
