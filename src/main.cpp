@@ -1367,6 +1367,42 @@ int main() {
                     wasBoosting=boosting;
                     // Bike wheelie wind trail from the rear wheel.
                     raceEffects.attach(4,fx.wheelie,kartFrame(left),(bike&&signals.wheelie)||(effectsTest&&frames>=120&&frames<180));
+                    // Smoke and dust (KartEffect's rk_start*, rk_driftSmoke, rk_dirtSmokeA and
+                    // rk_jumpSmoke* emitters), player 0 only. Thresholds are this port's:
+                    // the retail KartEffect conditions are not recovered.
+                    {
+                        static const int startSpec[2]={raceEffects.find("rk_start0"),raceEffects.find("rk_start1")};
+                        static const int startMiss=raceEffects.find("rk_startMiss"),driftSmoke=raceEffects.find("rk_driftSmoke"),dirt=raceEffects.find("rk_dirtSmokeA");
+                        static const int landKart[2]={raceEffects.find("rk_jumpSmokeMini"),raceEffects.find("rk_jumpSmoke")};
+                        static const int landBike[2]={raceEffects.find("rk_jumpSmokeBikeLMini"),raceEffects.find("rk_jumpSmokeBikeL")};
+                        static bool wasBurnout=false;static unsigned airSteps=0;
+                        const auto stageNow=K::System::RaceManager::Instance()->stage();
+                        const bool grounded=kart->status().onBit(K::Kart::eStatus::TouchingGround);
+                        // Start dash: tyre smoke at both rear wheels while the boost charges,
+                        // heavier past half charge (rk_start2's cylinder emitter is not
+                        // ported, so its stage keeps rk_start1).
+                        const float charge=kart->state()->startBoostCharge();
+                        const bool charging=stageNow==K::System::RaceManager::Stage::Countdown&&charge>0.f&&!intro.active();
+                        // Drift tyre smoke once the drift is held on the ground.
+                        const bool drifting=stageNow>=K::System::RaceManager::Stage::Race&&signals.drift&&grounded&&!bike;
+                        const int wheelSpec=charging?startSpec[charge<.5f?0:1]:driftSmoke;
+                        raceEffects.attach(14,wheelSpec,kartFrame(left),charging||drifting);
+                        raceEffects.attach(15,wheelSpec,kartFrame(right),charging||drifting);
+                        // Off-road dust: Kinoko's off-road speed factor below 1 on the ground.
+                        const bool offroad=grounded&&kart->move()->kclSpeedFactor()<.95f&&std::fabs(signals.speed)>5.f&&stageNow>=K::System::RaceManager::Stage::Race;
+                        raceEffects.attach(188,dirt,kartFrame(left),offroad);
+                        if(!bike)raceEffects.attach(189,dirt,kartFrame(right),offroad);
+                        const bool burnout=kart->status().onBit(K::Kart::eStatus::Burnout);
+                        if(burnout&&!wasBurnout&&startMiss>=0)raceEffects.burst(startMiss,kartFrame(kp));
+                        wasBurnout=burnout;
+                        // Landing puff: the full one after 20+ frames in the air, the mini one
+                        // after shorter jumps (hops under 6 frames show none).
+                        if(!grounded)++airSteps;
+                        else{
+                            if(airSteps>=6){const int* land=bike?landBike:landKart;const int spec=land[airSteps>=20?1:0];if(spec>=0)raceEffects.burst(spec,kartFrame(kp));}
+                            airSteps=0;
+                        }
+                    }
                     // Small light sparks: rk_driftSpark*_Chip00 parents at each rear wheel.
                     const unsigned drift=driftState;
                     if(bike){
@@ -1707,6 +1743,17 @@ int main() {
         }
         if(effectsTest&&frames==360){
             if(FILE* f=fopen("sdmc:/3ds/mkw-3ds/effects-result.json","w")){fprintf(f,"{\"pass\":%s,\"visual_fixture\":true,\"source_sky_loaded\":%s,\"source_spark_loaded\":%s,\"blue_frames\":%u,\"orange_frames\":%u,\"particles_emitted\":%u}\n",!sky.empty()&&(sparkTexture[0].ready&&sparkTexture[1].ready&&driftEffects.ready)&&driftEffects.blueFrames&&driftEffects.orangeFrames?"true":"false",!sky.empty()?"true":"false",(sparkTexture[0].ready&&sparkTexture[1].ready&&driftEffects.ready)?"true":"false",driftEffects.blueFrames,driftEffects.orangeFrames,driftEffects.emitted);fclose(f);}break;
+        }
+        // QA (shots.txt): capture the top screen once the race reaches each
+        // listed physics step, as shot-<step>.ppm. Works alongside autoplay.
+        if(kQa){
+            static std::vector<unsigned> shots;static bool shotsRead=false;
+            if(!shotsRead){shotsRead=true;if(FILE* f=fopen("sdmc:/3ds/mkw-3ds/shots.txt","r")){unsigned v;while(fscanf(f,"%u",&v)==1)shots.push_back(v);fclose(f);std::sort(shots.begin(),shots.end(),std::greater<unsigned>());}}
+            if(!shots.empty()&&physicsSteps>=shots.back()){
+                std::vector<uint8_t> pixels(400*240*3);
+                if(renderer.captureTop(pixels.data())){char path[64];snprintf(path,sizeof path,"sdmc:/3ds/mkw-3ds/shot-%u.ppm",shots.back());if(FILE* f=fopen(path,"wb")){fprintf(f,"P6\n400 240\n255\n");fwrite(pixels.data(),1,pixels.size(),f);fclose(f);}}
+                shots.pop_back();
+            }
         }
         if(dataReady&&((effectsTest&&(frames==5||frames==35||frames==95||frames==140||frames==155||frames==170||frames==186||frames==194||frames==210||frames==244||frames==250||frames==262||frames==270||frames==292||frames==310||frames==330))||(smoke&&frames==120)||(replay&&(frames==600||frames==1600)))){
             std::vector<uint8_t> pixels(400*240*3);if(renderer.captureTop(pixels.data())){
