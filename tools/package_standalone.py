@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Embed the current allowlisted private assets into a self-contained 3DSX."""
-import argparse, errno, hashlib, json, os, shutil, subprocess, tempfile
+import argparse, hashlib, json, os, shutil, subprocess, tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'build';SOURCE=OUT/'playable/3ds/mkw-3ds';STAGE=OUT/'standalone-romfs'
@@ -25,10 +25,10 @@ def stage_assets(stage):
         # Both trees are generated staging on the same volume. Linking avoids
         # duplicating several GiB while producing the standalone container.
         dest.unlink(missing_ok=True)
+        # Drives without hard links (exFAT/FAT32, some network shares) fail with
+        # different errors per OS; any failure falls back to a copy.
         try:os.link(source,dest)
-        except OSError as error:
-            if error.errno not in (errno.EXDEV,errno.EPERM,errno.ENOTSUP,errno.EOPNOTSUPP):raise
-            shutil.copyfile(source,dest)
+        except OSError:shutil.copyfile(source,dest)
     # Avoid filesystem metadata/resource forks on external macOS volumes.
     for stale in stage.rglob('._*'):
         if stale.is_file():stale.unlink()

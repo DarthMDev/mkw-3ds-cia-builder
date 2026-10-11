@@ -104,28 +104,16 @@ static bool fullRace=false,automaticDrift=false;
 static bool timeTrial=false,newRecord=false;
 static std::array<uint32_t,32> bestTimes{};
 static constexpr const char* BestTimesPath="sdmc:/3ds/mkw-3ds/best-times.bin";
-static constexpr const char* BestTimesTmpPath="sdmc:/3ds/mkw-3ds/best-times.bin.tmp";
-static void ensureSaveDir(){mkdir("sdmc:/3ds",0777);mkdir(DATA,0777);}
-static void loadBestTimes(){
-    ensureSaveDir();
-    bestTimes={};
-    if(FILE* f=fopen(BestTimesPath,"rb")){
-        if(fread(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)!=bestTimes.size())bestTimes={};
-        fclose(f);
-    }
-}
+static void loadBestTimes(){bestTimes={};if(FILE* f=fopen(BestTimesPath,"rb")){if(fread(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)!=bestTimes.size())bestTimes={};fclose(f);}}
+// The CIA reads its data from RomFS, so nothing else creates this folder on
+// the SD card. Write a temporary file first so a pulled card keeps the old times.
 static void saveBestTimes(){
-    ensureSaveDir();
-    if(FILE* f=fopen(BestTimesTmpPath,"wb")){
-        const bool written=fwrite(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)==bestTimes.size();
-        const bool closed=fclose(f)==0;
-        if(written&&closed){
-            remove(BestTimesPath);
-            rename(BestTimesTmpPath,BestTimesPath);
-        }else{
-            remove(BestTimesTmpPath);
-        }
-    }
+    mkdir("sdmc:/3ds",0777);mkdir(DATA,0777);
+    static constexpr const char* Temporary="sdmc:/3ds/mkw-3ds/best-times.tmp";
+    FILE* f=fopen(Temporary,"wb");if(!f)return;
+    const bool ok=fwrite(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)==bestTimes.size();
+    if(fclose(f)!=0||!ok){remove(Temporary);return;}
+    remove(BestTimesPath);rename(Temporary,BestTimesPath);
 }
 static void formatTime(char* out,size_t size,uint32_t ms){snprintf(out,size,"%u:%02u.%03u",unsigned(ms/60000),unsigned(ms/1000%60),unsigned(ms%1000));}
 static bool courseAvailable(unsigned i){return Courses[i].supported&&exists("Race/Common.szs")&&exists(Courses[i].archive)&&exists(Courses[i].models)&&(!*Courses[i].sky||exists(Courses[i].sky));}

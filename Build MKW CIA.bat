@@ -26,7 +26,9 @@ if not exist ".venv\Scripts\python.exe" (
 rem Show the build and keep a copy in build-cia-log.txt. UTF-8 text on Windows too.
 set "PYTHONUTF8=1"
 set "MKW_DISC=%disc%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.venv\Scripts\python.exe' 'tools\release\build_cia.py' $env:MKW_DISC 2>&1 | ForEach-Object ToString | Tee-Object -FilePath 'build-cia-log.txt'"
+rem Windows PowerShell's Tee-Object writes UTF-16, so each line goes to the log as UTF-8 instead.
+set "PYTHONUNBUFFERED=1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-Content -Path 'build-cia-log.txt' -Value $null -Encoding UTF8; & '.venv\Scripts\python.exe' 'tools\release\build_cia.py' $env:MKW_DISC 2>&1 | ForEach-Object { $line=$_.ToString(); $line; Add-Content -Path 'build-cia-log.txt' -Value $line -Encoding UTF8 }"
 echo Log: "%CD%\build-cia-log.txt"
 goto :end
 

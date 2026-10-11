@@ -15,7 +15,7 @@ Stages, each skipped when its outputs already exist (rerun to resume):
 Only pinned public tools and sources are downloaded. The disc and everything
 made from it stay on this machine; nothing from it is in this repository.
 """
-import argparse, hashlib, json, os, shutil, subprocess, sys, time
+import argparse, hashlib, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 HERE=Path(__file__).parent
@@ -79,15 +79,10 @@ COOK_STEPS=[
 def log(*a):print('[build_cia]',*a,flush=True)
 
 def run(cmd,**kw):
-    # Windows installs npm as npm.cmd, which CreateProcess cannot launch
-    # directly with shell=False. Route npm commands through cmd.exe.
-    cmd=[str(c) for c in cmd]
-    if os.name == 'nt' and cmd and Path(cmd[0]).name.lower() in ('npm','npm.cmd'):
-        cmd=['cmd.exe','/d','/s','/c',subprocess.list2cmdline(cmd)]
-    log('$',' '.join(cmd))
+    log('$',' '.join(str(c) for c in cmd))
     # PYTHONUTF8: text files are UTF-8 on every OS (Windows would default to cp1252).
     env=dict(os.environ,PYTHONUTF8='1',PYTHONPATH=os.pathsep.join(p for p in (str(ROOT/'vendor/gclib'),os.environ.get('PYTHONPATH')) if p))
-    subprocess.run(cmd,cwd=ROOT,check=True,env=env,**kw)
+    subprocess.run([str(c) for c in cmd],cwd=ROOT,check=True,env=env,**kw)
 
 def shared_checkout():
     """Development trees link data/, assets/ and sd-card/ to a shared checkout."""
@@ -109,8 +104,7 @@ def stage_sources():
     run([sys.executable,'tools/bootstrap.py'])
 
 def stage_disc(disc):
-    if disc and not Path(disc).is_file():
-        raise SystemExit(f'Disc image does not exist: {disc}')
+    if disc and not Path(disc).is_file():raise SystemExit(f'No disc image at: {disc}')
     receipt=ROOT/'data/extracted/extraction-receipt.json'
     # An extraction that failed the check (a Europe disc, a modified or NKit
     # dump) is replaced when a different image is given, e.g. the USA ISO.
@@ -149,26 +143,74 @@ def scrub_appledouble():
             for f in filenames:
                 if f.startswith('._'):Path(dirpath,f).unlink(missing_ok=True)
 
+# ---- Step fingerprints --------------------------------------------------------
+# A step's done-stamp records a fingerprint of the code that produced it: the
+# tool scripts it runs, the local modules they import, and the BRRES exporter
+# sources when they call them. An update that changes that code re-runs the
+# step (and, as before, every step after it). Line endings are normalised so a
+# Windows checkout fingerprints the same as macOS.
+_IMPORT=re.compile(r'^\s*(?:from\s+([A-Za-z_]\w*)\s+import|import\s+([A-Za-z_][\w, ]*))',re.M)
+_TOOL_DIRS=('tools','tools/release','tools/lighting')
+def _local_module(name):
+    for d in _TOOL_DIRS:
+        f=ROOT/d/(name+'.py')
+        if f.is_file():return f
+    return None
+def step_fingerprint(cmd):
+    commands=cmd if cmd and isinstance(cmd[0],list) else [cmd]
+    files=set();queue=[ROOT/a for c in commands for a in c if isinstance(a,str) and a.endswith(('.py','.mjs')) and (ROOT/a).is_file()]
+    exporters=any('build/export_' in a or 'bundle_cooker' in a for c in commands for a in c if isinstance(a,str))
+    if any(a.startswith('npm') for c in commands for a in c if isinstance(a,str)):queue.append(ROOT/'package-lock.json')
+    while queue:
+        f=queue.pop()
+        if f in files:continue
+        files.add(f)
+        if f.suffix!='.py':continue
+        text=f.read_text(encoding='utf-8',errors='replace')
+        exporters|='.mjs' in text
+        for a,b in _IMPORT.findall(text):
+            for name in ([a] if a else [n.strip().split(' ')[0] for n in b.split(',')]):
+                m=_local_module(name)
+                if m:queue.append(m)
+    if exporters:files|={*(ROOT/'tools').glob('*.ts'),ROOT/'tools/bundle_cooker.mjs'}
+    digest=hashlib.sha256(json.dumps(commands).encode())
+    for f in sorted(files,key=lambda f:f.relative_to(ROOT).as_posix()):
+        digest.update(f.relative_to(ROOT).as_posix().encode()+b'\0'+f.read_bytes().replace(b'\r\n',b'\n'))
+    return digest.hexdigest()
+
+# Stamps from builders before fingerprints only say the step finished. Trust
+# them, except where a later version changed what the step makes.
+def _legacy_stamp_ok(name):
+    def json_at(rel):
+        try:return json.loads((ROOT/rel).read_text())
+        except (OSError,ValueError):return None
+    if name=='karts and bikes':  # all twelve vehicles per driver
+        g=json_at(SD+'/models/garage.json');return bool(g)and g.get('version')==1 and len(g.get('choices',[]))==288
+    if name=='race effects':     # smoke and dust emitters
+        e=json_at('build/vfx/textures/race-effects.json');return bool(e)and 'rk_start0' in e.get('emitters',[])
+    if name=='drivers':          # Toadette's braids (her hair model's vertices)
+        d=ROOT/SD/'models/toadette_driver.dskm'
+        try:return d.is_file() and int.from_bytes(d.read_bytes()[8:12],'little')>1716
+        except OSError:return False
+    return True
+
+def stamp_done(stamp,name,fingerprint):
+    if not stamp.is_file():return False
+    text=stamp.read_text().strip()
+    if text.startswith('fingerprint '):return text.split()[1]==fingerprint
+    return _legacy_stamp_ok(name)
+
 def stage_cook(disc,jobs,force,check=False):
     shared=shared_checkout();stamps=ROOT/'build/release/cook';stamps.mkdir(parents=True,exist_ok=True)
     rerun=force
     for name,cmd,outputs in COOK_STEPS:
-        stamp=stamps/(name.replace(' ','-')+'.done')
+        stamp=stamps/(name.replace(' ','-')+'.done');fingerprint=step_fingerprint(cmd)
         present=bool(outputs) and all((ROOT/o).exists() for o in outputs)
-        if name=='karts and bikes':
-            gpath=ROOT/SD/'models/garage.json'
-            try:
-                if not gpath.is_file() or json.loads(gpath.read_text()).get('version')!=1 or len(json.loads(gpath.read_text()).get('choices',[]))!=288:
-                    stamp.unlink(missing_ok=True)
-                    present=False
-            except Exception:
-                stamp.unlink(missing_ok=True)
-                present=False
         # A fresh tree trusts only success stamps (a failed step can leave its
         # outputs half written) and, once a step runs, re-runs every later step.
         # Development trees, cooked by hand, are judged by their outputs; so are
         # the Node packages, which a development tree links from elsewhere.
-        done=(present if shared or name=='Node packages' else stamp.is_file()) and not rerun
+        done=(present if shared or name=='Node packages' else stamp_done(stamp,name,fingerprint)) and not rerun
         if done:log('cooked:',name);continue
         # The course lighting re-cook rewrites files in place: no output of its own.
         if shared and not outputs:log('cooked (development tree, assumed):',name);continue
@@ -181,7 +223,7 @@ def stage_cook(disc,jobs,force,check=False):
         log(f'step {[n for n,*_ in COOK_STEPS].index(name)+1}/{len(COOK_STEPS)}: {name}')
         for c in commands:
             scrub_appledouble();run([str(a).replace('{py}',sys.executable).replace('{disc}',str(disc)).replace('{jobs}',str(jobs)) for a in c])
-        stamp.write_text(f'{time.monotonic()-start:.0f} s\n')
+        stamp.write_text(f'fingerprint {fingerprint}\n{time.monotonic()-start:.0f} s\n')
         for path in PRUNE_AFTER.get(name,()):shutil.rmtree(ROOT/path,ignore_errors=True)
 
 def stage_compile(jobs):

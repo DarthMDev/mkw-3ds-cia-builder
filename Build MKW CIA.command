@@ -10,5 +10,5 @@ disc="${disc%\"}";disc="${disc#\"}";disc="${disc%\'}";disc="${disc#\'}"
 [ -f "$disc" ] || { echo "No disc image at: $disc"; exit 1; }
 [ -d vendor/gclib ] || python3 tools/bootstrap.py || exit 1
 [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip install -r requirements.txt; } || exit 1
-.venv/bin/python tools/release/build_cia.py "$disc" 2>&1 | tee build-cia-log.txt
+PYTHONUNBUFFERED=1 .venv/bin/python tools/release/build_cia.py "$disc" 2>&1 | tee build-cia-log.txt
 echo "Log: $(pwd)/build-cia-log.txt"
