@@ -1065,7 +1065,6 @@ int main() {
                 scenes.currentScene()->heap()->enableAllocation();scenes.changeSiblingScene(2);courseObjects.invalidate();
                 animationPass&=loadDriver();prepareGarageFixture();driftEffects.reset();raceEffects.reset();resetKartFx();accumulator=0;
             }
-            if(fullRace&&(down&KEY_SELECT))raceHud.speedometer=!raceHud.speedometer;
             if(qaMode&&((down&KEY_SELECT)||(!replay&&(down&(KEY_X|KEY_Y))))){
                 renderer.waitForGpu();
                 if(!replay&&(down&(KEY_X|KEY_Y))){
@@ -1245,7 +1244,11 @@ int main() {
                             // The race has faded to black (RaceResultsFlow::Leaving).
                             sectionFadeIn=true;
                             vsSet.next=results.chosen()==0&&!results.finalRace();
-                            if(menu.page==mkw::UiPage::Results){menu.cursor=unsigned(std::max(0,results.chosen()));nextRaceQueued=menu.input({false,false,false,false,true})==mkw::UiAction::StartRace;}
+                            if(menu.page==mkw::UiPage::Results){
+                                menu.cursor=unsigned(std::max(0,results.chosen()));
+                                nextRaceQueued=menu.input({false,false,false,false,true})==mkw::UiAction::StartRace;
+                                if(nextRaceQueued)sectionFadeIn=false;
+                            }
                         }
                         flowUi.step(results);
                     }
@@ -1720,7 +1723,7 @@ int main() {
         renderer.end();profiler->mark(Profile::Submit);profiler->end(physicsSteps,renderer);frames++;
         if(raceLoadStart){
             const double ms=double(svcGetSystemTick()-raceLoadStart)*1000.0/SYSCLOCK_ARM11;raceLoadStart=0;lastRaceFrame=0;
-            LOGF("race_load_ms=%.1f course=%s driver=%u vehicle=%u failed=%d",ms,Courses[courseChoice].name,driverChoice,vehicleChoice,int(trackLoadFailed));menuProfile->event(line);
+            snprintf(line,sizeof line,"race_load_ms=%.1f course=%s driver=%u vehicle=%u failed=%d",ms,Courses[courseChoice].name,driverChoice,vehicleChoice,int(trackLoadFailed));report(line);menuProfile->event(line);
         }
         if(menuProfile->enabled()){const auto now=svcGetSystemTick();menuProfile->raceFrame(lastRaceFrame?float(double(now-lastRaceFrame)*1000.0/SYSCLOCK_ARM11):0.f);lastRaceFrame=now;}
         if(frames==1)report("graphics first frame submitted");
