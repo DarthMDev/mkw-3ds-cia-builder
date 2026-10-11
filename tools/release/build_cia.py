@@ -109,8 +109,21 @@ def stage_sources():
 
 def stage_disc(disc):
     receipt=ROOT/'data/extracted/extraction-receipt.json'
+    # An extraction that failed the check (a Europe disc, a modified or NKit
+    # dump) is replaced when a different image is given, e.g. the USA ISO.
+    # A verified one is kept: later steps read it even if the ISO has moved.
+    if disc and receipt.is_file():
+        old=json.loads(receipt.read_text())
+        got={f['name']:f['sha256'] for f in old.get('files',[])}
+        verified=all(old['identity'].get(k)==v for k,v in DISC_MANIFEST['identity'].items()) and all(got.get(n)==h for n,h in DISC_MANIFEST['files'].items())
+        if not verified and (old['identity'].get('source')!=str(disc) or old['identity'].get('source_bytes')!=Path(disc).stat().st_size):
+            log('replacing the previous, unsupported disc extraction')
+            shutil.rmtree(ROOT/'data/extracted')
     if not receipt.is_file():
         if not disc:raise SystemExit('Give the path to your Mario Kart Wii (USA) ISO or WBFS')
+        # NKit images mark themselves "NKIT" at 0x200; their trimmed data fails the checks.
+        with open(disc,'rb') as f:f.seek(0x200);nkit=f.read(4)==b'NKIT'
+        if nkit:raise SystemExit('This is an NKit image. Convert it to a normal ISO in Dolphin first (right-click the game, Convert File, ISO).')
         run([sys.executable,'tools/extract_disc.py',disc,'data/extracted'])
     r=json.loads(receipt.read_text());ident=DISC_MANIFEST['identity']
     if any(r['identity'][k]!=v for k,v in ident.items()):
