@@ -38,4 +38,12 @@ inline constexpr CourseChoice Courses[]={
     {"N64 Bowser's Castle",Kinoko::Course::N64_Bowsers_Castle,"Race/Course/old_koopa_64.szs","models/course_28.list","models/course_28_sky.list","Lightning",true,true},
 };
 inline constexpr unsigned CourseCount=sizeof(Courses)/sizeof(Courses[0]);
+
+// Dynamic Course Catalog (Phase 2): supports arbitrary custom cups & tracks
+unsigned courseCount();
+unsigned cupCount();
+const CourseChoice& course(unsigned index);
+const char* courseName(unsigned index);
+const char* cupName(unsigned cupIndex);
+
 } // namespace mkw

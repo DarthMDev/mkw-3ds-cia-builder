@@ -1,4 +1,5 @@
 #include <mkw/menu_ui.hpp>
+#include <mkw/course_catalog.hpp>
 #include <algorithm>
 #include <cmath>
 
@@ -33,7 +34,7 @@ unsigned moveMainMenu(unsigned cursor,const UiInput& key){
 void normalize(UiSelection& s){
  if(s.driver>=UiCharacters.size())s.driver=0;
  if(s.vehicle>=12)s.vehicle=0;
- if(s.course>=32)s.course=0;
+ if(s.course>=mkw::courseCount())s.course=0;
  if(s.battleStage>=10)s.battleStage=0;
  if(s.license>=4)s.license=0;
  if(unsigned(s.mode)>unsigned(UiMode::Battle))s.mode=UiMode::GrandPrix;
@@ -72,7 +73,7 @@ unsigned MenuState::count()const{
  case UiPage::Character:return unsigned(UiCharacterDrivers.size());
  case UiPage::Vehicle:return kartsOnly(selection)||bikesOnly(selection)?6:12;
  case UiPage::VSMode:case UiPage::BattleMode:case UiPage::BattleCup:case UiPage::Drift:case UiPage::QuitConfirm:return 2;
- case UiPage::Cup:return 8;
+ case UiPage::Cup:return mkw::cupCount();
  case UiPage::Course:return 4;
  case UiPage::BattleStage:return 5;
  case UiPage::Ghost:case UiPage::Pause:return 3;
@@ -114,7 +115,7 @@ unsigned MenuState::engineClassMovie(unsigned slot)const{
 bool MenuState::supportsRace()const{
  // Browsing a retail menu does not silently change the chosen race rules or
  // substitute a different character/machine when that runtime is unavailable.
- return raceMode(selection.mode)&&(selection.mode!=UiMode::GrandPrix||raceEngineClass(selection.engineClass))&&!selection.teams&&raceDriver(selection.driver)&&raceVehicle(selection.vehicle)&&selection.course<32;
+ return raceMode(selection.mode)&&(selection.mode!=UiMode::GrandPrix||raceEngineClass(selection.engineClass))&&!selection.teams&&raceDriver(selection.driver)&&raceVehicle(selection.vehicle)&&selection.course<mkw::courseCount();
 }
 
 void MenuState::advance(unsigned ticks){age+=ticks;focusAge+=ticks;uiFocusAdvance(*this,ticks);}
@@ -176,6 +177,24 @@ UiAction MenuState::input(UiInput key){
   selection.mixedEngineTypes=!selection.mixedEngineTypes;
   focusAge=0;unavailable=false;
   return UiAction::None;
+ }
+ if(page==UiPage::Cup&&count()>8){
+  if(key.pageLeft){
+   const unsigned prev=cursor;
+   if(cursor>=8)cursor-=8;
+   else{const unsigned lastPage=(count()-1)/8;cursor=std::min(lastPage*8+(cursor%8),count()-1);}
+   if(cursor!=prev)focusAge=0;
+   unavailable=false;
+   return UiAction::None;
+  }
+  if(key.pageRight){
+   const unsigned prev=cursor;
+   if(cursor+8<count())cursor+=8;
+   else cursor=cursor%8;
+   if(cursor!=prev)focusAge=0;
+   unavailable=false;
+   return UiAction::None;
+  }
  }
  if(key.up||key.down||key.left||key.right){
   const unsigned previousCursor=cursor;

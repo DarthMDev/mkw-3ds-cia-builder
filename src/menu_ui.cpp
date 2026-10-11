@@ -1,5 +1,6 @@
 #include <mkw/menu_ui.hpp>
 #include <mkw/mod_engine.hpp>
+#include <mkw/course_catalog.hpp>
 #include <mkw/menu_assets.hpp>
 #include <mkw/menu_movie_assets.hpp>
 #include <mkw/menu_animations.hpp>
@@ -251,7 +252,7 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
  }
  Composer c(s,q,transition);const unsigned driver=std::min(s.selection.driver,unsigned(UiCharacters.size()-1));
  const bool preload=transition&&transition->preload;
- const unsigned course=std::min(s.selection.course,31u),weight=UiCharacters[driver].weight;
+ const unsigned course=s.selection.course,weight=UiCharacters[driver].weight;
  const char* modes[]={"Grand Prix","Time Trials","VS","Battle"};
  // The first quad is always the background, allowing the original 3D menu
  // scene to be inserted between it and the authored controls.
@@ -344,36 +345,63 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
   c.chrome(battle?"Battle":"VS");break;
  }
  case UiPage::Cup:case UiPage::Course:{
-  bool pickCup=s.page==UiPage::Cup;unsigned selectedCup=pickCup?std::min(s.cursor,7u):course/4;
+  const bool pickCup=s.page==UiPage::Cup;
+  const unsigned totalCups=mkw::cupCount();
+  const unsigned activeCup=pickCup?s.cursor:(course/4);
+  const unsigned cupPage=activeCup/8;
+  const unsigned cupBase=cupPage*8;
+  const unsigned pageCupCount=std::min(8u,totalCups>cupBase?totalCups-cupBase:0u);
+  const unsigned selectedSlot=activeCup-cupBase;
   Pose cups=control("CupSelectNULL","CupSelectCupNULL"),courses=control("CupSelectNULL","CupSelectCourseNULL");
   // The chosen cup draws last (retail lifts it to z+200) over its neighbours.
-  for(unsigned n=0;n<8;++n){const unsigned i=n<selectedCup?n:n==7?selectedCup:n+1;
-   Pose p=child(cups,numbered(pickCup?"CupSelectCup":"CourseSelectCup",i));const char* base=i==selectedCup?"cup_select":"cup_free";
+  for(unsigned n=0;n<pageCupCount;++n){
+   const unsigned slot=n<selectedSlot?n:n==pageCupCount-1?selectedSlot:n+1;
+   const unsigned globalCup=cupBase+slot;
+   Pose p=child(cups,numbered(pickCup?"CupSelectCup":"CourseSelectCup",slot));
+   const char* base=slot==selectedSlot?"cup_select":"cup_free";
    if(!pickCup){
     // CtrlMenuCourseSelectCupSub::calcSelf (USA 807de7d4): t advances 20 per
     // frame to 300. The chosen cup slides to the CupSelectCupNULL origin and
     // grows to 1.5x; the other cups fade out (alpha 300-t, clamped to 255).
     const float t=std::min(300.f,20.f*float(s.age+1));
-    if(i==selectedCup){const float k=t/300.f;p.x+=(cups.x-p.x)*k;p.y+=(cups.y-p.y)*k;p.sx*=1+t/600.f;p.sy*=1+t/600.f;}
+    if(slot==selectedSlot){const float k=t/300.f;p.x+=(cups.x-p.x)*k;p.y+=(cups.y-p.y)*k;p.sx*=1+t/600.f;p.sy*=1+t/600.f;}
     else{p.alpha*=std::clamp(300.f-t,0.f,255.f)/255.f;if(p.alpha<=0)continue;}
    }
-   c.panel(base,p);c.icon("cup_",i,base,"icon",p);
-   if(i==selectedCup){c.text(resolveCupName(i),base,p);if(pickCup)c.glow("cup",p,resolveCupName(i),i);}
+   c.panel(base,p);
+   c.icon("cup_",globalCup%8,base,"icon",p);
+   const char* cName=mkw::cupName(globalCup);
+   if(slot==selectedSlot){c.text(cName,base,p);if(pickCup)c.glow("cup",p,cName,slot);}
   }
   if(pickCup){
    Pose movie=child(cups,control("CourseSelectMovie","RaceCupMovie"));
-   c.panel("course_movie_frame",movie);c.movie("cup_movie_",selectedCup,"course_movie_frame","black_base",movie);
+   c.panel("course_movie_frame",movie);
+   c.movie("cup_movie_",activeCup%8,"course_movie_frame","black_base",movie);
    const unsigned highlighted=(unsigned(double(s.age)*59.94/60.0)/120)%4;
    for(unsigned i=0;i<4;++i){Pose p=child(courses,numbered("CupSelectCourse",i,"Course"));
-    c.text(CourseNames[selectedCup*4+i],i==highlighted?"cup_course_select":"cup_course_free",p);
-    if(preload)c.text(CourseNames[selectedCup*4+i],i==highlighted?"cup_course_free":"cup_course_select",p);
+    unsigned ci=activeCup*4+i;
+    const char* name=mkw::courseName(ci);
+    c.text(name,i==highlighted?"cup_course_select":"cup_course_free",p);
+    if(preload)c.text(name,i==highlighted?"cup_course_free":"cup_course_select",p);
    }
+   if(totalCups>8){
+    char desc[48];
+    std::snprintf(desc,sizeof desc,"Page %u/%u (L / R to flip)",cupPage+1,(totalCups+7)/8);
+    c.chrome("Cups",desc);
+   }else c.chrome("Cups");
   }else{
-   for(unsigned i=0;i<4;++i){Pose p=child(courses,numbered("CourseSelectCourse",i));unsigned ci=selectedCup*4+i;
-    const char* base=s.cursor==i?"course_select":"course_free";c.movieButton(base,p);c.movie("course_preview_",ci,base,"black_base",p);c.movieOverlay(base,p);c.text(CourseNames[ci],base,p);if(s.cursor==i)c.glow("course",p,CourseNames[ci]);
+   for(unsigned i=0;i<4;++i){Pose p=child(courses,numbered("CourseSelectCourse",i));
+    unsigned ci=activeCup*4+i;
+    const char* name=mkw::courseName(ci);
+    const char* base=s.cursor==i?"course_select":"course_free";
+    c.movieButton(base,p);
+    c.movie("course_preview_",ci<32?ci:(ci%32),base,"black_base",p);
+    c.movieOverlay(base,p);
+    c.text(name,base,p);
+    if(s.cursor==i)c.glow("course",p,name);
    }
+   c.chrome("Courses");
   }
-  c.chrome(pickCup?"Cups":"Courses");break;
+  break;
  }
  case UiPage::BattleCup:case UiPage::BattleStage:{
   const bool pick=s.page==UiPage::BattleCup;const unsigned cup=pick?std::min(s.cursor,1u):std::min(s.selection.battleStage/5,1u);

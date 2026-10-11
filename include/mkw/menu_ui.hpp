@@ -15,7 +15,7 @@ inline constexpr std::array<UiMainMenuControl,7> UiMainMenuControls{{
  {0,-135.f,68.8f},{1,86.4f,68.8f},{1,135.f,68.8f},{1,183.6f,68.8f},
  {2,-172.8f,-93.2f},{2,-97.2f,-93.2f},{3,135.f,-93.2f}
 }};
-struct UiInput {bool up=false,down=false,left=false,right=false,accept=false,back=false,start=false,switchType=false;};
+struct UiInput {bool up=false,down=false,left=false,right=false,accept=false,back=false,start=false,switchType=false,pageLeft=false,pageRight=false;};
 struct UiSelection {
  unsigned driver=0,vehicle=0,course=0;bool automatic=false;
  UiMode mode=UiMode::GrandPrix;UiEngineClass engineClass=UiEngineClass::CC150;

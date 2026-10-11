@@ -1,11 +1,63 @@
 #include <mkw/mod_engine.hpp>
+#include <mkw/course_catalog.hpp>
 #include <mkw/race_items.hpp>
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace mkw {
+
+namespace {
+
+// Lightweight helper functions to parse JSON strings and numbers
+const char* skipWhitespace(const char* p) {
+    while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) {
+        ++p;
+    }
+    return p;
+}
+
+const char* findKey(const char* p, const char* key, const char* end) {
+    size_t keyLen = std::strlen(key);
+    while (p < end && *p) {
+        if (*p == '"' && strncmp(p + 1, key, keyLen) == 0 && p[1 + keyLen] == '"') {
+            const char* colon = p + 2 + keyLen;
+            colon = skipWhitespace(colon);
+            if (*colon == ':') {
+                return skipWhitespace(colon + 1);
+            }
+        }
+        ++p;
+    }
+    return nullptr;
+}
+
+bool parseString(const char* val, char* out, size_t maxLen) {
+    if (!val || *val != '"') {
+        return false;
+    }
+    ++val;
+    size_t i = 0;
+    while (*val && *val != '"' && i + 1 < maxLen) {
+        if (*val == '\\' && val[1]) {
+            ++val;
+        }
+        out[i++] = *val++;
+    }
+    out[i] = '\0';
+    return true;
+}
+
+int parseInt(const char* val) {
+    if (!val) {
+        return 0;
+    }
+    return std::atoi(val);
+}
+
+} // namespace
 
 ModEngine& ModEngine::instance() {
     static ModEngine s_instance;
@@ -38,6 +90,8 @@ void ModEngine::init() {
 void ModEngine::shutdown() {
     hooks_.clear();
     cups_.clear();
+    dynamicTracks_.clear();
+    stringStorage_.clear();
     modLoaded_ = false;
     settings_ = ModSettings{};
     initialized_ = false;
@@ -118,6 +172,50 @@ unsigned ModEngine::onAudioResolve(Kinoko::Course course, unsigned defaultStream
     return streamId;
 }
 
+unsigned ModEngine::cupCount() const {
+    if (modLoaded_ && !cups_.empty()) {
+        return cups_.size();
+    }
+    return 8;
+}
+
+unsigned ModEngine::trackCount() const {
+    if (modLoaded_ && !dynamicTracks_.empty()) {
+        return dynamicTracks_.size();
+    }
+    return CourseCount;
+}
+
+const CourseChoice& ModEngine::courseChoice(unsigned index) const {
+    if (modLoaded_ && !dynamicTracks_.empty() && index < dynamicTracks_.size()) {
+        return dynamicTracks_[index];
+    }
+    if (index < CourseCount) {
+        return Courses[index];
+    }
+    return Courses[0];
+}
+
+const char* ModEngine::courseName(unsigned index) const {
+    return courseChoice(index).name;
+}
+
+const char* ModEngine::cupName(unsigned cupIndex) const {
+    if (modLoaded_ && cupIndex < cups_.size()) {
+        if (cups_[cupIndex].name[0] != '\0') {
+            return cups_[cupIndex].name;
+        }
+    }
+    static constexpr const char* VANILLA_CUPS[] = {
+        "Mushroom Cup", "Flower Cup", "Star Cup", "Special Cup",
+        "Shell Cup", "Banana Cup", "Leaf Cup", "Lightning Cup"
+    };
+    if (cupIndex < 8) {
+        return VANILLA_CUPS[cupIndex];
+    }
+    return "Custom Cup";
+}
+
 const ModTrackDef* ModEngine::findTrack(Kinoko::Course course) const {
     for (const auto& cup : cups_) {
         for (size_t i = 0; i < cup.trackCount; ++i) {
@@ -154,6 +252,7 @@ bool ModEngine::loadManifest(const char* manifestPath) {
     }
 
     const char* p = buffer.data();
+    const char* bufferEnd = p + readBytes;
 
     // Check for boolean settings
     if (strstr(p, "\"enable_200cc\": true") || strstr(p, "\"enable_200cc\":true")) {
@@ -166,8 +265,127 @@ bool ModEngine::loadManifest(const char* manifestPath) {
         settings_.customItems = true;
     }
 
+    // Parse custom cups array
+    const char* cupsStart = findKey(p, "cups", bufferEnd);
+    if (cupsStart && *cupsStart == '[') {
+        const char* cur = cupsStart + 1;
+        while (cur < bufferEnd && *cur && *cur != ']') {
+            cur = skipWhitespace(cur);
+            if (*cur == '{') {
+                const char* cupObjStart = cur;
+                // Find matching closing brace for this cup
+                int depth = 1;
+                const char* cupObjEnd = cupObjStart + 1;
+                while (cupObjEnd < bufferEnd && depth > 0) {
+                    if (*cupObjEnd == '{') ++depth;
+                    else if (*cupObjEnd == '}') --depth;
+                    ++cupObjEnd;
+                }
+
+                ModCupDef cupDef{};
+                const char* cupNameVal = findKey(cupObjStart, "name", cupObjEnd);
+                if (cupNameVal) {
+                    parseString(cupNameVal, cupDef.name, sizeof(cupDef.name));
+                }
+                const char* cupIconVal = findKey(cupObjStart, "icon", cupObjEnd);
+                if (cupIconVal) {
+                    parseString(cupIconVal, cupDef.icon, sizeof(cupDef.icon));
+                }
+
+                // Parse tracks inside this cup
+                const char* tracksStart = findKey(cupObjStart, "tracks", cupObjEnd);
+                if (tracksStart && *tracksStart == '[') {
+                    const char* tCur = tracksStart + 1;
+                    while (tCur < cupObjEnd && *tCur && *tCur != ']' && cupDef.trackCount < 4) {
+                        tCur = skipWhitespace(tCur);
+                        if (*tCur == '{') {
+                            int tDepth = 1;
+                            const char* trackObjStart = tCur;
+                            const char* trackObjEnd = trackObjStart + 1;
+                            while (trackObjEnd < cupObjEnd && tDepth > 0) {
+                                if (*trackObjEnd == '{') ++tDepth;
+                                else if (*trackObjEnd == '}') --tDepth;
+                                ++trackObjEnd;
+                            }
+
+                            ModTrackDef trackDef{};
+                            const char* tName = findKey(trackObjStart, "name", trackObjEnd);
+                            if (tName) parseString(tName, trackDef.name, sizeof(trackDef.name));
+
+                            const char* tId = findKey(trackObjStart, "course_id", trackObjEnd);
+                            if (tId) trackDef.courseId = static_cast<Kinoko::Course>(parseInt(tId));
+
+                            const char* tArch = findKey(trackObjStart, "archive", trackObjEnd);
+                            if (tArch) parseString(tArch, trackDef.archive, sizeof(trackDef.archive));
+
+                            const char* tLaps = findKey(trackObjStart, "laps", trackObjEnd);
+                            trackDef.lapCount = tLaps ? static_cast<uint8_t>(parseInt(tLaps)) : 3;
+
+                            const char* tMusic = findKey(trackObjStart, "music_stream_id", trackObjEnd);
+                            trackDef.musicStreamId = tMusic ? static_cast<uint16_t>(parseInt(tMusic)) : 0;
+
+                            cupDef.tracks[cupDef.trackCount++] = trackDef;
+
+                            // Add CourseChoice entry for dynamic catalog
+                            stringStorage_.push_back(trackDef.name);
+                            const char* storedName = stringStorage_.back().c_str();
+
+                            stringStorage_.push_back(trackDef.archive);
+                            const char* storedArchive = stringStorage_.back().c_str();
+
+                            stringStorage_.push_back(cupDef.name);
+                            const char* storedCup = stringStorage_.back().c_str();
+
+                            CourseChoice choice{
+                                storedName,
+                                trackDef.courseId,
+                                storedArchive,
+                                "", // models list (empty uses archive or direct)
+                                "", // sky list
+                                storedCup,
+                                true, // supported
+                                true  // cpuCompletionVerified
+                            };
+                            dynamicTracks_.push_back(choice);
+
+                            tCur = trackObjEnd;
+                        } else {
+                            ++tCur;
+                        }
+                    }
+                }
+
+                cups_.push_back(cupDef);
+                cur = cupObjEnd;
+            } else {
+                ++cur;
+            }
+        }
+    }
+
     modLoaded_ = true;
     return true;
+}
+
+// Global dynamic catalog accessors (course_catalog.hpp)
+unsigned courseCount() {
+    return modEngine().trackCount();
+}
+
+unsigned cupCount() {
+    return modEngine().cupCount();
+}
+
+const CourseChoice& course(unsigned index) {
+    return modEngine().courseChoice(index);
+}
+
+const char* courseName(unsigned index) {
+    return modEngine().courseName(index);
+}
+
+const char* cupName(unsigned cupIndex) {
+    return modEngine().cupName(cupIndex);
 }
 
 } // namespace mkw

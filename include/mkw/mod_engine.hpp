@@ -3,6 +3,7 @@
 #include <Common.hh>
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace Kinoko::Kart {
@@ -68,6 +69,8 @@ public:
     }
 };
 
+struct CourseChoice;
+
 // Central manager for Pulsar-3DS modular native modding
 class ModEngine {
 public:
@@ -97,6 +100,13 @@ public:
     bool isBrakeDriftEnabled() const { return settings_.brakeDrifting; }
     void setBrakeDriftEnabled(bool enabled) { settings_.brakeDrifting = enabled; }
 
+    // Dynamic Course Catalog (Phase 2)
+    unsigned cupCount() const;
+    unsigned trackCount() const;
+    const CourseChoice& courseChoice(unsigned index) const;
+    const char* courseName(unsigned index) const;
+    const char* cupName(unsigned cupIndex) const;
+
     // Manifest management (loads pulsar_manifest.json)
     bool loadManifest(const char* manifestPath);
     const std::vector<ModCupDef>& cups() const { return cups_; }
@@ -111,6 +121,8 @@ private:
     ModSettings settings_{};
     std::vector<IModHook*> hooks_;
     std::vector<ModCupDef> cups_;
+    std::vector<std::string> stringStorage_;
+    std::vector<CourseChoice> dynamicTracks_;
 };
 
 inline ModEngine& modEngine() {
