@@ -15,6 +15,7 @@ from package_standalone import SOURCE, stage_assets, digest
 from bootstrap_tools import tools
 import home_menu_art
 RSF=Path(__file__).with_name('mkw-3ds.rsf')
+TITLE='Mario Kart Wii 3DS'  # HOME Menu name
 UNIQUE_ID=0xF4B57
 TITLE_ID=0x0004000000000000|UNIQUE_ID<<8
 
@@ -34,7 +35,7 @@ def package(cci=False,version='0.1.0',output=None):
     out=ROOT/'build/release';art=out/'art';out.mkdir(parents=True,exist_ok=True)
     icon,banner,sound=home_menu_art.make(art,SOURCE/'movies/title_bgm.wav')
     run(bannertool,'makebanner','-i',banner,'-a',sound,'-o',art/'banner.bnr')
-    run(bannertool,'makesmdh','-s','Mario Kart Wii','-l','Mario Kart Wii (unofficial 3DS port)','-p','mkw-3ds',
+    run(bannertool,'makesmdh','-s',TITLE,'-l',TITLE+' (unofficial port)','-p','mkw-3ds',
         '-i',icon,'-o',art/'icon.icn','-r','regionfree','-f','visible,allow3d,recordusage')
     target=output or out/('mkw-3ds.cci' if cci else 'mkw-3ds.cia')
     temporary=target.with_name(target.name+'.tmp')
