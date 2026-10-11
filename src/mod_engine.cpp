@@ -346,6 +346,12 @@ bool ModEngine::loadManifest(const char* manifestPath) {
                             const char* tMusic = findKey(trackObjStart, "music_stream_id", trackObjEnd);
                             trackDef.musicStreamId = tMusic ? static_cast<uint16_t>(parseInt(tMusic)) : 0;
 
+                            const char* tModels = findKey(trackObjStart, "models", trackObjEnd);
+                            if (tModels) parseString(tModels, trackDef.models, sizeof(trackDef.models));
+
+                            const char* tSky = findKey(trackObjStart, "sky", trackObjEnd);
+                            if (tSky) parseString(tSky, trackDef.sky, sizeof(trackDef.sky));
+
                             cupDef.tracks[cupDef.trackCount++] = trackDef;
 
                             // Add CourseChoice entry for dynamic catalog
@@ -355,6 +361,12 @@ bool ModEngine::loadManifest(const char* manifestPath) {
                             stringStorage_.push_back(trackDef.archive);
                             const char* storedArchive = stringStorage_.back().c_str();
 
+                            stringStorage_.push_back(trackDef.models);
+                            const char* storedModels = stringStorage_.back().c_str();
+
+                            stringStorage_.push_back(trackDef.sky);
+                            const char* storedSky = stringStorage_.back().c_str();
+
                             stringStorage_.push_back(cupDef.name);
                             const char* storedCup = stringStorage_.back().c_str();
 
@@ -362,8 +374,8 @@ bool ModEngine::loadManifest(const char* manifestPath) {
                                 storedName,
                                 trackDef.courseId,
                                 storedArchive,
-                                "", // models list (empty uses archive or direct)
-                                "", // sky list
+                                storedModels,
+                                storedSky,
                                 storedCup,
                                 true, // supported
                                 true  // cpuCompletionVerified
@@ -475,3 +487,8 @@ const char* cupName(unsigned cupIndex) {
 }
 
 } // namespace mkw
+
+extern "C" const char* getActiveTrackArchive() {
+    return mkw::modEngine().activeTrackArchive();
+}
+

@@ -3,6 +3,7 @@
 #include <Common.hh>
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -133,6 +134,16 @@ public:
     const std::vector<ModCupDef>& cups() const { return cups_; }
     const ModTrackDef* findTrack(Kinoko::Course course) const;
 
+    const char* activeTrackArchive() const { return activeTrackArchive_; }
+    void setActiveTrackArchive(const char* archive) {
+        if (archive) {
+            std::strncpy(activeTrackArchive_, archive, sizeof(activeTrackArchive_) - 1);
+            activeTrackArchive_[sizeof(activeTrackArchive_) - 1] = '\0';
+        } else {
+            activeTrackArchive_[0] = '\0';
+        }
+    }
+
 private:
     ModEngine();
     ~ModEngine();
@@ -140,6 +151,7 @@ private:
     bool initialized_ = false;
     bool modLoaded_ = false;
     ModSettings settings_{};
+    char activeTrackArchive_[128]{};
     std::vector<IModHook*> hooks_;
     std::vector<ModCupDef> cups_;
     std::vector<std::string> stringStorage_;

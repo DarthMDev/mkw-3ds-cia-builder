@@ -272,8 +272,17 @@ def main():
     p.add_argument('--keep-stage',action='store_true',help='keep build/playable after packaging')
     p.add_argument('--check',action='store_true',help='verify tools, disc and cooked assets, then stop')
     p.add_argument('--cook-only',action='store_true',help='stop after cooking')
+    p.add_argument('--pack',type=Path,help='path to a Pulsar / Retro Rewind mod pack directory')
+    p.add_argument('--pack-config',type=str,default=None,help='specific Config.pul file in pack (e.g. ConfigRT.pul)')
+    p.add_argument('--max-cups',type=int,default=None,help='limit number of mod cups to import')
     a=p.parse_args()
     stage_tools();stage_sources();stage_disc(a.disc);stage_cook(a.disc,a.jobs,a.force_cook,a.check)
+    if a.pack:
+        log('ingesting Pulsar mod pack:',a.pack)
+        cmd=[sys.executable,'tools/import_pulsar_pack.py',a.pack,'--jobs',str(a.jobs)]
+        if a.pack_config:cmd+=['--config',a.pack_config]
+        if a.max_cups:cmd+=['--max-cups',str(a.max_cups)]
+        run(cmd)
     if a.check:log('check passed: ready to compile and package');return
     if a.cook_only:log('cook complete');return
     if not a.skip_compile:stage_compile(a.jobs)

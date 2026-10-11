@@ -214,6 +214,29 @@ import sys
 # fallback for anything not packed.
 for archive in ('menu.pak','race.pak'):
  if (assets/archive).is_file():files[assets/archive]=Path(archive)
+pulsar_manifest_path=assets/'pulsar_manifest.json'
+if pulsar_manifest_path.is_file():
+ files[pulsar_manifest_path]=Path('pulsar_manifest.json')
+ try:
+  pulsar_data=json.loads(pulsar_manifest_path.read_text())
+  for cup in pulsar_data.get('cups',[]):
+   for track in cup.get('tracks',[]):
+    arch=track.get('archive')
+    if arch and (assets/arch).is_file():files[assets/arch]=Path(arch)
+    for key in ('models','sky'):
+     list_rel=track.get(key)
+     if list_rel and (assets/list_rel).is_file():
+      files[assets/list_rel]=Path(list_rel)
+      for model_name in (assets/list_rel).read_text().split():
+       gmdl=assets/'models'/f'{model_name}.gmdl'
+       if gmdl.is_file():
+        files[gmdl]=Path('models')/gmdl.name;b=gmdl.read_bytes()
+        magic,version,nv,ni,ns,nt=struct.unpack_from('<4s5I',b)
+        stride=44 if version==3 else 56
+        for i in range(nt):
+         tex=b[24+ns*stride+i*64:24+ns*stride+(i+1)*64].split(b'\0')[0].decode();t3x=assets/'textures'/f'{tex}.t3x'
+         if t3x.is_file():files[t3x]=Path('textures')/t3x.name
+ except Exception as e:pass
 if '--list' in sys.argv:
  print(json.dumps({rel.as_posix():str(src) for src,rel in files.items()}))
  raise SystemExit(0)

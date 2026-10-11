@@ -5213,6 +5213,39 @@ index 0faeaf7..dea1f38 100644
      static constexpr u32 RNG_SEED = 0x74A1B095;
  
      static RaceManager *s_instance; ///< @addr{0x809BD730}
+diff --git a/source/game/system/ResourceManager.cc b/source/game/system/ResourceManager.cc
+index 20d58f6..10d3e54 100644
+--- a/source/game/system/ResourceManager.cc
++++ b/source/game/system/ResourceManager.cc
+@@ -1,6 +1,11 @@
+ #include "ResourceManager.hh"
+ 
+ #include "game/system/RaceConfig.hh"
++#include <cstring>
++
++#ifdef __3DS__
++extern "C" const char* getActiveTrackArchive();
++#endif
+ 
+ namespace Kinoko::System {
+ 
+@@ -46,6 +51,16 @@ MultiDvdArchive *ResourceManager::load(s32 idx, const char *filename) {
+ /// @addr{0x80540760}
+ MultiDvdArchive *ResourceManager::load(Course courseId) {
+     char buffer[256];
++#ifdef __3DS__
++    const char* customArch = getActiveTrackArchive();
++    if (customArch && customArch[0]) {
++        snprintf(buffer, sizeof(buffer), "%s", customArch);
++        char* ext = strstr(buffer, ".szs");
++        if (ext) *ext = '\0';
++        m_archives[1]->load(buffer);
++        return m_archives[1];
++    }
++#endif
+     snprintf(buffer, sizeof(buffer), "Race/Course/%s", COURSE_NAMES[static_cast<s32>(courseId)]);
+     m_archives[1]->load(buffer);
+     return m_archives[1];
 diff --git a/source/game/system/map/MapdataCheckPoint.cc b/source/game/system/map/MapdataCheckPoint.cc
 index aec1afc..7867992 100644
 --- a/source/game/system/map/MapdataCheckPoint.cc

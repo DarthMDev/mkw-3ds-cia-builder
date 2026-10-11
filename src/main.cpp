@@ -849,6 +849,7 @@ int main() {
         trackLoadFailed=false;
         courseObjects.reset();track.clear();sky.clear();
         const auto& curCourse=mkw::course(courseChoice);
+        mkw::modEngine().setActiveTrackArchive(curCourse.archive);
         if(linearSpaceFree()<2u*1024*1024){
             LOGF("WARNING: Low LINEAR heap space before track load: %lu bytes", (unsigned long)linearSpaceFree());
         }
