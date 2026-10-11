@@ -32,7 +32,6 @@ Unlike an emulator, this is a **native port** running directly on the 3DS ARM11 
   - Hop and drift or trick off ramps using **R** (Mario Kart 7 style).
   - Manual tricks and bike wheelies using **X / Y** (direction determined by Circle Pad) or the **D-Pad**.
 - **HUD & Visuals**:
-  - Built-in **Speedometer** in the bottom-right corner of the HUD (toggled with **SELECT**).
   - Particle effects: start-boost charge smoke, burnout puffs, drift tyre smoke, off-road dust, and landing puffs.
   - Restored Toadette hair braid attachments and HUD position display polish.
   - Official Nintendo 3DS system splash and custom Standard Kart M HOME menu banner/icon.
@@ -51,7 +50,6 @@ Unlike an emulator, this is a **native port** running directly on the 3DS ARM11 
 | D-Pad | Trick / wheelie (Wii Classic Controller style) |
 | L | Use item |
 | START | Pause race |
-| SELECT | Toggle Speedometer on/off |
 | Touch Screen | Switch bottom-screen minimap / leaderboard view |
 
 ---

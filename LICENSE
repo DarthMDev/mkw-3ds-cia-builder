@@ -2,10 +2,10 @@ MIT License
 
 Copyright (c) 2026 MiniBandit
 
-This license covers MiniBandit's changes and additions to this repository
-(everything after the commit "Import original mkw-3ds-cia-builder v0.1.0
-unchanged"). It does not cover the original port by dudewhat or the
-third-party components; see NOTICE.
+This license covers the continuation changes and additions to this repository
+(including game modes, roster and vehicle enhancements, trick mechanics,
+visual effects, HUD adjustments, and build tools). It does not cover the
+original port by dudewhat or the third-party components; see NOTICE.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

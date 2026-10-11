@@ -108,6 +108,8 @@ def stage_sources():
     run([sys.executable,'tools/bootstrap.py'])
 
 def stage_disc(disc):
+    if disc and not Path(disc).is_file():
+        raise SystemExit(f'Disc image does not exist: {disc}')
     receipt=ROOT/'data/extracted/extraction-receipt.json'
     # An extraction that failed the check (a Europe disc, a modified or NKit
     # dump) is replaced when a different image is given, e.g. the USA ISO.

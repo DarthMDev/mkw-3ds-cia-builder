@@ -12,8 +12,9 @@ something changed, please open an issue.
 
 This continuation
 -----------------
-MiniBandit's changes and additions (every commit after the import) are
-released under the MIT License in LICENSE.
+The continuation changes and additions to this repository (including game modes,
+roster and vehicle enhancements, trick mechanics, visual effects, HUD
+adjustments, and build tools) are released under the MIT License in LICENSE.
 
 Third-party components
 ----------------------
