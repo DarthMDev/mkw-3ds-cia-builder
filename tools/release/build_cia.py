@@ -283,6 +283,24 @@ def main():
         if a.pack_config:cmd+=['--config',a.pack_config]
         if a.max_cups:cmd+=['--max-cups',str(a.max_cups)]
         run(cmd)
+        title_szs = a.pack / 'UI/Title.szs'
+        title_u_szs = a.pack / 'UI/Title_U.szs'
+        if title_szs.is_file() and title_u_szs.is_file():
+            log('unpacking Retro Rewind title art')
+            run([sys.executable,'tools/unpack_szs.py',title_szs,'assets/menu-ui/Title'])
+            run([sys.executable,'tools/unpack_szs.py',title_u_szs,'assets/menu-ui/Title_U'])
+        ui_assets_szs = a.pack / 'Assets/UIAssets.szs'
+        if ui_assets_szs.is_file():
+            log('extracting Retro Rewind cup icons')
+            temp_ui = ROOT / 'build/pulsar-exports/ui_assets'
+            run([sys.executable,'tools/unpack_szs.py',ui_assets_szs,temp_ui])
+            cups_dir = ROOT / 'assets/menu-ui/cups'
+            cups_dir.mkdir(parents=True, exist_ok=True)
+            for tpl in (temp_ui / 'button/timg').glob('icon_*.tpl'):
+                shutil.copy2(tpl, cups_dir / tpl.name)
+        log('cooking custom menu UI')
+        run([sys.executable,'tools/cook_menu_ui.py'])
+        run([sys.executable,'tools/pack_menu_assets.py'])
     if a.check:log('check passed: ready to compile and package');return
     if a.cook_only:log('cook complete');return
     if not a.skip_compile:stage_compile(a.jobs)

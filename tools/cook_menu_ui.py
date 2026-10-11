@@ -380,7 +380,12 @@ def main():
  drivers=['mario','luigi','peach','yoshi','baby_mario','baby_peach','kinopio','noko','wario','waluigi','donky','koopa','baby_daisy','baby_luigi','catherine','daisy','didy','karon','hone_koopa','funky','teresa','roseta','kinopico','koopa_jr','mii_suit_a','mii_suit_b']
  for i,n in enumerate(drivers):tpl('driver_'+str(i),UI/'button/timg'/f'tt_{n}_64x64.tpl')
  cups=['kinoko','flower','star','oukan','koura','banana','konoha','thunder']
- for i,n in enumerate(cups):tpl('cup_'+str(i),UI/'button/timg'/f'tt_cup_icon_{n}_00.tpl')
+ for i in range(44):
+  custom_icon=ROOT/'assets/menu-ui/cups'/f'icon_{i:03d}.tpl'
+  if custom_icon.exists():
+   tpl('cup_'+str(i),custom_icon)
+  elif i<len(cups):
+   tpl('cup_'+str(i),UI/'button/timg'/f'tt_cup_icon_{cups[i]}_00.tpl')
  for i,n in enumerate(['tt_wii_icon_128.tpl','tt_classic_icon_sphere_128.tpl']):
   tpl('battle_cup_'+str(i),UI/'button/timg'/n)
  for i,n in enumerate(['1','2','3','m']):tpl('class_'+str(i),UI/'button/timg'/f'tt_class_kinoko_{n}.tpl')

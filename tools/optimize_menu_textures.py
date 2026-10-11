@@ -54,13 +54,22 @@ def measure():
     exe.parent.mkdir(parents=True, exist_ok=True)
     sources = ['tools/menu_sprite_scales.cpp', 'src/menu_ui.cpp', 'src/menu_state.cpp', 'src/menu_transition.cpp',
                'src/menu_focus.cpp', 'src/menu_index.cpp']
-    subprocess.run(['clang++', '-std=c++2b', '-O2', '-I' + str(ROOT / 'include'), '-o', str(exe),
-                    *[str(ROOT / s) for s in sources]], check=True)
-    out = ROOT / 'build/host-tools/sprite-scales.json'
-    subprocess.run([str(exe), str(out)], check=True)
-    if os.environ.get('MKW_UPDATE_SPRITE_SCALES') == '1':
-        shutil.copyfile(out, SHIPPED)
-    return json.loads(out.read_text())
+    try:
+        subprocess.run(['clang++', '-std=c++2b', '-O2', '-I' + str(ROOT / 'include'), '-o', str(exe),
+                        *[str(ROOT / s) for s in sources]], check=True)
+        out = ROOT / 'build/host-tools/sprite-scales.json'
+        subprocess.run([str(exe), str(out)], check=True)
+        if os.environ.get('MKW_UPDATE_SPRITE_SCALES') == '1':
+            shutil.copyfile(out, SHIPPED)
+        return json.loads(out.read_text())
+    except Exception as e:
+        if SHIPPED.is_file():
+            print(f'Host compilation failed ({e}): using shipped menu sprite measurements', flush=True)
+            out = ROOT / 'build/host-tools/sprite-scales.json'
+            out.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(SHIPPED, out)
+            return json.loads(SHIPPED.read_text())
+        raise
 
 
 def resample(image, size):

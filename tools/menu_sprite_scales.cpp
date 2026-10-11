@@ -6,10 +6,40 @@
 #include <mkw/menu_ui.hpp>
 #include <mkw/menu_transition.hpp>
 #include <mkw/menu_assets.hpp>
+#include <mkw/mod_engine.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
+
+namespace mkw {
+unsigned courseCount() { return 32; }
+unsigned cupCount() { return 8; }
+const CourseChoice& course(unsigned index) { return Courses[index % 32]; }
+const char* courseName(unsigned index) { return Courses[index % 32].name; }
+const char* cupName(unsigned cupIndex) { return Courses[std::min(cupIndex * 4, 31u)].cup; }
+
+ModEngine& ModEngine::instance() { static ModEngine e; return e; }
+unsigned ModEngine::characterSkin(unsigned) const { return 0; }
+void ModEngine::setCharacterSkin(unsigned, unsigned) {}
+void ModEngine::cycleCharacterSkin(unsigned, int) {}
+unsigned ModEngine::characterSkinCount(unsigned) const { return 0; }
+const char* ModEngine::characterSkinName(unsigned, unsigned) const { return "Default"; }
+void ModEngine::init() {}
+bool ModEngine::loadSettings(const char*) { return true; }
+bool ModEngine::saveSettings(const char*) { return true; }
+bool ModEngine::loadManifest(const char*) { return false; }
+Kinoko::Course ModEngine::onCourseResolve(int, int, Kinoko::Course id) { return id; }
+const ModTrackDef* ModEngine::findTrack(Kinoko::Course) const { return nullptr; }
+unsigned ModEngine::cupCount() const { return 8; }
+unsigned ModEngine::trackCount() const { return 32; }
+const CourseChoice& ModEngine::courseChoice(unsigned index) const { return Courses[index % 32]; }
+const char* ModEngine::courseName(unsigned index) const { return index < 32 ? Courses[index].name : ""; }
+const char* ModEngine::cupName(unsigned cupIndex) const { return cupIndex < 8 ? Courses[cupIndex * 4].cup : ""; }
+ModEngine::ModEngine() = default;
+ModEngine::~ModEngine() = default;
+}
+
 using namespace mkw;
 static std::vector<float> maxW(std::size(UiSprites),0.f),maxH(std::size(UiSprites),0.f);
 static void record(const std::vector<UiQuad>& quads){

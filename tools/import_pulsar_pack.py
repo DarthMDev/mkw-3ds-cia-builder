@@ -44,8 +44,59 @@ def load_crc_name_maps(pack_path: Path):
                             pass
     return mapping
 
+RETRO_REWIND_CUP_NAMES = [
+    "SNES Mushroom Cup",
+    "SNES Flower Cup",
+    "SNES Star Cup",
+    "SNES Special Cup",
+    "SNES Extra Cup",
+    "N64 Mushroom Cup",
+    "N64 Flower Cup",
+    "N64 Star Cup",
+    "N64 Special Cup",
+    "GBA Mushroom Cup",
+    "GBA Flower Cup",
+    "GBA Lightning Cup",
+    "GBA Star Cup",
+    "GBA Special Cup",
+    "GCN Mushroom Cup",
+    "GCN Flower Cup",
+    "GCN Star Cup",
+    "GCN Special Cup",
+    "DS Mushroom Cup",
+    "DS Flower Cup",
+    "DS Star Cup",
+    "DS Special Cup",
+    "Wii Mushroom Cup",
+    "Wii Flower Cup",
+    "Wii Star Cup",
+    "Wii Special Cup",
+    "3DS Mushroom Cup",
+    "3DS Flower Cup",
+    "3DS Star Cup",
+    "3DS Special Cup",
+    "Wii U Mushroom Cup",
+    "Wii U Flower Cup",
+    "Wii U Star Cup",
+    "Wii U Egg Cup",
+    "Wii U Crossing Cup",
+    "Tour Mushroom Cup",
+    "Tour Flower Cup",
+    "RMX Mushroom Cup",
+    "RMX Flower Cup",
+    "Arcade GP Cup",
+    "SuperWii 2 Mushroom Cup",
+    "SuperWii 2 Flower Cup",
+    "SuperWii 2 Star Cup",
+    "Bonus & Beta Cup",
+]
+
 def generate_cup_name(cup_idx: int, total_cups: int, first_track_name: str = ""):
-    """Generate meaningful cup name based on platform prefix or index."""
+    """Generate meaningful cup name based on Retro Rewind definitions or index."""
+    if total_cups == 44 and cup_idx < len(RETRO_REWIND_CUP_NAMES):
+        return RETRO_REWIND_CUP_NAMES[cup_idx]
+    if cup_idx < len(RETRO_REWIND_CUP_NAMES):
+        return RETRO_REWIND_CUP_NAMES[cup_idx]
     if first_track_name:
         for prefix in ("SNES", "N64", "GBA", "GCN", "DS", "Wii", "3DS", "Custom"):
             if prefix in first_track_name:
