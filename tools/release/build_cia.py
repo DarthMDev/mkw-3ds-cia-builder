@@ -114,7 +114,9 @@ def stage_disc(disc):
         run([sys.executable,'tools/extract_disc.py',disc,'data/extracted'])
     r=json.loads(receipt.read_text());ident=DISC_MANIFEST['identity']
     if any(r['identity'][k]!=v for k,v in ident.items()):
-        raise SystemExit(f"Unsupported disc {r['identity']['game_id']} revision {r['identity']['revision']}: only Mario Kart Wii USA (RMCE01) is supported")
+        game=r['identity']['game_id'];region={'RMCP01':'Europe (PAL)','RMCJ01':'Japan','RMCK01':'Korea'}.get(game)
+        what=f"Mario Kart Wii {region} ({game})" if region else f"disc {game} revision {r['identity']['revision']}"
+        raise SystemExit(f"This is {what}. Only the USA version of Mario Kart Wii (RMCE01) works for now.")
     got={f['name']:f['sha256'] for f in r['files']}
     bad=[n for n,h in DISC_MANIFEST['files'].items() if got.get(n)!=h]
     if bad:raise SystemExit(f'{len(bad)} extracted files differ from an unmodified USA disc (first: {bad[0]}). Use a clean dump.')

@@ -25,7 +25,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 rem Show the build and keep a copy in build-cia-log.txt.
 set "MKW_DISC=%disc%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.venv\Scripts\python.exe' 'tools\release\build_cia.py' $env:MKW_DISC 2>&1 | Tee-Object -FilePath 'build-cia-log.txt'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.venv\Scripts\python.exe' 'tools\release\build_cia.py' $env:MKW_DISC 2>&1 | ForEach-Object ToString | Tee-Object -FilePath 'build-cia-log.txt'"
 echo Log: %CD%\build-cia-log.txt
 goto :end
 
