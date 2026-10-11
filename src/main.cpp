@@ -104,28 +104,16 @@ static bool fullRace=false,automaticDrift=false;
 static bool timeTrial=false,newRecord=false;
 static std::array<uint32_t,32> bestTimes{};
 static constexpr const char* BestTimesPath="sdmc:/3ds/mkw-3ds/best-times.bin";
-static constexpr const char* BestTimesTmpPath="sdmc:/3ds/mkw-3ds/best-times.bin.tmp";
-static void ensureSaveDir(){mkdir("sdmc:/3ds",0777);mkdir(DATA,0777);}
-static void loadBestTimes(){
-    ensureSaveDir();
-    bestTimes={};
-    if(FILE* f=fopen(BestTimesPath,"rb")){
-        if(fread(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)!=bestTimes.size())bestTimes={};
-        fclose(f);
-    }
-}
+static void loadBestTimes(){bestTimes={};if(FILE* f=fopen(BestTimesPath,"rb")){if(fread(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)!=bestTimes.size())bestTimes={};fclose(f);}}
+// The CIA reads its data from RomFS, so nothing else creates this folder on
+// the SD card. Write a temporary file first so a pulled card keeps the old times.
 static void saveBestTimes(){
-    ensureSaveDir();
-    if(FILE* f=fopen(BestTimesTmpPath,"wb")){
-        const bool written=fwrite(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)==bestTimes.size();
-        const bool closed=fclose(f)==0;
-        if(written&&closed){
-            remove(BestTimesPath);
-            rename(BestTimesTmpPath,BestTimesPath);
-        }else{
-            remove(BestTimesTmpPath);
-        }
-    }
+    mkdir("sdmc:/3ds",0777);mkdir(DATA,0777);
+    static constexpr const char* Temporary="sdmc:/3ds/mkw-3ds/best-times.tmp";
+    FILE* f=fopen(Temporary,"wb");if(!f)return;
+    const bool ok=fwrite(bestTimes.data(),sizeof(uint32_t),bestTimes.size(),f)==bestTimes.size();
+    if(fclose(f)!=0||!ok){remove(Temporary);return;}
+    remove(BestTimesPath);rename(Temporary,BestTimesPath);
 }
 static void formatTime(char* out,size_t size,uint32_t ms){snprintf(out,size,"%u:%02u.%03u",unsigned(ms/60000),unsigned(ms/1000%60),unsigned(ms%1000));}
 static bool courseAvailable(unsigned i){return Courses[i].supported&&exists("Race/Common.szs")&&exists(Courses[i].archive)&&exists(Courses[i].models)&&(!*Courses[i].sky||exists(Courses[i].sky));}
@@ -1077,6 +1065,7 @@ int main() {
                 scenes.currentScene()->heap()->enableAllocation();scenes.changeSiblingScene(2);courseObjects.invalidate();
                 animationPass&=loadDriver();prepareGarageFixture();driftEffects.reset();raceEffects.reset();resetKartFx();accumulator=0;
             }
+            if(fullRace&&(down&KEY_SELECT))raceHud.speedometer=!raceHud.speedometer;
             if(qaMode&&((down&KEY_SELECT)||(!replay&&(down&(KEY_X|KEY_Y))))){
                 renderer.waitForGpu();
                 if(!replay&&(down&(KEY_X|KEY_Y))){
@@ -1256,11 +1245,7 @@ int main() {
                             // The race has faded to black (RaceResultsFlow::Leaving).
                             sectionFadeIn=true;
                             vsSet.next=results.chosen()==0&&!results.finalRace();
-                            if(menu.page==mkw::UiPage::Results){
-                                menu.cursor=unsigned(std::max(0,results.chosen()));
-                                nextRaceQueued=menu.input({false,false,false,false,true})==mkw::UiAction::StartRace;
-                                if(nextRaceQueued)sectionFadeIn=false;
-                            }
+                            if(menu.page==mkw::UiPage::Results){menu.cursor=unsigned(std::max(0,results.chosen()));nextRaceQueued=menu.input({false,false,false,false,true})==mkw::UiAction::StartRace;}
                         }
                         flowUi.step(results);
                     }
@@ -1735,7 +1720,7 @@ int main() {
         renderer.end();profiler->mark(Profile::Submit);profiler->end(physicsSteps,renderer);frames++;
         if(raceLoadStart){
             const double ms=double(svcGetSystemTick()-raceLoadStart)*1000.0/SYSCLOCK_ARM11;raceLoadStart=0;lastRaceFrame=0;
-            snprintf(line,sizeof line,"race_load_ms=%.1f course=%s driver=%u vehicle=%u failed=%d",ms,Courses[courseChoice].name,driverChoice,vehicleChoice,int(trackLoadFailed));report(line);menuProfile->event(line);
+            LOGF("race_load_ms=%.1f course=%s driver=%u vehicle=%u failed=%d",ms,Courses[courseChoice].name,driverChoice,vehicleChoice,int(trackLoadFailed));menuProfile->event(line);
         }
         if(menuProfile->enabled()){const auto now=svcGetSystemTick();menuProfile->raceFrame(lastRaceFrame?float(double(now-lastRaceFrame)*1000.0/SYSCLOCK_ARM11):0.f);lastRaceFrame=now;}
         if(frames==1)report("graphics first frame submitted");

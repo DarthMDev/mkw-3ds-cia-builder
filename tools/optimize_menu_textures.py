@@ -14,7 +14,7 @@ Outputs: textures/ui_*.t3x (LZ11), and the u/v (sprites) and atlas/slice UVs in
 include/mkw/menu_assets.hpp. Re-running is idempotent; cook_menu_ui.py runs it
 after regenerating menu_assets.hpp.
 """
-import argparse, hashlib, json, math, re, subprocess
+import argparse, hashlib, json, math, os, re, shutil, subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import numpy as np
@@ -32,7 +32,20 @@ def pow2(n):
     return max(8, 1 << (max(1, n) - 1).bit_length())
 
 
+SHIPPED = ROOT / 'tools/menu_sprite_scales.json'
+
+
 def measure():
+    # The measurement depends only on the menu code and the converted USA menu
+    # files, which are the same for every build: tools/menu_sprite_scales.json
+    # ships it for machines without clang++ (most Windows PCs). With clang++ the
+    # helper is rebuilt and re-run, so menu code changes are measured afresh;
+    # MKW_UPDATE_SPRITE_SCALES=1 then refreshes the shipped copy.
+    if not shutil.which('clang++'):
+        if not SHIPPED.is_file():
+            raise SystemExit('clang++ is needed to measure menu sprites (install LLVM from https://llvm.org)')
+        print('clang++ not found: using the shipped menu sprite measurements', flush=True)
+        return json.loads(SHIPPED.read_text())
     exe = ROOT / 'build/host-tools/menu_sprite_scales'
     exe.parent.mkdir(parents=True, exist_ok=True)
     sources = ['tools/menu_sprite_scales.cpp', 'src/menu_ui.cpp', 'src/menu_state.cpp', 'src/menu_transition.cpp',
@@ -41,6 +54,8 @@ def measure():
                     *[str(ROOT / s) for s in sources]], check=True)
     out = ROOT / 'build/host-tools/sprite-scales.json'
     subprocess.run([str(exe), str(out)], check=True)
+    if os.environ.get('MKW_UPDATE_SPRITE_SCALES') == '1':
+        shutil.copyfile(out, SHIPPED)
     return json.loads(out.read_text())
 
 
