@@ -79,9 +79,14 @@ COOK_STEPS=[
 def log(*a):print('[build_cia]',*a,flush=True)
 
 def run(cmd,**kw):
-    log('$',' '.join(str(c) for c in cmd))
+    # Windows installs npm as npm.cmd, which CreateProcess cannot launch
+    # directly with shell=False. Route npm commands through cmd.exe.
+    cmd=[str(c) for c in cmd]
+    if os.name == 'nt' and cmd and Path(cmd[0]).name.lower() in ('npm','npm.cmd'):
+        cmd=['cmd.exe','/d','/s','/c',subprocess.list2cmdline(cmd)]
+    log('$',' '.join(cmd))
     env=dict(os.environ,PYTHONPATH=os.pathsep.join(p for p in (str(ROOT/'vendor/gclib'),os.environ.get('PYTHONPATH')) if p))
-    subprocess.run([str(c) for c in cmd],cwd=ROOT,check=True,env=env,**kw)
+    subprocess.run(cmd,cwd=ROOT,check=True,env=env,**kw)
 
 def shared_checkout():
     """Development trees link data/, assets/ and sd-card/ to a shared checkout."""

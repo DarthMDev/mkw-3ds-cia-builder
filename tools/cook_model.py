@@ -11,6 +11,7 @@ from gx_material import material_state,retail_lighting,GMDL_SUBMESH
 WATER_WORDS={'water','sea','river','fountain','lake'}
 # Lower-case words of a source name, split at underscores, digits and case
 # changes: 'TR_houseALL' -> tr, house, all; 'water0_HIG' -> water, hig.
+from tex3ds_path import TEX3DS
 def name_words(name):return {w.lower() for w in re.findall(r'[A-Z]+(?![a-z])|[A-Z]?[a-z]+',name)}
 
 def cook(source,out,prefix,max_texture=256,preserve_vertices=False,reuse_textures=False,texture_prefix=None,encoded_textures=None):
@@ -32,7 +33,7 @@ def cook(source,out,prefix,max_texture=256,preserve_vertices=False,reuse_texture
   else:im.save(png)
   alpha=im.getchannel('A').getextrema()[0]<255;fmt='etc1a4' if alpha else 'etc1'
   if not reuse_textures:
-   subprocess.run(['/opt/devkitpro/tools/bin/tex3ds','-f',fmt,'-q','high','-z','none','-o',str(png.with_suffix('.t3x')),str(png)],check=True,stdout=subprocess.DEVNULL)
+   subprocess.run([TEX3DS,'-f',fmt,'-q','high','-z','none','-o',str(png.with_suffix('.t3x')),str(png)],check=True,stdout=subprocess.DEVNULL)
   elif not png.with_suffix('.t3x').is_file():raise ValueError('Missing reusable texture: '+str(png))
   audits.append({'source':t['name'],'name':name,'size':size,'alpha':alpha})
  # Materials tools/export_brres.ts could not translate (its receipt's fallbacks).

@@ -9,25 +9,32 @@ WHAT YOU NEED
 -------------
 - Your Mario Kart Wii disc, USA version (RMCE01), dumped as .iso or .wbfs.
   RVZ or NKit dumps: convert them to ISO in Dolphin first.
-- A Mac with about 15 GB free and an internet connection.
+- A computer with about 15 GB free and an internet connection.
 - These free tools, installed once:
-    Xcode command line tools   in Terminal: xcode-select --install
     Python 3.11 or newer       https://www.python.org/downloads/
     Node.js (LTS)              https://nodejs.org
-    devkitPro, 3DS tools       https://devkitpro.org/wiki/Getting_Started
-                               then in Terminal: sudo dkp-pacman -S 3ds-dev
+    Git                         https://git-scm.com/downloads
+    devkitPro with 3DS tools    https://devkitpro.org/wiki/Getting_Started
+- On Windows, install the Windows devkitPro environment and the 3DS
+  development tools. The Windows launcher can automatically detect
+  C:\Users\<you>\Downloads\cia\devkitPro, or you can set DEVKITPRO
+  to your devkitPro installation folder.
 
 
 BUILD
 -----
-1. Double-click "Build MKW CIA.command".
-   If macOS blocks it: System Settings > Privacy & Security > Open Anyway.
-2. Drag your disc image into the window and press Return.
-3. Wait about an hour. Your CIA is saved here:
+1. On macOS, double-click "Build MKW CIA.command". If macOS blocks it,
+   use System Settings > Privacy & Security > Open Anyway.
+   On Windows, double-click "Build MKW CIA.bat".
+2. Drag your disc image into the terminal/console window (or paste its full
+   path), then press Return/Enter.
+3. Wait; the build can take a long time. Your CIA is saved here:
        build/release/mkw-3ds.cia
 
-If it stops partway, double-click it again; finished steps are skipped.
+If it stops partway, run the launcher again; finished steps are skipped.
 If it fails, share build-cia-log.txt from this folder when asking for help.
+On Windows, if the build reports a missing DEVKITPRO or toolchain component,
+finish the devkitPro setup before running the launcher again.
 
 
 INSTALL

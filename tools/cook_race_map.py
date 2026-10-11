@@ -33,7 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 sys.path.insert(0, str(ROOT / 'vendor/gclib'))
 
-TEX3DS = '/opt/devkitpro/tools/bin/tex3ds'
+from tex3ds_path import TEX3DS
 UI = ROOT / 'assets/race-ui'
 GAME = UI / 'Race/game_image'
 GAME_U = UI / 'Race_U/game_image'

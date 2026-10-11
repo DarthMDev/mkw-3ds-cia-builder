@@ -27,10 +27,11 @@ To build the CIA, you need:
 1. **A clean dump of Mario Kart Wii (USA)** (`RMCE01`) as an `.iso` or `.wbfs` image.
    *(RVZ or NKit dumps should first be converted to ISO using Dolphin).*
 2. **Tools & Dependencies**:
-   - [devkitPro](https://devkitpro.org/wiki/Getting_Started) with `3ds-dev` (`sudo dkp-pacman -S 3ds-dev`)
-   - **Python 3.11** or newer
+   - [devkitPro](https://devkitpro.org/wiki/Getting_Started) with `3ds-dev` (`sudo dkp-pacman -S 3ds-dev` on macOS/Linux, or devkitPro Windows installer)
+   - **Python 3.11** or newer (with PATH enabled)
    - **Node.js (LTS)** (used by BRRES model exporters)
-   - **Xcode Command Line Tools** (on macOS: `xcode-select --install`) or equivalent C/C++ build tools
+   - **Git** (Git for Windows on PC: https://git-scm.com/download/win)
+   - **Xcode Command Line Tools** (on macOS: `xcode-select --install`)
 
 ---
 
@@ -48,7 +49,7 @@ cd mkw-3ds-cia-builder
 ```bash
 # Set up Python virtual environment and install packages
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 # Install Node dependencies
@@ -56,6 +57,10 @@ npm ci
 ```
 
 ### 3. Build
+**On Windows (Easy GUI):**
+- Double-click `Build MKW CIA.bat`.
+- Drag your Mario Kart Wii (USA) disc image into the window and press `Enter`.
+
 **On macOS (Easy GUI):**
 - Double-click `Build MKW CIA.command`.
 - Drag your Mario Kart Wii (USA) disc image into the Terminal window and press `Return`.

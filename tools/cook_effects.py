@@ -15,6 +15,7 @@ U32 = lambda b, p: struct.unpack_from('>I', b, p)[0]
 F = lambda b, p, n=1: list(struct.unpack_from('>' + str(n) + 'f', b, p))
 
 
+from tex3ds_path import TEX3DS
 def entries(b):
     if b[:4] not in [b'REFT', b'REFF'] or b[4:6] != b'\xfe\xff':
         raise ValueError('Expected big-endian REF archive')
@@ -166,7 +167,7 @@ def cook(archive, output, bike=False):
         png = output / ('drift_' + name + '.png')
         im.save(png)
         # Original colour and 8-bit alpha matter for these small bright textures.
-        subprocess.run(['/opt/devkitpro/tools/bin/tex3ds', '-f', 'rgba8', '-z', 'none',
+        subprocess.run([TEX3DS, '-f', 'rgba8', '-z', 'none',
                         '-o', str(png.with_suffix('.t3x')), str(png)], check=True, stdout=subprocess.DEVNULL)
     br = archive.with_suffix('.breff').read_bytes()
     idx = entries(br)

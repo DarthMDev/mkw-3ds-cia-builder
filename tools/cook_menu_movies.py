@@ -23,7 +23,8 @@ from menu_movies import ThpMovie, extract_movies
 from cook_roster import ROOT
 
 OUT = ROOT/'sd-card/3ds/mkw-3ds'
-TEX3DS = Path('/opt/devkitpro/tools/bin/tex3ds')
+from tex3ds_path import TEX3DS as TEX3DS_PATH
+TEX3DS = Path(TEX3DS_PATH)
 HEADER = struct.Struct('<4sIHHIIIII32x')
 
 

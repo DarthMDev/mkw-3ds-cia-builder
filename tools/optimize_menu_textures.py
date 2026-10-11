@@ -23,7 +23,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / 'sd-card/3ds/mkw-3ds'
 HEADER = ROOT / 'include/mkw/menu_assets.hpp'
-TEX3DS = '/opt/devkitpro/tools/bin/tex3ds'
+from tex3ds_path import TEX3DS
 WORK = ROOT / 'build/menu-textures'
 
 

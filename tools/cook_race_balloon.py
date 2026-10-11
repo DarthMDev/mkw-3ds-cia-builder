@@ -17,6 +17,7 @@ from cook_race_items import decode_tpl
 from menu_layout import messages
 
 
+from tex3ds_path import TEX3DS
 def font_metrics(path):
     data = path.read_bytes()
     for tag, _, start in sections(data):
@@ -33,7 +34,7 @@ def texture(image, name, output, fmt):
     png = output / 'textures' / (name + '.png')
     png.parent.mkdir(parents=True, exist_ok=True)
     padded.save(png)
-    subprocess.run(['/opt/devkitpro/tools/bin/tex3ds', '-f', fmt, '-z', 'none', '-o', str(png.with_suffix('.t3x')), str(png)],
+    subprocess.run([TEX3DS, '-f', fmt, '-z', 'none', '-o', str(png.with_suffix('.t3x')), str(png)],
                    check=True, stdout=subprocess.DEVNULL)
     return w, h, w / padded.size[0], h / padded.size[1]
 
