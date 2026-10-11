@@ -622,7 +622,7 @@ void RaceHud::drawOverlay(Renderer& renderer,const RaceItems& items,unsigned sta
     // near road, so it is never behind the road it covers.
     renderer.setScreenDepth(renderer.stereoLayer(stereo::CountdownLayer));
     // CtrlRaceRankNum_1_0 (y -150, scale 1.6) leaves downward. The retail
-    // drop shadow (HudRankShadow) is left out at the user's request.
+    // drop shadow (HudRankShadow) is left out: it read as a stray grey copy.
     const float cx=HudRank.x+HudRank.w*.5f,cy=HudRank.y+HudRank.h*.5f+exitLift(1.6f);
     if(scale>0.01f){
         const float w=HudRank.w*scale,h=HudRank.h*scale;
