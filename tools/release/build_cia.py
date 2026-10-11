@@ -33,7 +33,7 @@ PRUNE_AFTER={'course material overlay':['build/course-exports','build/object-exp
              'full roster':['assets/garage-parts']}
 
 COOK_STEPS=[
- ('Node packages',['npm','ci','--no-audit','--no-fund'],['node_modules/.package-lock.json']),
+ ('Node packages',['npm.cmd' if os.name=='nt' else 'npm','ci','--no-audit','--no-fund'],['node_modules/.package-lock.json']),
  ('BRRES exporters',['node','tools/bundle_cooker.mjs'],['build/export_brres.mjs']),
  # The game module, read as data (menu palettes, layouts, animation tables).
  ('game module',['{py}','tools/extract_disc.py','{disc}','data/extracted','--file','rel/StaticR.rel','--to','build/itembox-retail.rel'],['build/itembox-retail.rel']),
@@ -85,7 +85,8 @@ def run(cmd,**kw):
     if os.name == 'nt' and cmd and Path(cmd[0]).name.lower() in ('npm','npm.cmd'):
         cmd=['cmd.exe','/d','/s','/c',subprocess.list2cmdline(cmd)]
     log('$',' '.join(cmd))
-    env=dict(os.environ,PYTHONPATH=os.pathsep.join(p for p in (str(ROOT/'vendor/gclib'),os.environ.get('PYTHONPATH')) if p))
+    # PYTHONUTF8: text files are UTF-8 on every OS (Windows would default to cp1252).
+    env=dict(os.environ,PYTHONUTF8='1',PYTHONPATH=os.pathsep.join(p for p in (str(ROOT/'vendor/gclib'),os.environ.get('PYTHONPATH')) if p))
     subprocess.run(cmd,cwd=ROOT,check=True,env=env,**kw)
 
 def shared_checkout():
@@ -95,8 +96,9 @@ def shared_checkout():
 def stage_tools():
     from bootstrap_tools import tools
     makerom,bannertool=tools();log('makerom',makerom);log('bannertool',bannertool)
-    dkp=Path(os.environ.get('DEVKITPRO','/opt/devkitpro'))
-    for need in (dkp/'devkitARM',dkp/'libctru',dkp/'tools/bin'/('tex3ds'+('.exe' if os.name=='nt' else ''))):
+    from devkitpro import tool, root as devkitpro_root
+    dkp=devkitpro_root()
+    for need in (dkp/'devkitARM',dkp/'libctru',tool('tex3ds')):
         if not need.exists():raise SystemExit(f'Missing {need}: install devkitPro 3ds-dev (https://devkitpro.org/wiki/Getting_Started)')
     missing=[m for m in ('numpy','PIL','Crypto') if not __import__('importlib.util').util.find_spec(m)]
     if missing:raise SystemExit('Missing Python packages '+', '.join(missing)+': pip install -r requirements.txt')
@@ -107,13 +109,31 @@ def stage_sources():
     run([sys.executable,'tools/bootstrap.py'])
 
 def stage_disc(disc):
+    if disc and not Path(disc).is_file():
+        raise SystemExit(f'Disc image does not exist: {disc}')
     receipt=ROOT/'data/extracted/extraction-receipt.json'
+    # An extraction that failed the check (a Europe disc, a modified or NKit
+    # dump) is replaced when a different image is given, e.g. the USA ISO.
+    # A verified one is kept: later steps read it even if the ISO has moved.
+    if disc and receipt.is_file():
+        old=json.loads(receipt.read_text())
+        got={f['name']:f['sha256'] for f in old.get('files',[])}
+        verified=all(old['identity'].get(k)==v for k,v in DISC_MANIFEST['identity'].items()) and all(got.get(n)==h for n,h in DISC_MANIFEST['files'].items())
+        if not verified and (old['identity'].get('source')!=str(disc) or old['identity'].get('source_bytes')!=Path(disc).stat().st_size):
+            log('replacing the previous, unsupported disc extraction')
+            shutil.rmtree(ROOT/'data/extracted')
     if not receipt.is_file():
         if not disc:raise SystemExit('Give the path to your Mario Kart Wii (USA) ISO or WBFS')
+        # NKit images mark themselves "NKIT" at 0x200; their trimmed data fails the checks.
+        with open(disc,'rb') as f:f.seek(0x200);nkit=f.read(4)==b'NKIT'
+        if nkit:raise SystemExit('This is an NKit image. Convert it to a normal ISO in Dolphin first (right-click the game, Convert File, ISO).')
+        log('unpacking and checking your disc: this takes a few minutes with no output')
         run([sys.executable,'tools/extract_disc.py',disc,'data/extracted'])
     r=json.loads(receipt.read_text());ident=DISC_MANIFEST['identity']
     if any(r['identity'][k]!=v for k,v in ident.items()):
-        raise SystemExit(f"Unsupported disc {r['identity']['game_id']} revision {r['identity']['revision']}: only Mario Kart Wii USA (RMCE01) is supported")
+        game=r['identity']['game_id'];region={'RMCP01':'Europe (PAL)','RMCJ01':'Japan','RMCK01':'Korea'}.get(game)
+        what=f"Mario Kart Wii {region} ({game})" if region else f"disc {game} revision {r['identity']['revision']}"
+        raise SystemExit(f"This is {what}. Only the USA version of Mario Kart Wii (RMCE01) works for now.")
     got={f['name']:f['sha256'] for f in r['files']}
     bad=[n for n,h in DISC_MANIFEST['files'].items() if got.get(n)!=h]
     if bad:raise SystemExit(f'{len(bad)} extracted files differ from an unmodified USA disc (first: {bad[0]}). Use a clean dump.')
@@ -134,6 +154,13 @@ def stage_cook(disc,jobs,force,check=False):
     rerun=force
     for name,cmd,outputs in COOK_STEPS:
         stamp=stamps/(name.replace(' ','-')+'.done')
+        if name=='karts and bikes' and stamp.is_file():
+            gpath=ROOT/'sd-card/models/garage.json'
+            try:
+                if not gpath.is_file() or json.loads(gpath.read_text()).get('version')!=1 or len(json.loads(gpath.read_text()).get('choices',[]))!=288:
+                    stamp.unlink(missing_ok=True)
+            except Exception:
+                stamp.unlink(missing_ok=True)
         present=bool(outputs) and all((ROOT/o).exists() for o in outputs)
         # A fresh tree trusts only success stamps (a failed step can leave its
         # outputs half written) and, once a step runs, re-runs every later step.
@@ -149,6 +176,7 @@ def stage_cook(disc,jobs,force,check=False):
         commands=cmd if cmd and isinstance(cmd[0],list) else [cmd]
         if any('{disc}' in c for c in commands) and not disc:raise SystemExit(f"Cook step '{name}' needs the disc image path")
         start=time.monotonic()
+        log(f'step {[n for n,*_ in COOK_STEPS].index(name)+1}/{len(COOK_STEPS)}: {name}')
         for c in commands:
             scrub_appledouble();run([str(a).replace('{py}',sys.executable).replace('{disc}',str(disc)).replace('{jobs}',str(jobs)) for a in c])
         stamp.write_text(f'{time.monotonic()-start:.0f} s\n')
@@ -167,7 +195,9 @@ def stage_package(version,cci,keep_stage):
 def main():
     p=argparse.ArgumentParser(description=__doc__,formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('disc',nargs='?',type=Path,help='your Mario Kart Wii (USA) ISO or WBFS (not needed once extracted and cooked)')
-    p.add_argument('--version',default='0.1.0')
+    # The HOME Menu refreshes a title's cached icon and banner only when its
+    # version rises: bump tools/release/VERSION for every build you share.
+    p.add_argument('--version',default=(Path(__file__).parent/'VERSION').read_text().strip())
     p.add_argument('--jobs',type=int,default=max(1,(os.cpu_count() or 2)-1))
     p.add_argument('--cci',action='store_true',help='also build a cartridge image for emulators')
     p.add_argument('--force-cook',action='store_true',help='re-run every cook step')

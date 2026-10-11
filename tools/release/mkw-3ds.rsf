@@ -6,7 +6,7 @@
 BasicInfo:
   Title: MKW3DS
   ProductCode: CTR-P-MKW3
-  Logo: Homebrew
+  Logo: Nintendo # the stock "Nintendo 3DS" splash; custom logos crash the HOME Menu
 RomFs:
   RootPath: $(APP_ROMFS)
 TitleInfo:

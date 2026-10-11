@@ -46,7 +46,7 @@ roster=json.loads(roster_asset('models/roster.json').read_text())
 if roster.get('version')!=1 or len(roster.get('characters',[]))!=24:raise ValueError('Cook all 24 retail drivers with tools/cook_full_roster.py before packaging')
 files[roster_asset('models/roster.json')]=Path('models/roster.json')
 garage=json.loads(roster_asset('models/garage.json').read_text())
-if garage.get('version')!=1 or len(garage.get('choices',[]))!=144:raise ValueError('Cook all 144 retail driver/vehicle combinations before packaging')
+if garage.get('version')!=1 or len(garage.get('choices',[]))!=288:raise ValueError('Cook all 288 retail driver/vehicle combinations before packaging')
 files[roster_asset('models/garage.json')]=Path('models/garage.json')
 for choice in garage['choices']:
  prefix=choice['prefix']

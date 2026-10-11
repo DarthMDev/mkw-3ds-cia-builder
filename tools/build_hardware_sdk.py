@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import subprocess
 
+from devkitpro import arm
+
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "vendor/citro3d"
 
@@ -11,10 +13,10 @@ VENDOR = ROOT / "vendor/citro3d"
 def build_citro3d(output, dkp):
     output = Path(output) / "hardware-sdk"
     output.mkdir(parents=True, exist_ok=True)
-    compiler = Path(dkp) / "devkitARM/bin/arm-none-eabi-gcc"
+    compiler = arm("arm-none-eabi-gcc")
     files = sorted(p for directory in ("source", "include")
                    for p in (VENDOR / directory).rglob("*") if p.is_file() and not p.name.startswith("._"))
-    hashes = {str(p.relative_to(VENDOR)): hashlib.sha256(p.read_bytes()).hexdigest()
+    hashes = {p.relative_to(VENDOR).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in files}
     flags = ["-march=armv6k", "-mtune=mpcore", "-mfloat-abi=hard", "-mtp=soft",
              "-O2", "-g", "-mword-relocations", "-ffunction-sections", "-fdata-sections",
@@ -22,7 +24,7 @@ def build_citro3d(output, dkp):
              "-I" + str(VENDOR / "include"), "-I" + str(Path(dkp) / "libctru/include")]
     identity = {"upstream_commit": "9f21cf7b380ce6f9e01a0420f19f0763e5443ca7", "source_sha256": hashes, "flags": flags,
                 "libctru_headers_sha256": {
-                    str(p.relative_to(Path(dkp) / "libctru/include")):
+                    p.relative_to(Path(dkp) / "libctru/include").as_posix():
                     hashlib.sha256(p.read_bytes()).hexdigest()
                     for p in sorted((Path(dkp) / "libctru/include").rglob("*.h"))},
                 "compiler": subprocess.check_output([str(compiler), "--version"], text=True)}
@@ -36,13 +38,13 @@ def build_citro3d(output, dkp):
     for source in files:
         if source.suffix not in (".c", ".s", ".S"):
             continue
-        obj = output / (str(source.relative_to(VENDOR)).replace("/", "_") + ".o")
+        obj = output / (source.relative_to(VENDOR).as_posix().replace("/", "_") + ".o")
         subprocess.run([str(compiler), *flags, "-c", str(source), "-o", str(obj)], check=True)
         objects.append(str(obj))
     temporary = library.with_suffix(".tmp.a")
     if temporary.exists():
         temporary.unlink()
-    subprocess.run([str(Path(dkp) / "devkitARM/bin/arm-none-eabi-ar"),
+    subprocess.run([str(arm("arm-none-eabi-ar")),
                     "rcs", str(temporary), *objects], check=True)
     temporary.replace(library)
     receipt.write_text(json.dumps({"inputs": identity, "library_sha256":

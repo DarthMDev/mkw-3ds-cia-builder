@@ -116,7 +116,7 @@ def main():
     vehicle_count, character_count = struct.unpack_from(">II", display)
     if (vehicle_count, character_count) != (36, 48) or len(display) != 8 + 36 * 48 * 56:
         raise ValueError("Unexpected original kart/driver display parameter layout")
-    audit["seat_offset_source"] = str(display_path.relative_to(ROOT))
+    audit["seat_offset_source"] = display_path.relative_to(ROOT).as_posix()
     audit["seat_offset_source_sha256"] = sha256(display_path)
     write_native_roster(display)
     destination = ROOT / "assets/roster"

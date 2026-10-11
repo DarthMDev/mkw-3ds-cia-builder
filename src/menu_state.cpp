@@ -114,7 +114,7 @@ unsigned MenuState::engineClassMovie(unsigned slot)const{
 bool MenuState::supportsRace()const{
  // Browsing a retail menu does not silently change the chosen race rules or
  // substitute a different character/machine when that runtime is unavailable.
- return raceMode(selection.mode)&&!selection.teams&&raceDriver(selection.driver)&&raceVehicle(selection.vehicle)&&selection.course<32;
+ return raceMode(selection.mode)&&(selection.mode!=UiMode::GrandPrix||raceEngineClass(selection.engineClass))&&!selection.teams&&raceDriver(selection.driver)&&raceVehicle(selection.vehicle)&&selection.course<32;
 }
 
 void MenuState::advance(unsigned ticks){age+=ticks;focusAge+=ticks;uiFocusAdvance(*this,ticks);}
@@ -200,7 +200,9 @@ UiAction MenuState::input(UiInput key){
   if(!raceMode(UiMode(cursor))){unavailable=true;break;}
   selection.mode=UiMode(cursor);
   enter(selection.mode==UiMode::GrandPrix?UiPage::EngineClass:selection.mode==UiMode::VS?UiPage::VSMode:selection.mode==UiMode::Battle?UiPage::BattleMode:UiPage::Character);break;
- case UiPage::EngineClass:selection.engineClass=UiEngineClass(cursor);enter(UiPage::Character);break;
+ case UiPage::EngineClass:
+  if(!raceEngineClass(UiEngineClass(cursor))){unavailable=true;break;}
+  selection.engineClass=UiEngineClass(cursor);enter(UiPage::Character);break;
  case UiPage::VSMode:
   if(cursor==1){unavailable=true;break;} // Team VS has no race runtime.
   selection.teams=false;enter(UiPage::Character);break;
@@ -234,6 +236,8 @@ UiAction MenuState::input(UiInput key){
   // RaceMenu::OnButtonClick (USA 0x80838664): Next goes to the VS course
   // choice (section 0x4B); Quit (and, without the award scene, the final
   // race's Next) returns to the menus (section 0x41).
+  // A Grand Prix goes straight on to the cup's next course.
+  if(cursor==0&&!finalRace&&selection.mode==UiMode::GrandPrix){selection.course=selection.course/4*4+std::min(selection.course%4+1,3u);enter(UiPage::Confirm);return UiAction::StartRace;}
   if(cursor==0&&!finalRace)enter(selection.mode==UiMode::Battle?UiPage::BattleCup:UiPage::Cup);
   else enter(UiPage::MainMenu);
   break;

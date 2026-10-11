@@ -1,92 +1,39 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
+rem Windows: double-click, then drag your Mario Kart Wii (USA) ISO or WBFS into this window.
+rem Needs devkitPro (3DS tools), Python 3.11+, Node.js LTS and Git; see README.md.
+setlocal
 cd /d "%~dp0"
-if not exist "tools\release\build_cia.py" (
-  cd ..\.. || goto :error
-)
 
-where py >nul 2>nul
-if errorlevel 1 (
-  echo Python Launcher not found. Install Python 3.11 or newer from https://www.python.org/downloads/
-  echo During installation, enable the Python Launcher and add Python to PATH.
-  pause
-  exit /b 1
-)
-py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" >nul 2>nul
-if errorlevel 1 (
-  echo Python 3.11 or newer is required. Install it from https://www.python.org/downloads/
-  pause
-  exit /b 1
-)
+set "PY="
+where py >nul 2>nul && set "PY=py -3"
+if not defined PY where python >nul 2>nul && set "PY=python"
+if not defined PY goto :nopython
+%PY% -c "import sys; sys.exit(sys.version_info < (3, 11))" || goto :nopython
+where git >nul 2>nul || (echo Git is needed: https://git-scm.com/download/win & goto :end)
+where node >nul 2>nul || (echo Node.js LTS is needed: https://nodejs.org & goto :end)
 
-where node >nul 2>nul
-if errorlevel 1 (
-  echo Node.js LTS is required: https://nodejs.org/
-  pause
-  exit /b 1
-)
-where git >nul 2>nul
-if errorlevel 1 (
-  echo Git for Windows is required: https://git-scm.com/download/win
-  pause
-  exit /b 1
-)
-rem If DEVKITPRO is set to a Unix path such as /opt/devkitpro, replace it
-rem with the Windows path used by the extracted devkitPro/MSYS2 setup.
-if not exist "%DEVKITPRO%\devkitARM\bin\arm-none-eabi-gcc.exe" (
-  if exist "%USERPROFILE%\Downloads\cia\devkitPro\devkitARM\bin\arm-none-eabi-gcc.exe" (
-    set "DEVKITPRO=%USERPROFILE%\Downloads\cia\devkitPro"
-  )
-)
-if not exist "%DEVKITPRO%\devkitARM\bin\arm-none-eabi-gcc.exe" (
-  echo Could not find the ARM compiler under "%DEVKITPRO%".
-  echo Expected it at "%USERPROFILE%\Downloads\cia\devkitPro\devkitARM\bin\arm-none-eabi-gcc.exe".
-  echo Check that the extracted devkitPro folder is still in Downloads\cia.
-  pause
-  exit /b 1
-)
-rem Add the devkitPro tools and the MSYS2 usr/bin directory used by this setup.
-set "PATH=%DEVKITPRO%\devkitARM\bin;%DEVKITPRO%\tools\bin;%USERPROFILE%\Downloads\cia\usr\bin;%DEVKITPRO%\usr\bin;%PATH%"
+set "disc="
+set /p "disc=Drag your Mario Kart Wii (USA) disc image here and press Enter: "
+if not defined disc goto :nodisc
+set "disc=%disc:"=%"
+if not exist "%disc%" goto :nodisc
 
-set /p "DISC=Enter or drag the path to your Mario Kart Wii USA ISO/WBFS, then press Enter: "
-set "DISC=%DISC:"=%"
-if not exist "!DISC!" (
-  echo Could not find disc image: !DISC!
-  pause
-  exit /b 1
-)
-
-if not exist "vendor\gclib" (
-  echo Downloading pinned source dependencies...
-  py -3 tools\bootstrap.py
-  if errorlevel 1 goto :error
-)
+if not exist "vendor\gclib" (%PY% tools\bootstrap.py || goto :end)
 if not exist ".venv\Scripts\python.exe" (
-  echo Creating Python virtual environment and installing packages...
-  py -3 -m venv .venv
-  if errorlevel 1 goto :error
-  ".venv\Scripts\python.exe" -m pip install -r requirements.txt
-  if errorlevel 1 goto :error
+    %PY% -m venv .venv || goto :end
+    ".venv\Scripts\python.exe" -m pip install -r requirements.txt || goto :end
 )
+rem Show the build and keep a copy in build-cia-log.txt. UTF-8 text on Windows too.
+set "PYTHONUTF8=1"
+set "MKW_DISC=%disc%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.venv\Scripts\python.exe' 'tools\release\build_cia.py' $env:MKW_DISC 2>&1 | ForEach-Object ToString | Tee-Object -FilePath 'build-cia-log.txt'"
+echo Log: "%CD%\build-cia-log.txt"
+goto :end
 
-echo Building CIA. This can take a long time; keep this window open.
-".venv\Scripts\python.exe" -u tools\release\build_cia.py "%DISC%" > build-cia-log.txt 2>&1
-set "RESULT=%ERRORLEVEL%"
-type build-cia-log.txt
-if not "%RESULT%"=="0" (
-  echo.
-  echo Build failed. Share build-cia-log.txt if you need help.
-  pause
-  exit /b %RESULT%
-)
-echo.
-echo Build finished. Check build\release\mkw-3ds.cia
-echo Log saved to build-cia-log.txt
+:nopython
+echo Python 3.11 or newer is needed: https://www.python.org/downloads/ (tick "Add python.exe to PATH")
+goto :end
+:nodisc
+echo No disc image at: "%disc%"
+:end
 pause
-exit /b 0
-
-:error
-echo.
-echo Setup or build failed. Review the messages above.
-pause
-exit /b 1

@@ -6,7 +6,8 @@ import { parse, ByteCodeOp, bindCHR0Animator, bindVIS0Animator, bindSRT0Animator
 import ArrayBufferSlice from '../vendor/noclip/src/ArrayBufferSlice.js';
 import AnimationController from '../vendor/noclip/src/AnimationController.js';
 import * as GX from '../vendor/noclip/src/gx/gx_enum.js';
-import {mat4,mat3} from 'gl-matrix';
+import {mat4,mat3,vec3} from 'gl-matrix';
+import {attachments} from './driver_attachments.js';
 const data=fs.readFileSync(process.argv[2]);
 const archive=parse(new ArrayBufferSlice(data.buffer,data.byteOffset,data.byteLength));
 const poseMetadata=readPoseMetadata(data);
@@ -40,6 +41,27 @@ for(const op of ops){
  }
  shapeRanges.push([start,vertices.length-start,op.nodeId]);
 }
+// Attached models (Toadette's braids) ride their joint's palette matrix, with
+// vertices pre-posed in the joint's space; same order as export_brres.ts.
+const attached=attachments(archive,poseMetadata,model);
+for(const a of attached){
+ if(!palette.includes(a.joint.mtxId))palette.push(a.joint.mtxId);
+ for(const op of a.ops){
+  const shape=a.model.shapes[op.shpId],layout=shape.loadedVertexLayout,loaded=shape.loadedVertexData;
+  const view=new DataView(loaded.vertexBuffers[0]),stride=layout.vertexBufferStrides[0],indices=new Uint16Array(loaded.indexData),start=vertices.length;
+  for(const draw of loaded.draws)for(let i=draw.indexOffset;i<draw.indexOffset+draw.indexCount;i++){
+   const base=indices[i]*stride;
+   const attr=(at:number,n:number,d:number[])=>layout.vertexAttributeOffsets[at]===undefined?d:Array.from({length:n},(_,j)=>view.getFloat32(base+layout.vertexAttributeOffsets[at]+j*4,true));
+   let matrix=shape.mtxIdx;if(matrix<0)matrix=draw.posMatrixTable[attr(GX.Attr.PNMTXIDX,1,[0])[0]];
+   const pose=a.local[matrix];if(!pose)throw new Error('Unresolved attachment matrix '+matrix);
+   const p=vec3.transformMat4(vec3.create(),attr(GX.Attr.POS,3,[0,0,0]) as vec3,pose);
+   const n=vec3.transformMat3(vec3.create(),attr(GX.Attr.NRM,3,[0,1,0]) as vec3,mat3.normalFromMat4(mat3.create(),pose)??mat3.fromMat4(mat3.create(),pose));vec3.normalize(n,n);
+   vertices.push([...p,...n,palette.indexOf(a.joint.mtxId)]);
+  }
+  shapeRanges.push([start,vertices.length-start,model.nodes.indexOf(a.joint)]);
+ }
+}
+const attachedShapes=attached.reduce((n,a)=>n+a.ops.length,0);
 // Peach's independent hair clips contain a whole neutral skeleton. Only their
 // p_hair local transforms belong in the secondary layer; replacing their whole
 // world palette would also replace the selected steering/trick/head pose.
@@ -80,7 +102,9 @@ for(const clip of archive.chr0){
 }
 for(const clip of archive.pat0){
  const name=Buffer.alloc(32);name.write(clip.name);chunks.push(name);u32(clip.duration,clip.loopMode,clip.duration);
- for(let frame=0;frame<clip.duration;frame++)for(const op of ops){
+ for(let frame=0;frame<clip.duration;frame++)for(const op of [...ops,...Array(attachedShapes).fill(null)]){
+  // Attached shapes keep their own texture (-1) in every expression.
+  if(!op){const b=Buffer.alloc(4);b.writeInt32LE(-1);chunks.push(b);continue;}
   const material=model.materials[op.matId];const track=clip.matAnimations.find(m=>m.materialName===material.name)?.texAnimations[0];
   let tex=-1;
   if(track?.texIndexValid){let key=track.animationTrack[0];for(const next of track.animationTrack){if(next.frame>frame)break;key=next;}
@@ -123,6 +147,7 @@ if(facialUV){
     const delta=mat4.mul(mat4.create(),current,inverse);mat4.mul(delta,flip,delta);mat4.mul(delta,delta,flip);
     const b=Buffer.alloc(24);[delta[0],delta[4],delta[12],delta[1],delta[5],delta[13]].forEach((v,j)=>{if(!Number.isFinite(v))throw new Error('Nonfinite facial UV');b.writeFloatLE(v,j*4);});chunks.push(b);
    });
+   for(let i=0;i<attachedShapes;i++){const b=Buffer.alloc(24);[1,0,0,0,1,0].forEach((v,j)=>b.writeFloatLE(v,j*4));chunks.push(b);}
   }
  }
 }

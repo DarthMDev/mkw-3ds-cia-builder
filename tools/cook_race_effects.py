@@ -41,6 +41,12 @@ POWERUP_ROOTS = ['rk_star', 'rk_starS', 'rk_killerS', 'rk_killer1TS', 'rk_thunde
 # KartEffect slipstream (RMCU 0x8068abbc, 0x806972c0): drafting and the boost, S variants
 # for other racers (docs/VFX_RESEARCH.md "Slipstream").
 SLIPSTREAM_ROOTS = ['rk_slipStreamPre', 'rk_slipStreamPreS', 'rk_slipStream', 'rk_slipStreamS']
+# KartEffect smoke and dust (names from StaticR's KartEffect tables, RMCU 0x8038e24a..):
+# start-dash charge (rk_start0/1; rk_start2 needs the unported cylinder form; S for other racers), the start burnout,
+# drift tyre smoke, off-road dust and landing puffs.
+SMOKE_ROOTS = ['rk_start0', 'rk_start1', 'rk_startS', 'rk_startMiss', 'rk_startMissS',
+               'rk_driftSmoke', 'rk_dirtSmokeA', 'rk_jumpSmoke', 'rk_jumpSmokeS', 'rk_jumpSmokeMini', 'rk_jumpSmokeMiniS',
+               'rk_jumpSmokeBikeL', 'rk_jumpSmokeBikeLMini', 'rk_jumpSmokeBikeS', 'rk_jumpSmokeBikeL_S', 'rk_jumpSmokeBikeS_S']
 VERSION = 3
 NO_INDEX = 0xffffffff
 # Runtime limits (src/nw4r_ef.cpp, src/race_effects.cpp).
@@ -399,7 +405,7 @@ def cook(root, output):
     br, reft = breff.read_bytes(), breff.with_suffix('.breft').read_bytes()
     idx, tindex = entries(br), entries(reft)
     order, notes, records = [], [], {}
-    for roots in (ROOTS, POWERUP_ROOTS, SLIPSTREAM_ROOTS):
+    for roots in (ROOTS, POWERUP_ROOTS, SLIPSTREAM_ROOTS, SMOKE_ROOTS):
         queue = list(roots)
         while queue:
             name = queue.pop(0)

@@ -19,11 +19,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import numpy as np
 from PIL import Image
+from devkitpro import tool
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / 'sd-card/3ds/mkw-3ds'
 HEADER = ROOT / 'include/mkw/menu_assets.hpp'
-from tex3ds_path import TEX3DS
+TEX3DS = str(tool('tex3ds'))
 WORK = ROOT / 'build/menu-textures'
 
 

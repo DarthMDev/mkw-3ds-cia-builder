@@ -1,6 +1,7 @@
 // Offline geometry extraction via pinned noclip.website (MIT).
 import fs from 'node:fs';
 import {readPoseMetadata,PoseEvaluator} from './brres_pose.js';
+import {attachments} from './driver_attachments.js';
 import path from 'node:path';
 import { parse, ByteCodeOp, bindCHR0Animator, bindSRT0Animator } from '../vendor/noclip/src/rres/brres.js';
 import {retailLighting} from './retail_lighting.js';
@@ -454,9 +455,12 @@ for(const model of archive.mdl0){
   else {const m=new Float32Array(16);op.blendMtxIds.forEach((id,i)=>{for(let j=0;j<16;j++)m[j]+=envelopes[id][j]*op.weights[i];});matrices[op.dstMtxId]=m as mat4;}
  }
  const shapes=[];
- for(const op of [...model.sceneGraph.drawOpaOps,...model.sceneGraph.drawXluOps]){
-  const shape=model.shapes[op.shpId], material=model.materials[op.matId];
-  if(!model.nodes[op.nodeId].visible)continue;
+ // Attached models (Toadette's braids) follow the driver, posed on their joint.
+ const draws=[...[...model.sceneGraph.drawOpaOps,...model.sceneGraph.drawXluOps].map(op=>({source:model,op,pose:matrices})),
+  ...attachments(archive,poseMetadata,model).flatMap(a=>{const at=matrices[a.joint.mtxId];const pose=a.local.map(m=>m&&mat4.mul(mat4.create(),at,m));return a.ops.map(op=>({source:a.model,op,pose}));})];
+ for(const {source,op,pose} of draws){
+  const shape=source.shapes[op.shpId], material=source.materials[op.matId];
+  if(!source.nodes[op.nodeId].visible)continue;
   const layout=shape.loadedVertexLayout,loaded=shape.loadedVertexData;
   const view=new DataView(loaded.vertexBuffers[0]),stride=layout.vertexBufferStrides[0];
   const indices=new Uint16Array(loaded.indexData);
@@ -499,7 +503,7 @@ for(const model of archive.mdl0){
    const pos=attr(GX.Attr.POS,3,[0,0,0]),nrm=attr(GX.Attr.NRM,3,[0,1,0]);
    let matrix=shape.mtxIdx;
    if(matrix<0){const slot=attr(GX.Attr.PNMTXIDX,1,[0])[0];matrix=draw.posMatrixTable[slot];}
-   const transform=matrices[matrix];if(!transform)throw new Error(`Unresolved position matrix ${matrix} in ${shape.name}`);
+   const transform=pose[matrix];if(!transform)throw new Error(`Unresolved position matrix ${matrix} in ${shape.name}`);
    const p=vec3.transformMat4(vec3.create(),pos,transform);
    const n=vec3.transformMat3(vec3.create(),nrm,(mat3.normalFromMat4(mat3.create(),transform)??mat3.fromMat4(mat3.create(),transform)));vec3.normalize(n,n);
    const sampleUV=(coord:number,unit:number)=>{

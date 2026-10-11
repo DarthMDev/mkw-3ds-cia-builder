@@ -3,7 +3,7 @@
 
 The existing twelve-racer assets remain the baseline. Missing race archives are
 read from the user's verified local disc and cooked with the same GMDL/DSKM
-pipeline. The resulting manifest contains all 24 racers and six vehicles each;
+pipeline. The resulting manifest contains all 24 racers and twelve vehicles each;
 only newly cooked payloads live in the overlay.
 """
 import argparse
@@ -14,7 +14,7 @@ import shutil
 import struct
 
 from cook_roster import ROOT, ROSTER, data_partition, sha256, write_native_roster
-from cook_garage import VEHICLES, EXTRA_NAMES, inspect_driver, inspect_kart, cook_choice, write_native_garage
+from cook_garage import VEHICLES, VEHICLES_PER_DRIVER, EXTRA_NAMES, inspect_driver, inspect_kart, cook_choice, write_native_garage
 from extract_disc import Disc
 from unpack_szs import unpack
 
@@ -85,13 +85,13 @@ def main():
     finally:
         disc.f.close()
     choices=sorted(cooked.values(),key=lambda row:(row['driverIndex'],row['slot']))
-    if len(choices)!=len(ROSTER)*6:raise ValueError('Incomplete retail roster')
+    if len(choices)!=len(ROSTER)*VEHICLES_PER_DRIVER:raise ValueError('Incomplete retail roster')
     manifest=dict(original,choices=choices,extraNames=EXTRA_NAMES)
     (args.output/'models/garage.json').write_text(json.dumps(manifest,indent=2)+'\n')
     base_roster=json.loads((shared/'models/roster.json').read_text())
     characters=list(base_roster['characters'])
     for index,(slug,name,character,_,size) in enumerate(ROSTER[len(characters):],start=len(characters)):
-        row=choices[index*6]
+        row=choices[index*VEHICLES_PER_DRIVER]
         characters.append({'slug':slug,'name':name,'character_id':character,'vehicle_id':row['vehicle'],
                            'prefix':slug+'_','archive':row['archive'],'archive_sha256':row['archive_sha256'],
                            'driver_sha256':row['driver_sha256'],'kart_sha256':row['kart_sha256'],
