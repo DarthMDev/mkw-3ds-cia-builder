@@ -85,7 +85,8 @@ def run(cmd,**kw):
     if os.name == 'nt' and cmd and Path(cmd[0]).name.lower() in ('npm','npm.cmd'):
         cmd=['cmd.exe','/d','/s','/c',subprocess.list2cmdline(cmd)]
     log('$',' '.join(cmd))
-    env=dict(os.environ,PYTHONPATH=os.pathsep.join(p for p in (str(ROOT/'vendor/gclib'),os.environ.get('PYTHONPATH')) if p))
+    # PYTHONUTF8: text files are UTF-8 on every OS (Windows would default to cp1252).
+    env=dict(os.environ,PYTHONUTF8='1',PYTHONPATH=os.pathsep.join(p for p in (str(ROOT/'vendor/gclib'),os.environ.get('PYTHONPATH')) if p))
     subprocess.run(cmd,cwd=ROOT,check=True,env=env,**kw)
 
 def shared_checkout():

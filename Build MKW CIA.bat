@@ -23,7 +23,8 @@ if not exist ".venv\Scripts\python.exe" (
     %PY% -m venv .venv || goto :end
     ".venv\Scripts\python.exe" -m pip install -r requirements.txt || goto :end
 )
-rem Show the build and keep a copy in build-cia-log.txt.
+rem Show the build and keep a copy in build-cia-log.txt. UTF-8 text on Windows too.
+set "PYTHONUTF8=1"
 set "MKW_DISC=%disc%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.venv\Scripts\python.exe' 'tools\release\build_cia.py' $env:MKW_DISC 2>&1 | ForEach-Object ToString | Tee-Object -FilePath 'build-cia-log.txt'"
 echo Log: "%CD%\build-cia-log.txt"

@@ -44,7 +44,10 @@ def main():
  # The background menu asset loader allocates LINEAR memory; src/linear_lock.cpp
  # serializes every LINEAR heap call, including those made inside Citro3D/libctru.
  wraps=['-Wl,--wrap='+name for name in ('linearAlloc','linearMemAlign','linearRealloc','linearGetSize','linearFree','linearSpaceFree','fopen')]
- subprocess.run([str(cxx),*arch,*lto,*codegen,'-specs=3dsx.specs','-Wl,--gc-sections',*wraps,'-Wl,-Map,'+str(out/'mkw-3ds.map'),*[str(o) for o in objs],str(citro),'-L'+str(dkp/'libctru/lib'),'-lctru','-lm','-o',str(elf)],check=True)
+ # The object list goes through a response file: ~240 absolute paths can pass
+ # the Windows command-line limit. GCC response files use / and quotes.
+ objects_file=out/'objects.rsp';objects_file.write_text(''.join('"'+Path(o).as_posix()+'"\n' for o in objs))
+ subprocess.run([str(cxx),*arch,*lto,*codegen,'-specs=3dsx.specs','-Wl,--gc-sections',*wraps,'-Wl,-Map,'+str(out/'mkw-3ds.map'),'@'+str(objects_file),str(citro),'-L'+str(dkp/'libctru/lib'),'-lctru','-lm','-o',str(elf)],check=True)
  subprocess.run([str(tool('3dsxtool')),str(elf),str(out/'mkw-3ds.3dsx')],check=True)
  subprocess.run([str(arm('arm-none-eabi-size')),str(elf)],check=True)
  (out/'build-receipt.json').write_text(json.dumps({'hardware_sdk':json.loads((out/'hardware-sdk/receipt.json').read_text()),'shader_sha256':hashlib.sha256((out/'mkw.shbin').read_bytes()).hexdigest(),'libctru_sha256':hashlib.sha256((dkp/'libctru/lib/libctru.a').read_bytes()).hexdigest(),'kinoko_commit':subprocess.check_output(['git','-C',str(kin),'rev-parse','HEAD'],text=True).strip(),'sha256':hashlib.sha256((out/'mkw-3ds.3dsx').read_bytes()).hexdigest(),'flags':flags,'sources':{str(s.relative_to(ROOT)):hashlib.sha256(s.read_bytes()).hexdigest() for s in sources}},indent=2)+'\n')
