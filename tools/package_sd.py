@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Stage a private playable SD package from the user's locally cooked assets."""
 import hashlib,json,shutil,struct,zipfile
+from gx_material import GMDL_SUBMESH_BYTES
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];assets=ROOT/'sd-card/3ds/mkw-3ds';out=ROOT/'build/playable/3ds/mkw-3ds';out.mkdir(parents=True,exist_ok=True)
 roster_overlay=ROOT/'build/roster'
@@ -24,7 +25,7 @@ for course in catalog['courses']:
  files[source]=archive;files[assets/receipt]=receipt
  # Placed objects: tools/cook_course_objects.py meshes and animation banks.
  visuals=assets/f"models/course_{course['id']:02d}_visuals.list"
- if course['kind']=='race':
+ if course['kind'] in ('race','arena'):
   if not visuals.is_file():raise ValueError('Cook course objects before packaging: '+course['name'])
   files[visuals]=Path('models')/visuals.name
   for line in visuals.read_text().splitlines():
@@ -57,6 +58,15 @@ for choice in garage['choices']:
  for name in choice['animationBanks']:
   if name not in choice['models']:raise ValueError('Animation bank has no matching model')
   files[roster_asset(Path('models')/(name+'.dskm'))]=Path('models')/(name+'.dskm')
+shadow_root=ROOT/'build/vehicle-shadows'
+shadow_manifest=json.loads((shadow_root/'models/vehicle-shadows.json').read_text())
+expected={choice['prefix'] for choice in garage['choices']}
+if {row['prefix'] for row in shadow_manifest['choices']}!=expected:raise ValueError('Cook every vehicle shadow before packaging')
+for row in shadow_manifest['choices']:
+ relative=Path('models')/(row['prefix']+'shadow.gmdl');source=shadow_root/relative
+ if hashlib.sha256(source.read_bytes()).hexdigest()!=row['sha256']:raise ValueError('Vehicle shadow changed: '+str(relative))
+ files[source]=relative
+files[shadow_root/'models/vehicle-shadows.json']=Path('models/vehicle-shadows.json')
 textures={'drift_sparkTex2','drift_flash2','drift_rk_smoke2'}
 files[assets/'textures/drift-effects.bin']=Path('textures/drift-effects.bin')
 files[assets/'textures/drift-effects-bike.bin']=Path('textures/drift-effects-bike.bin')
@@ -130,10 +140,79 @@ for category in ['hudItems','hudRanks','hudDigits','hudExtras']:
   relative=Path(sprite['path'])
   if relative.parent!=Path('textures') or relative.suffix!='.t3x':raise ValueError('Invalid race HUD texture path')
   textures.add(relative.stem)
+# Award ceremony, losing and ending scenes (tools/cook_ceremony.py): stages as
+# courses (archive for Kinoko, model lists, placed objects), award characters
+# with their animation banks, podium, trophies and camera moves.
+def safe_name(name,what):
+ if not name or any(c not in 'abcdefghijklmnopqrstuvwxyz_0123456789' for c in name):raise ValueError('Invalid '+what+' name: '+name)
+ return name
+ceremony=json.loads((assets/'models/ceremony.json').read_text())
+if ceremony.get('version')!=1:raise ValueError('Cook the award ceremony (tools/cook_ceremony.py) before packaging')
+files[assets/'models/ceremony.json']=Path('models/ceremony.json')
+for stage in ceremony['stages']:
+ archive=Path('Race/Course')/(safe_name(stage['key'],'stage')+'.szs');files[ROOT/'data/extracted'/archive]=archive
+ receipt=Path(stage['receipt'])
+ if receipt.parent!=Path('models/courses'):raise ValueError('Invalid stage receipt')
+ files[assets/receipt]=receipt
+ for name in stage['model_lists']:
+  relative=Path(name)
+  if relative.parent!=Path('models') or relative.suffix!='.list':raise ValueError('Invalid stage model list')
+  files[assets/relative]=relative;models+=[safe_name(m,'stage model') for m in (assets/relative).read_text().split()]
+ if stage.get('object_visuals'):
+  visuals=Path(stage['object_visuals'])
+  if visuals.parent!=Path('models') or visuals.suffix!='.list':raise ValueError('Invalid stage object list')
+  files[assets/visuals]=visuals
+  for line in (assets/visuals).read_text().splitlines():
+   resource,model,mesh,bank=line.split()
+   models.append(safe_name(mesh,'stage object'))
+   if bank!='-':files[assets/'models'/(safe_name(bank,'stage object bank')+'.dobj')]=Path('models')/(bank+'.dobj')
+for character in ceremony['award']['characters']:
+ model,bank=Path(character['model']),Path(character['bank'])
+ if model.parent!=Path('models') or bank!=model.with_suffix('.dskm'):raise ValueError('Invalid award character paths')
+ models.append(safe_name(model.stem,'award model'));files[assets/bank]=bank
+models+=[safe_name(n,'award model') for n in [*ceremony['award']['stands'],ceremony['award']['shadow'],*ceremony['trophies'].values()]]
+for camera in ceremony['cameras']:
+ relative=Path(camera['file'])
+ if relative.parent!=Path('models/ceremony') or relative.suffix!='.scam':raise ValueError('Invalid ceremony camera path')
+ files[assets/relative]=relative
+# Battle content and race/award UI images (tools/cook_battle.py).
+battle=json.loads((assets/'models/battle.json').read_text())
+if battle.get('version')!=1:raise ValueError('Cook the battle content (tools/cook_battle.py) before packaging')
+files[assets/'models/battle.json']=Path('models/battle.json')
+models+=[safe_name(n,'battle model') for n in [*battle['balloons'].values(),battle['lakituBoard']]]
+luma=battle['luma'];model,bank=Path(luma['model']),Path(luma['bank'])
+if model.parent!=Path('models') or bank!=model.with_suffix('.dskm'):raise ValueError('Invalid Luma paths')
+models.append(safe_name(model.stem,'Luma model'));files[assets/bank]=bank
+for key,rows in battle['ui'].items():
+ for row in rows:
+  relative=Path(row['texture'])
+  if relative.parent!=Path('textures/ui')/safe_name(key,'UI archive') or relative.suffix!='.t3x':raise ValueError('Invalid UI texture path')
+  safe_name(relative.stem,'UI texture');files[assets/relative]=relative
+for name in battle['uiData']:
+ relative=Path(name)
+ if relative.parts[0]!='ui-data' or len(relative.parts)!=3 or relative.suffix not in ('.brfnt','.bmg'):raise ValueError('Invalid UI data path')
+ safe_name(relative.parent.name,'UI archive');safe_name(relative.stem,'UI data');files[assets/relative]=relative
+# Every effect archive (tools/cook_effect_archives.py): REFX tables and textures.
+effect_archives=json.loads((assets/'models/effect-archives.json').read_text())
+if effect_archives.get('version')!=1:raise ValueError('Cook the effect archives (tools/cook_effect_archives.py) before packaging')
+files[assets/'models/effect-archives.json']=Path('models/effect-archives.json')
+folded={}
+for archive in effect_archives['archives']:
+ folder=Path(archive['folder'])
+ if folder.parent!=Path('textures/fx') or safe_name(folder.name,'effect archive')!=folder.name:raise ValueError('Invalid effect archive folder')
+ for table in archive['tables']:
+  relative=Path(table['table'])
+  if relative.parent!=folder or relative.suffix!='.refx':raise ValueError('Invalid effect table path')
+  files[assets/relative]=relative
+  for texture in table['textures']:
+   # Original names keep their capitals; FAT32 ignores case, so no two may differ only by it.
+   safe_name(texture.lower(),'effect texture')
+   if (folder/texture.lower()) in folded and folded[folder/texture.lower()]!=texture:raise ValueError('Effect textures differ only by case: '+texture)
+   folded[folder/texture.lower()]=texture;files[assets/folder/(texture+'.t3x')]=folder/(texture+'.t3x')
 for name in models:
  p=roster_asset(Path('models')/(name+'.gmdl'));b=p.read_bytes();magic,version,nv,ni,ns,nt=struct.unpack_from('<4s5I',b)
- if magic!=b'GMDL' or version not in (3,4):raise ValueError('Regenerate GMDL v3/v4: '+str(p))
- stride=44 if version==3 else 56 # v4: retail course lighting (tools/gx_material.py)
+ if magic!=b'GMDL' or version not in GMDL_SUBMESH_BYTES:raise ValueError('Regenerate supported GMDL: '+str(p))
+ stride=GMDL_SUBMESH_BYTES[version]
  for i in range(nt):textures.add(b[24+ns*stride+i*64:24+ns*stride+(i+1)*64].split(b'\0')[0].decode())
  files[p]=Path('models')/p.name
 for name in sorted(textures):files[roster_asset(Path('textures')/(name+'.t3x'))]=Path('textures')/(name+'.t3x')
@@ -172,6 +251,29 @@ for src in sorted(course_overlay.glob('models/*.gmdl'))+sorted(course_overlay.gl
  if src.name.startswith('._'):continue
  if rel not in packaged:raise ValueError('Course overlay file is not packaged: '+rel)
  overlay[rel]=src
+# Psea distance filtering: source base levels plus verified small mip chains.
+water_mipmaps=ROOT/'build/water-mipmaps'
+if (water_mipmaps/'receipt.json').is_file():
+ water=json.loads((water_mipmaps/'receipt.json').read_text())
+ for rel,info in water['textures'].items():
+  src=water_mipmaps/rel
+  if rel not in packaged or not rel.startswith('textures/obj16_psea_') or not rel.endswith('.t3x'):
+   raise ValueError('Invalid water mipmap override: '+rel)
+  if digest_file(src)!=info['sha256'] or digest_file(assets/rel)!=info['originalSha256']:
+   raise ValueError('Water mipmap source changed: '+rel)
+  if digest_file((assets/rel).with_suffix('.png'))!=info['pngSha256']:
+   raise ValueError('Water mipmap pixels changed: '+rel)
+  overlay[rel]=src
+# Original item channels and reflection maps, refreshed without disc extraction.
+item_lighting=ROOT/'build/item-lighting'
+if (item_lighting/'receipt.json').is_file():
+ for rel,info in json.loads((item_lighting/'receipt.json').read_text())['files'].items():
+  src=item_lighting/rel
+  if rel not in packaged or Path(rel).parts[0] not in ('models','textures'):
+   raise ValueError('Invalid item lighting override: '+rel)
+  if digest_file(src)!=info['sha256'] or digest_file(assets/rel)!=info['originalSha256']:
+   raise ValueError('Item lighting source changed: '+rel)
+  overlay[rel]=src
 # Race-flow UI (tools/cook_race_flow.py): out-of-bounds wipe, result board and
 # end-of-race menu textures, cooked into this tree's own overlay directory.
 flow=ROOT/'build/race-flow/textures'
@@ -261,6 +363,24 @@ if '--list' in sys.argv:
 manifest={}
 for src,rel in files.items():
  dest=out/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest);manifest[rel.as_posix()]=hashlib.sha256(dest.read_bytes()).hexdigest()
+# FAT32 allows one folder 65,536 entries, and a long file name takes several:
+# the loose textures folder outgrew it. menu.pak and race.pak already hold every
+# texture and the game reads them first (src/renderer.cpp Texture::load), so a
+# texture inside a pak is not also copied loose. Each one is checked against
+# its pak entry, so a stale pak fails here instead of on the console.
+def pak_entries(path):
+ b=path.read_bytes()
+ if b[:4]!=b'MPK1':raise ValueError('Not an MPK1 archive: '+path.name)
+ count,names=struct.unpack_from('<II',b,4);table=12;blob=12+12*count
+ for i in range(count):
+  name_at,offset,size=struct.unpack_from('<III',b,table+i*12)
+  yield b[blob+name_at:b.index(0,blob+name_at)].decode(),b[offset:offset+size]
+for archive in ('menu.pak','race.pak'):
+ if not (out/archive).is_file():continue
+ for name,data in pak_entries(out/archive):
+  if name.endswith('.t3x') and name in manifest:
+   if hashlib.sha256(data).hexdigest()!=manifest[name]:raise ValueError(f'{archive} is older than {name}: run tools/pack_menu_assets.py / tools/pack_race_assets.py')
+   (out/name).unlink();del manifest[name]
 controls='''MKW 3DS - native Wii menu asset port, 32 race archives and 10 arena asset sets
 Copy the 3ds folder to the SD card root. Launch mkw-3ds.3dsx with Homebrew Launcher.
 Menu: D-pad / Circle Pad choose, A confirm, B back. A or START skips the opening.

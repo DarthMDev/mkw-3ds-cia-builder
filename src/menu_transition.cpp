@@ -22,9 +22,19 @@ constexpr float FadeOutLastFrame=ColorFadeOutLastFrame,FadeInLastFrame=ColorFade
 float fadeOpacity(float frame,bool entering){return colorFaderOpacity(frame,entering);}
 }
 
+const char* uiPauseMenuControl(const MenuState& state){
+ switch(state.selection.mode){
+ case UiMode::TimeTrials:return "PauseMenuTimeAttack";
+ case UiMode::GrandPrix:return "PauseMenuGrandPrix";
+ case UiMode::Battle:return "PauseMenuBT";
+ default:return "PauseMenuVS";
+ }
+}
+
 const char* uiSelectedMenuControl(const MenuState& state,bool back){
  if(back)return "Back";
  switch(state.page){
+ case UiPage::Title:return "PressStart";
  case UiPage::License:return state.cursor<2?"LicenseSelectT":"LicenseSelectB";
  case UiPage::MainMenu:return state.cursor==0?"TopMenuSingle":state.cursor<4?"TopMenuMulti":state.cursor<6?"TopMenuWifi":"TopMenuChannel";
  case UiPage::Mode:return "SingleTop";
@@ -43,6 +53,7 @@ const char* uiSelectedMenuControl(const MenuState& state,bool back){
  case UiPage::BattleStage:return "BattleStageSelectStage";
  case UiPage::Ghost:return "TimeAttackGhostList";
  case UiPage::Confirm:return "MenuEndConfirm";
+ case UiPage::Pause:return uiPauseMenuControl(state);
  case UiPage::QuitConfirm:return "YesNoButton";
  case UiPage::Error:return "ConfirmOK";
  default:return "";
@@ -66,6 +77,7 @@ float uiMenuMaxDelay(const MenuState& state){
  case UiPage::BattleStage:return maximum("BattleStageSelectStage");
  case UiPage::Ghost:return maximum("TimeAttackGhostList");
  case UiPage::Confirm:return maximum("MenuEndConfirm");
+ case UiPage::Pause:return maximum(uiPauseMenuControl(state));
  case UiPage::QuitConfirm:return maximum("YesNoButton");
  case UiPage::Error:return delay("ConfirmOK","OK");
  default:return 0;
@@ -75,7 +87,12 @@ float uiMenuMaxDelay(const MenuState& state){
 float uiMenuExitHold(const MenuState& state,bool back){
  // Physical B invokes the original page BackPress path with delay zero.
  // A pointer-clicked Back button would instead play its own OK animation.
- return back?0.f:uiButtonConfirmFrames(uiSelectedMenuControl(state));
+ if(back)return 0.f;
+ if(state.page==UiPage::Title){
+  const auto* clip=uiFindAnimationClip("PressStart","eAFPressStart","PressStart");
+  return clip&&clip->rate>0?clip->duration/clip->rate:0.f;
+ }
+ return uiButtonConfirmFrames(uiSelectedMenuControl(state));
 }
 
 bool uiMenuChangesSection(UiPage from,UiPage to,UiAction action){
@@ -128,6 +145,11 @@ void MenuTransition::enterSection(const MenuState& incoming){
  outgoing_=incoming;incoming_=incoming.page;section_=true;
  inDelay_=uiMenuMaxDelay(incoming);
  phase_=Phase::Enter;elapsed_=-1;
+}
+
+void MenuTransition::enterPage(const MenuState& incoming){
+ reset();outgoing_=incoming;incoming_=incoming.page;
+ inDelay_=uiMenuMaxDelay(incoming);phase_=Phase::Enter;elapsed_=-1;
 }
 
 UiAction MenuTransition::input(MenuState& logical,UiInput key){

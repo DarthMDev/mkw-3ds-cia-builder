@@ -21,7 +21,7 @@ namespace K=Kinoko;
 struct RacerVisuals::Impl {
     struct Racer {
         const GarageChoice* choice=nullptr;
-        std::unique_ptr<Model> body,driver;
+        std::unique_ptr<Model> body,driver,shadow;
         std::array<std::unique_ptr<Model>,4> wheels;
         std::array<std::unique_ptr<Model>,9> extras;
         std::unique_ptr<DriverAnimation> animation,bodyAnimation;
@@ -66,8 +66,8 @@ bool RacerVisuals::load(){
         for(const auto& choice:GarageChoices)if(choice.character==unsigned(player.character)&&choice.vehicle==unsigned(player.vehicle)){r->choice=&choice;break;}
         if(!r->choice){valid=false;continue;}
         auto model=[&](const char* suffix){auto p=std::make_unique<Model>();char path[160];std::snprintf(path,sizeof path,"models/%s%s.gmdl",r->choice->prefix,suffix);if(!p->load(path))p.reset();return p;};
-        auto bank=[&](const char* suffix,Model* model){auto p=std::make_unique<DriverAnimation>();char path[160];std::snprintf(path,sizeof path,"models/%s%s.dskm",r->choice->prefix,suffix);if(!model||!p->load(path,*model))p.reset();else p->prepareUnlitSkinning(*model);return p;};
-        r->body=model("body");r->driver=model("driver");r->animation=bank("driver",r->driver.get());
+        auto bank=[&](const char* suffix,Model* model){auto p=std::make_unique<DriverAnimation>();char path[160];std::snprintf(path,sizeof path,"models/%s%s.dskm",r->choice->prefix,suffix);if(!model||!p->load(path,*model))p.reset();else p->prepareLitSkinning(*model);return p;};
+        r->body=model("body");r->driver=model("driver");r->shadow=model("shadow");r->animation=bank("driver",r->driver.get());
         const char* wheelNames[]={"tire_fl","tire_fr","tire_rl","tire_rr"};
         for(unsigned w=0;w<(r->choice->bike?2u:4u);++w){r->wheels[w]=model(wheelNames[w]);valid&=bool(r->wheels[w]);}
         if(r->choice->bodyAnimation){r->bodyAnimation=bank("body",r->body.get());valid&=bool(r->bodyAnimation);}
@@ -75,7 +75,7 @@ bool RacerVisuals::load(){
             r->extras[j]=model(GarageExtraNames[j]);valid&=bool(r->extras[j]);
             if(r->choice->extraAnimationMask&(1u<<j)){r->extraAnimation[j]=bank(GarageExtraNames[j],r->extras[j].get());valid&=bool(r->extraAnimation[j]);}
         }
-        valid&=bool(r->body)&&bool(r->driver)&&bool(r->animation);
+        valid&=bool(r->body)&&bool(r->driver)&&bool(r->animation)&&bool(r->shadow);
         if(r->animation)for(unsigned c=0;c<r->animation->count();++c)r->controller.setDuration(r->animation->name(c),r->animation->duration(c));
         impl_->racers[i-1]=std::move(r);++impl_->count;
     }
@@ -175,7 +175,7 @@ void RacerVisuals::prepare(const Renderer& renderer,const RaceItems& items,Vec3 
         worker.submit(d.jobs[i]);d.queued[i]=true;
     }
 }
-void RacerVisuals::draw(Renderer& renderer,const RaceItems& items,Vec3 viewer,unsigned tick){
+void RacerVisuals::draw(Renderer& renderer,const RaceItems& items,Vec3 viewer,unsigned tick,const Model* playerShadow,const C3D_Mtx* playerTransform){
     auto& d=*impl_;
     if(!d.frame.open){d.openFrame(renderer,items,viewer,tick);d.queued.fill(false);}
     auto drawSkinned=[&](const DriverAnimation* bank,const Model& model,const C3D_Mtx& matrix){
@@ -187,8 +187,17 @@ void RacerVisuals::draw(Renderer& renderer,const RaceItems& items,Vec3 viewer,un
     // queue (it takes them from the front), so this thread waits only for jobs
     // already running. Draws keep their order below.
     for(unsigned i=11;i-->0;)if(d.queued[i])jobWorker().help(d.jobs[i]);
+    std::array<Renderer::ShadowVolume,12> shadows{};unsigned shadowCount=0;
+    if(playerShadow&&playerTransform)shadows[shadowCount++]={playerShadow,*playerTransform};
     for(unsigned i=0;i<11;++i)if(auto* r=d.racers[i].get()){
         if(d.queued[i])jobWorker().finish(d.jobs[i]);else d.prepareRacer(i);
+        const auto& out=d.prepared[i];
+        if(out.draw&&r->shadow&&d.frame.view.visible(*r->shadow,out.body))shadows[shadowCount++]={r->shadow.get(),out.body};
+    }
+    // Submit all racers in one stencil batch: overlaps darken once. Resolve
+    // before the racer models, so their own volumes cannot shade the casters.
+    renderer.drawShadowVolumes(shadows.data(),shadowCount,.5f);
+    for(unsigned i=0;i<11;++i)if(auto* r=d.racers[i].get()){
         const auto& out=d.prepared[i];
         if(!out.draw)continue;
         renderer.additiveColor=out.additive;

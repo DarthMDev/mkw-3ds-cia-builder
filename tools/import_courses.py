@@ -98,9 +98,10 @@ def import_one(c,force=False):
             detail=json.loads((OUT/f'models/{prefix}-receipt.json').read_text())
             receipt['visuals'].append({'kind':label,'list':model_list,'parts':detail['parts'],'textures':detail['textures'],'lighting':detail.get('lighting'),'limitations':detail['limitations']})
         # Placed objects: one mesh (+ DOBJ animation bank) per model of every
-        # object archive (tools/cook_course_objects.py), listed per race in
-        # models/course_NN_visuals.list. Arenas have no object runtime yet.
-        if c['kind']=='race':
+        # object archive (tools/cook_course_objects.py), listed per course in
+        # models/course_NN_visuals.list. Arenas too (0.5.0): their objects and
+        # Coin Runners coins are converted ahead of the battle runtime.
+        if c['kind'] in ('race','arena'):
             from cook_course_objects import cook_course
             report=cook_course(c,False)
             receipt['object_visuals']=f'models/course_{c["id"]:02d}_visuals.list'

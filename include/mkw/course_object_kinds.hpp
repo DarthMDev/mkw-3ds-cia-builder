@@ -155,6 +155,7 @@ bool classifyMover(Visual& visual,const ObjectAssets& assets);
 void drawObject(ObjectDraw& draw,Visual& visual);
 // Drawn in the sky pass rather than with the course objects.
 bool skyObject(const Visual& visual);
+bool waterObject(const Visual& visual);
 // The Kinoko object a review camera should frame (a roaming part, an active cart).
 const Kinoko::Field::ObjectBase* reviewFocus(const Visual& visual);
 C3D_Mtx objectMatrix(const Kinoko::EGG::Matrix34f& source,const Kinoko::EGG::Vector3f& scale);

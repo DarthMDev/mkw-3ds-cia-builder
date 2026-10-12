@@ -2,11 +2,35 @@
 """Unpack local Yaz0/U8 archives with strict bounds and safe paths."""
 import argparse,io,struct
 from pathlib import Path
-from gclib.yaz0_yay0 import Yaz0
+try:
+    from gclib.yaz0_yay0 import Yaz0
+    def decompress_yaz0(b):
+        return Yaz0.decompress(io.BytesIO(b)).getvalue()
+except ImportError:
+    def decompress_yaz0(b):
+        if b[:4] != b'Yaz0': return b
+        size = struct.unpack_from('>I', b, 4)[0]
+        out = bytearray()
+        i = 16
+        while len(out) < size:
+            code = b[i]; i += 1
+            for k in range(8):
+                if len(out) >= size: break
+                if code & (0x80 >> k):
+                    out.append(b[i]); i += 1
+                else:
+                    b1, b2 = b[i], b[i + 1]; i += 2
+                    dist = ((b1 & 15) << 8 | b2) + 1
+                    n = b1 >> 4
+                    if n == 0: n = b[i] + 0x12; i += 1
+                    else: n += 2
+                    start = len(out) - dist
+                    for j in range(n): out.append(out[start + j])
+        return bytes(out)
 
 def unpack(source,output):
  b=source.read_bytes()
- if b[:4]==b'Yaz0':b=Yaz0.decompress(io.BytesIO(b)).getvalue()
+ if b[:4]==b'Yaz0':b=decompress_yaz0(b)
  if b[:4]!=b'U\xaa8-':raise ValueError('not a U8 archive')
  root=struct.unpack_from('>I',b,4)[0];count=struct.unpack_from('>I',b,root+8)[0];strings=root+count*12
  stack=[(Path(),count)];output.mkdir(parents=True,exist_ok=True)

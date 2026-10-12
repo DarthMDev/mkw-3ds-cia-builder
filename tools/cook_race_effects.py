@@ -28,12 +28,24 @@ U32 = lambda b, p: struct.unpack_from('>I', b, p)[0]
 F = lambda b, p, n=1: list(struct.unpack_from('>%df' % n, b, p))
 S8 = lambda b, p: struct.unpack_from('>b', b, p)[0]
 # Roots used by the race presentation; children are pulled in automatically.
-ROOTS = ['rk_miniTurbo', 'rk_miniTurbo1T', 'rk_wheelie', 'rk_itemBox', 'rk_jumpSeikou', 'rk_koukasen',
+ROOTS = ['rk_miniTurbo', 'rk_miniTurbo1T', 'rk_wheelie', 'rk_itemBox', 'rk_itemBoxS', 'rk_jumpSeikou', 'rk_koukasen',
          'rk_driftSpark1L_Chip00', 'rk_driftSpark1R_Chip00', 'rk_driftSpark2L_Chip00', 'rk_driftSpark2R_Chip00',
          'rk_driftSpark1LB_Chip00', 'rk_driftSpark1RB_Chip00',
          'rk_kouraTailG', 'rk_kouraTailR', 'rk_kouraTailB', 'rk_killer', 'rk_killer1T',
          # Shell breaks and item blasts (RMCU 0x80689070, 0x806890e8, 0x80689180, 0x806892c0).
-         'rk_kouraBrkG', 'rk_kouraBrkR', 'rk_bombHei', 'rk_haneKoura']
+         'rk_kouraBrkG', 'rk_kouraBrkR', 'rk_bombHei', 'rk_bombBlue', 'rk_haneKoura',
+         'rk_hitA', 'rk_hitAS',
+         # Effects::Items::CreateBananaEffect (RMCU 0x806893c0).
+         'rk_bananaSmk',
+         # HandleFibCollision (RMCU 8056e40c): fragments on a vulnerable
+         # racer, smoke on Star/Mega/Bullet. Full and remote variants.
+         'rk_niseBox', 'rk_niseBoxS', 'rk_niseBoxVan', 'rk_niseBoxBiri']
+SPIN_ROOTS = ['rk_spinHalfL', 'rk_spinHalfLS', 'rk_spinL', 'rk_spinLS',
+              'rk_spinHalfR', 'rk_spinHalfRS', 'rk_spinR', 'rk_spinRS']
+WATER_ROOTS = ['rk_wave', 'rk_awa', 'rk_spinWaterHalf', 'rk_spinWaterHalfS',
+               'rk_spinWater', 'rk_spinWaterS', 'rk_water', 'rk_pochaWaterMini',
+               'rk_crash', 'rk_crashS', 'rk_crashWater', 'rk_crashWaterS',
+               'rk_uchiage', 'rk_uchiageS']
 # KartEffect power-ups (docs/POWERUPS_SOURCE.md), S variants for other racers.
 POWERUP_ROOTS = ['rk_star', 'rk_starS', 'rk_killerS', 'rk_killer1TS', 'rk_thunder', 'rk_thunderS',
                  'rk_kaminariGumo', 'rk_kaminariGumoS', 'rk_thunderBiri', 'rk_kyodai', 'rk_kyodaiS',
@@ -42,17 +54,17 @@ POWERUP_ROOTS = ['rk_star', 'rk_starS', 'rk_killerS', 'rk_killer1TS', 'rk_thunde
 # for other racers (docs/VFX_RESEARCH.md "Slipstream").
 SLIPSTREAM_ROOTS = ['rk_slipStreamPre', 'rk_slipStreamPreS', 'rk_slipStream', 'rk_slipStreamS']
 # KartEffect smoke and dust (names from StaticR's KartEffect tables, RMCU 0x8038e24a..):
-# start-dash charge (rk_start0/1; rk_start2 needs the unported cylinder form; S for other racers), the start burnout,
+# start-dash rear-wheel layers (rk_start0/1/2; S for other racers), the start burnout,
 # drift tyre smoke, off-road dust and landing puffs.
-SMOKE_ROOTS = ['rk_start0', 'rk_start1', 'rk_startS', 'rk_startMiss', 'rk_startMissS',
+SMOKE_ROOTS = ['rk_start0', 'rk_start1', 'rk_start2', 'rk_startS', 'rk_startMiss', 'rk_startMissS',
                'rk_driftSmoke', 'rk_dirtSmokeA', 'rk_jumpSmoke', 'rk_jumpSmokeS', 'rk_jumpSmokeMini', 'rk_jumpSmokeMiniS',
                'rk_jumpSmokeBikeL', 'rk_jumpSmokeBikeLMini', 'rk_jumpSmokeBikeS', 'rk_jumpSmokeBikeL_S', 'rk_jumpSmokeBikeS_S']
 VERSION = 3
 NO_INDEX = 0xffffffff
 # Runtime limits (src/nw4r_ef.cpp, src/race_effects.cpp).
 MAX_EMITTERS, MAX_TEXTURES = 255, 96
-FORMS = {0: 'disc', 1: 'line', 8: 'sphere', 9: 'point'}
-PTCL_TYPES = {3: 'billboard', 4: 'directional', 5: 'stripe'}
+FORMS = {0: 'disc', 1: 'line', 7: 'cylinder', 8: 'sphere', 9: 'point'}
+PTCL_TYPES = {3: 'billboard', 4: 'directional', 5: 'stripe', 6: 'smooth stripe'}
 FIELDS = {0: 'gravity', 1: 'speed', 6: 'spin', 7: 'random'}
 TEX_FORMATS = {0: ('la4', 'I4'), 1: ('la8', 'I8'), 3: ('la8', 'IA8'), 4: ('rgb565', 'RGB565'),
                5: ('rgba8', 'RGB5A3'), 6: ('rgba8', 'RGBA8')}
@@ -207,6 +219,8 @@ def check(e, notes):
     ds = d[0x94:]
     if ds[0xac] not in PTCL_TYPES:
         raise ValueError(f'{name}: draw type {ds[0xac]} is not ported')
+    if ds[0xac] == 6 and (ds[0xad] > 2 or ds[0xae] != 0 or ds[0xb2] & 7 != 1):
+        raise ValueError(f'{name}: smooth-stripe connection/direction/tube is not ported')
     if ds[0x76] != 0:
         raise ValueError(f'{name}: particle lighting is not ported')
     # ParticleManager::Initialize (0x80033550) copies the lighting type into the colour
@@ -337,7 +351,7 @@ def write_t3x(path, im, form):
     return w, h
 
 
-def texture(reft, tindex, name, output):
+def texture(reft, tindex, name, output, namespace=''):
     pos, _ = tindex[name]
     width, height, length = struct.unpack_from('>HHI', reft, pos + 4)
     fmt, palfmt, colors, palsize = struct.unpack_from('>BBHI', reft, pos + 12)
@@ -348,7 +362,7 @@ def texture(reft, tindex, name, output):
     im = decode_image(io.BytesIO(reft[pos + 32:pos + 32 + length]),
                       io.BytesIO(reft[pos + 32 + length:pos + 32 + length + palsize]),
                       ImageFormat(fmt), PaletteFormat(palfmt), colors, width, height).convert('RGBA')
-    safe = 'fx_' + ''.join(ch if ch.isalnum() or ch == '_' else '_' for ch in name)
+    safe = 'fx_' + namespace + ''.join(ch if ch.isalnum() or ch == '_' else '_' for ch in name)
     im.save(output / (safe + '.png'))
     # GX takes any size; PICA needs powers of two. The image keeps its top-left corner and
     # its last row and column repeat outward, so clamped sampling matches GX exactly once
@@ -405,15 +419,35 @@ def cook(root, output):
     br, reft = breff.read_bytes(), breff.with_suffix('.breft').read_bytes()
     idx, tindex = entries(br), entries(reft)
     order, notes, records = [], [], {}
-    for roots in (ROOTS, POWERUP_ROOTS, SLIPSTREAM_ROOTS, SMOKE_ROOTS):
+    namespaces = {}
+    for roots in (ROOTS, POWERUP_ROOTS, SLIPSTREAM_ROOTS, SMOKE_ROOTS, SPIN_ROOTS, WATER_ROOTS):
         queue = list(roots)
         while queue:
             name = queue.pop(0)
             if name in records or name not in idx:
                 continue
             records[name] = Emitter(br, idx, name)
+            namespaces[name] = ''
             order.append(name)
             queue.extend(records[name].references())
+    # The original large drowning splash lives in the course's pocha
+    # archive, not RKRace. Keep its texture names in a separate namespace.
+    pocha = root / 'assets/courses/old_peach_gc/effect/pocha/rk_pocha.breff'
+    pb, pt = pocha.read_bytes(), pocha.with_suffix('.breft').read_bytes()
+    pi, pti = entries(pb), entries(pt)
+    queue = ['rk_pochaWater', 'rk_pochaWaterS']
+    while queue:
+        name = queue.pop(0)
+        if name in records:
+            continue
+        if name not in pi:
+            raise ValueError('Missing original pocha water emitter: '+name)
+        records[name] = Emitter(pb, pi, name)
+        namespaces[name] = 'pocha_'
+        order.append(name)
+        queue.extend(records[name].references())
+    texture_archives = {'': (reft, tindex), 'pocha_': (pt, pti)}
+    creature_sources = []  # Creature-only candidates stay in the test branch.
     if len(order) > MAX_EMITTERS:
         raise ValueError('Too many emitters')
     for name in order:
@@ -421,16 +455,18 @@ def cook(root, output):
     output.mkdir(parents=True, exist_ok=True)
     textures, files = {}, []
 
-    def texture_index(t):
+    def texture_index(t, namespace=''):
         if not t:
             return NO_INDEX
-        if t not in tindex:
+        source, index = texture_archives[namespace]
+        if t not in index:
             notes.append(f'texture {t} missing from RKRace.breft')
             return NO_INDEX
-        if t not in textures:
-            textures[t] = len(files)
-            files.append(texture(reft, tindex, t, output))
-        return textures[t]
+        key = (namespace, t)
+        if key not in textures:
+            textures[key] = len(files)
+            files.append(texture(source, index, t, output, namespace))
+        return textures[key]
     emitter_index = {n: i for i, n in enumerate(order)}
 
     def emitter_lookup(n):
@@ -448,12 +484,13 @@ def cook(root, output):
     table = []
     for n in order:
         e = records[n]
-        tex = [texture_index(t) for t in e.textures]
+        namespace = namespaces[n]
+        tex = [texture_index(t, namespace) for t in e.textures]
         curves = []
         # Field infos may be shorter than the 0x1c bytes the runtime copies: pad each curve.
         for c in e.ptcl_curves:
             kind = c[2]
-            lookup = (lambda x: texture_index(x)) if kind == 4 else emitter_lookup if kind in (2, 5) else (lambda x: NO_INDEX)
+            lookup = (lambda x: texture_index(x, namespace)) if kind == 4 else emitter_lookup if kind in (2, 5) else (lambda x: NO_INDEX)
             curves.append(put(resolve(c, lookup) + bytes(0x20)))
         for c in e.emit_curves:
             curves.append(put(bytes(c) + bytes(0x20)))
@@ -465,7 +502,8 @@ def cook(root, output):
                 layers[(c[1] - 0x68) // 4] += names(parse_curve(c)['tables'][3])
         for layer, used in enumerate(layers):
             for t in used:
-                f = files[textures[t]] if t in textures else None
+                key = (namespace, t)
+                f = files[textures[key]] if key in textures else None
                 if f and (f[1], f[2]) != (f[4], f[5]) and wrap >> (layer * 4) & 0xf:
                     raise ValueError(f'{n}: padded texture {t} with wrap on layer {layer}')
         desc_at, ptcl_at = put(e.desc), put(e.ptcl)
@@ -480,6 +518,8 @@ def cook(root, output):
     (output / 'race-effects.bin').write_bytes(head + tex_table + b''.join(table) + bytes(blob))
     (output / 'race-effects.json').write_text(json.dumps({
         'source_sha256': hashlib.sha256(br).hexdigest(), 'emitters': order,
+        'pocha_source_sha256': hashlib.sha256(pb).hexdigest(),
+        'creature_sources': creature_sources,
         'textures': [[f[0], f[1], f[2], f[3], f[4], f[5]] for f in files], 'notes': notes}, indent=1) + '\n')
     exhausts(root)
     print(f'Cooked {len(order)} emitters, {len(files)} textures, {len(blob)} bytes of descriptors and curves')

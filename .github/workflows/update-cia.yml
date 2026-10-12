@@ -1,4 +1,5 @@
-# Builds the code-only update CIA for each published release and attaches it.
+# Builds the code-only update CIA for each published release (a check) and,
+# only when run by hand with attach, adds it to that release.
 # No disc is involved: the update CIA reads the game files that each player's
 # builder put on their SD card (build/release/sd-card/3ds).
 name: Update CIA
@@ -40,6 +41,9 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           python3 tools/bootstrap.py
       - name: Compile
+        # The game says "quick update: no rebuild needed" on its first launch.
+        env:
+          MKW_QUICK_UPDATE: '1'
         run: python3 tools/build.py --release --jobs 4
       - uses: actions/upload-artifact@v4
         with:
@@ -74,7 +78,10 @@ jobs:
           name: MKW-3DS-Update-${{ env.TAG }}
           path: MKW-3DS-Update-*.cia
       - name: Attach to the release
-        if: github.event_name == 'release' || inputs.attach
+        # Only on request (Run workflow -> attach): players installed the
+        # update CIA without building the game, so a release no longer gets
+        # one automatically. The build still runs as a check.
+        if: inputs.attach
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}

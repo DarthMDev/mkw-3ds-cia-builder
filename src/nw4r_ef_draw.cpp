@@ -625,6 +625,68 @@ void drawStripe(Writer& w,ParticleManager& pm,const Mtx34& view){
     ribbon(XUnit,{-1,0,0});
     if(d.typeOption==1)ribbon({0,0,-1},ZUnit);
 }
+
+// DrawSmoothStripeStrategy's closed ribbon (RMCE 80048f20). The original
+// DrawSection_B (80047bb0) evaluates a quadratic, three-control-point
+// B-spline, including the texture coordinate. Keep a rolling window, so
+// no per-frame particle-sized scratch allocation or large stack is needed.
+struct SmoothSection {Vec3 a,b;float t;};
+void drawSmoothStripe(Writer& w,ParticleManager& pm,const Mtx34& view){
+    const DrawSetting& d=pm.res->desc.draw;
+    // Other connection forms and tubes require their own source ports.
+    // The cooker accepts only this path, used by rk_niseBoxBiri.
+    if((d.typeOption2&7)!=1||d.typeOption>2||d.typeDir!=0)return;
+    u32 count=0;for(Particle* p=pm.particles.head;p;p=p->next)if(p->life==Active)++count;
+    if(!count)return;
+    Ahead a=aheadContext(pm);const Vec3 initial=stripeInitialAxis(a,d.typeOption2);
+    for(Particle* p=pm.particles.tail;p&&1.f<p->prevAxis.x;p=p->prev)p->prevAxis=initial;
+    const bool billboard=d.typeOption==2;
+    const Mtx34 viewPm=mul(view,managerGlobalMtx(pm));
+    if(billboard){Mtx34 inv;a.cameraDir=inverse(inv,viewPm)?inv.col(2):ZUnit;}
+    if(count<3){forEachDraw(pm,[&](Particle& p){stripeFrame(a,p,billboard,p.p.position);});return;}
+    Particle* first=nullptr;forEachDraw(pm,[&](Particle& p){if(!first)first=&p;});
+    w.setup(*first);
+    const bool reversed=d.flags&DrawSetting::DrawOrder;
+    const unsigned divisions=std::max<unsigned>(d.typeOption1,1);
+    // Closed loops place controls at half-intervals outside [0,1], then
+    // wrap the first two positions with continued texture coordinates.
+    // This avoids stretching/reversing the final seam (8004903c..84).
+    const float step=(d.typeOption2&0xc0)==0x40?.5f:.5f/float(count);
+    const float px=.01f*float(d.pivotX);
+    auto ribbon=[&](Vec3 edgeA,Vec3 edgeB){
+        Writer::Strip strip{w};
+        SmoothSection first0{},first1{},prev0{},prev1{},last0{},last1{};
+        unsigned seen=0;int index=reversed?int(count)*2+1:-1;const int increment=reversed?-2:2;
+        auto pair=[&](const SmoothSection& v){strip.push(w.make(v.a,1.f,v.t));strip.push(w.make(v.b,0.f,v.t));};
+        auto interpolate=[](const SmoothSection& p0,const SmoothSection& p1,const SmoothSection& p2,float t){
+            const float t2=t*t,w2=.5f*t2,w0=.5f+w2-t,w1=.5f-t2+t;
+            return SmoothSection{p0.a*w0+p1.a*w1+p2.a*w2,p0.b*w0+p1.b*w1+p2.b*w2,p0.t*w0+p1.t*w1+p2.t*w2};
+        };
+        auto section=[&](const SmoothSection& p0,const SmoothSection& p1,const SmoothSection& p2){
+            for(unsigned n=0;n<divisions;++n)pair(interpolate(p0,p1,p2,float(n)/float(divisions)));
+            last0=p1;last1=p2;
+        };
+        auto consume=[&](const SmoothSection& v){
+            if(seen==0){first0=prev0=v;}
+            else if(seen==1){first1=prev1=v;}
+            else {section(prev0,prev1,v);prev0=prev1;prev1=v;}
+            ++seen;
+        };
+        forEachDraw(pm,[&](Particle& p){
+            const Mtx34 B=stripeFrame(a,p,billboard,p.p.position);
+            float s,c;sinCosRad(drawRotate(p).y,s,c);const float width=sizeX(p);s*=width;c*=width;
+            const Mtx34 L{{{c,0,-s,px-c*px},{0,1,0,0},{s,0,c,-s*px}}};
+            const Mtx34 M=mul(viewPm,mul(B,L));
+            consume({transformCoord(M,edgeA),transformCoord(M,edgeB),step*float(index)});index+=increment;
+        });
+        first0.t=step*float(index);index+=increment;consume(first0);
+        first1.t=step*float(index);consume(first1);
+        // DrawSectionEnd (80047eb0) writes the final midpoint at t=1.
+        pair({(last0.a+last1.a)*.5f,(last0.b+last1.b)*.5f,(last0.t+last1.t)*.5f});
+    };
+    ribbon(XUnit,{-1,0,0});
+    if(d.typeOption==1)ribbon({0,0,-1},ZUnit);
+}
 }
 
 // ---- GX TEV -> PICA combiner programs ----
@@ -659,6 +721,9 @@ bool translateMaterial(const DrawSetting& d,Material& m){
     // C = lerp(C0, C1, TEX0C), A = A0 * TEX0A: INTERPOLATE(C1, C0, TEX0).
     const CombinerStage standard=stage(Func::Interpolate,{{Src::Vertex,C},{Src::Lookup,C},{Src::Tex0,C}},
                                        Func::Modulate,{{Src::Tex0,A},{Src::Vertex,A}});
+    const bool maskedFragments=sameStages(d,{{0,{14,2,8,15},{0,0,0,1,3},{7,1,4,7},{0,0,0,1,3},12,0},
+                                             {1,{15,14,8,4},{0,0,0,1,0},{7,7,7,2},{0,0,0,1,0},13,0},
+                                             {255,{6,15,15,0},{0,0,0,1,0},{7,3,0,7},{0,0,0,1,0},0,0}});
     if(sameStages(d,{lerp0})){
         m.vertex={RegC1,RegC0};m.lookup={RegC0,ValNone};
         m.stages=1;m.stage[0]=standard;
@@ -684,6 +749,23 @@ bool translateMaterial(const DrawSetting& d,Material& m){
         m.stages=2;m.stage[0]=standard;
         m.stage[1]=stage(Func::MultiplyAdd,{{Src::Tex1,C},{Src::Const,C},{Src::Prev,C}},Func::Replace,{{Src::Prev,A}});
         m.stage[1].constant={ValHalf,ValNone};
+    }else if(sameStages(d,{{0,{14,2,8,15},{0,0,0,1,3},{7,1,4,7},{0,0,0,1,3},12,0},
+                          {1,{15,14,8,4},{0,0,0,1,0},{7,7,7,2},{0,0,0,1,0},13,0},
+                          {255,{6,15,15,0},{0,0,0,1,0},{7,7,7,3},{0,0,0,1,0},0,0}})||maskedFragments){
+        // Fake-box fragments: C2 = lerp(K0,C0,TEX0), A2 = A0*TEX0A;
+        // CPREV = K1*TEX1+C1; final C = C2+CPREV, A = A2.
+        // Buffer stage 0 reaches stage 2; stage 3 still reads that value.
+        m.vertex={RegC0,RegC0};m.lookup={RegK0,ValNone};m.stages=4;
+        m.stage[0]=stage(Func::Interpolate,{{Src::Vertex,C},{Src::Lookup,C},{Src::Tex0,C}},
+                                           Func::Modulate,{{Src::Tex0,A},{Src::Vertex,A}});
+        m.stage[0].bufferRgb=m.stage[0].bufferAlpha=true;
+        // Remote ordinary boxes share the RGB path but multiply A2 by A1.
+        m.stage[1]=stage(Func::Modulate,{{Src::Tex1,C},{Src::Const,C}},Func::Replace,{{maskedFragments?Src::Const:Src::Prev,A}});
+        m.stage[1].constant={RegK1,maskedFragments?RegC1:ValNone};
+        m.stage[2]=stage(Func::Add,{{Src::Prev,C},{Src::Const,C}},Func::Replace,{{maskedFragments?Src::Prev:Src::Buffer,A}});
+        m.stage[2].constant={RegC1,ValNone};
+        m.stage[3]=stage(Func::Add,{{Src::Buffer,C},{Src::Prev,C}},maskedFragments?Func::Modulate:Func::Replace,
+                                           {{maskedFragments?Src::Buffer:Src::Prev,A},{Src::Prev,A}});
     }else if(sameStages(d,{{0,{15,2,8,4},{0,0,0,1,0},{7,1,4,7},{0,0,0,1,0},0,0}})){
         // C = C0 * TEX0C + C1, A = A0 * TEX0A.
         m.vertex={RegC0,RegC0};m.lookup={RegC1,ValNone};
@@ -792,6 +874,7 @@ void buildDrawList(System& s,const std::vector<Material>& materials,const Textur
             case 3:drawBillboard(w,*pm,v);break;
             case 4:drawDirectional(w,*pm,v);break;
             case 5:drawStripe(w,*pm,v);break;
+            case 6:drawSmoothStripe(w,*pm,v);break;
             default:break;
             }
         }

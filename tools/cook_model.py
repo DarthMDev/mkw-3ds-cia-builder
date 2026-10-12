@@ -41,7 +41,7 @@ def cook(source,out,prefix,max_texture=256,preserve_vertices=False,reuse_texture
  # Partition by unique vertices and preserve every triangle. Flush only at triangle boundaries.
  parts=[];vertices=[];indices=[];subs=[];lookup={};shapes=[]
  # GMDL v4 adds the retail course lighting word, ambient register and albedo add per submesh.
- version=4 if any(shape.get('retail') for model in data['models'] for shape in model['shapes']) else 3
+ version=5 if any(shape.get('reflection') for model in data['models'] for shape in model['shapes']) else 4 if any(shape.get('retail') for model in data['models'] for shape in model['shapes']) else 3
  def flush():
   nonlocal vertices,indices,subs,lookup
   if not indices:return
@@ -57,6 +57,7 @@ def cook(source,out,prefix,max_texture=256,preserve_vertices=False,reuse_texture
   for shape in model['shapes']:
    shapes.append({k:v for k,v in shape.items() if k!='vertices'})
    flags,alpha_factor,vertex_alpha,alpha_limit,alpha_mix,extended=material_state(shape)
+   fixed_menu_alpha=bool((shape.get('retail') or {}).get('word',0)&(1<<21) and (flags>>20)&7==4)
    # Bit 29 is an unused alpha-reference selector whenever alpha test is off.
    # Reuse it for a restrained aqua grade on water whose TEV equation has no
    # translation (the fallback samples its indirect wave mask as colour); the
@@ -72,15 +73,32 @@ def cook(source,out,prefix,max_texture=256,preserve_vertices=False,reuse_texture
     tri=[]
     for v in stream[start:start+3]:
      if not all(math.isfinite(x) for x in v):raise ValueError('non-finite vertex')
-     rgba=v.copy();rgba[-1]=round((v[-1] if vertex_alpha else 255)*alpha_factor)
+     rgba=v.copy();rgba[-1]=v[-1] if fixed_menu_alpha else round((v[-1] if vertex_alpha else 255)*alpha_factor)
      tri.append(struct.pack('<10f4B',*rgba))
     if len(vertices)+3>60000:flush()
     tex=shape['texture']
     if not shape.get('sourceMaterial') and tex>=0 and audits[tex]['alpha'] and not flags&2:flags|=1
     constant=shape['constant'] if alpha_mix is None else (shape['constant']&0xffffff)|(alpha_mix<<24)
+    # A menu's final fixed GX alpha is independent of its lit raster alpha
+    # (the latter is only the lm_0/lm_1 reflection mask).
+    if fixed_menu_alpha:
+     constant=(constant&0xffffff)|(round(alpha_factor*255)<<24)
     if shape['animationFrames']>0xffff:raise ValueError('Animation too long for GMDL: '+shape['material'])
+    # With alpha testing disabled, bits 16..23 no longer hold a cutoff.
+    # Value 1 selects the two-texture RGB equation T0 + T1*T0.alpha.
+    if shape.get('textureAlphaAdd'):
+     if flags&1:raise ValueError('Texture-alpha colour layer conflicts with alpha cutoff')
+     extended |= 1<<16
+    if shape.get('skyScreenBlend'):
+     if flags&1 or shape.get('textureAlphaAdd') or shape['lightingMode']!=2:
+      raise ValueError('Sky screen blend conflicts with another material equation')
+     # P + cloud*(1-P), after the authored sky/raster stage.
+     extended |= 2<<16
     material=[tex,flags,shape['secondary'],constant,*shape['uvVelocity'],shape['animationFrames']|extended]
-    if version==4:material+=retail_lighting(shape)
+    if version>=4:material+=retail_lighting(shape)
+    if version==5:
+     reflection=shape.get('reflection')
+     material+=([reflection['mode'],reflection['constant'],reflection['add'],*reflection['uv']] if reflection else [0]*9)
     if not subs or subs[-1][2:]!=material or (preserve_vertices and start==0):subs.append([len(indices),0,*material])
     for v in tri:
      if preserve_vertices:indices.append(len(vertices));vertices.append(v)

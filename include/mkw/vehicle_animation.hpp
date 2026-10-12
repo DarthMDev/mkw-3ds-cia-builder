@@ -1,5 +1,6 @@
 #pragma once
 #include "mkw/math.hpp"
+#include "mkw/wheel_motion.hpp"
 #include <citro3d.h>
 #include <algorithm>
 #include <array>
@@ -46,6 +47,7 @@ private:
     std::array<float,4> bspRadii_{};
     Vec3 kartScale_{1,1,1};
     float steering_=0;
+    WheelMotion wheelMotion_{};
     mutable bool dirty_=false;
     mutable C3D_Mtx body_{},handle_{},handleBase_{};
     mutable std::array<C3D_Mtx,4> wheels_{},wheelFrames_{};

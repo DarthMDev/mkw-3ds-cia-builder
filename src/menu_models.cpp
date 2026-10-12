@@ -1,6 +1,8 @@
+#include <mkw/display_layout.hpp>
 #include "mkw/menu_models.hpp"
 #include "mkw/menu_model_params.hpp"
 #include "mkw/menu_model_motion.hpp"
+#include "mkw/menu_lighting.hpp"
 #include "mkw/render_metrics.hpp"
 #include "mkw/mod_engine.hpp"
 #include <algorithm>
@@ -247,6 +249,7 @@ void MenuModels::reset(Renderer& renderer) {
 }
 void MenuModels::begin(Renderer& renderer) {
     renderer.setFov(Fov);renderer.setCourseLighting(false);
+    renderer.setRetailLighting(&MenuLightings[0]);
     // Stereo: Mario Kart 7's garage, the selection models 7 px behind the
     // screen (stereo::Garage). They stand at modelZ -15 (see draw).
     renderer.setStereoSubject(stereo::Garage,ModelDepth);
@@ -282,7 +285,7 @@ void MenuModels::draw(Renderer& renderer,const MenuState& state,const UiTransiti
         if(!rigid||pose.palette){
             if(rigid)renderer.setRigidPose(&pose);
             renderer.drawAtScreen(*background->model,matrix,200.f+80.f*400.f/608.f,120.f,
-                                 100.f/255.f,2.f*400.f/832.f,225.f/240.f);
+                                 100.f/255.f,2.f*400.f/832.f,display::Height/240.f);
             renderer.setRigidPose(nullptr);
         }
         renderMetrics.drawMs+=float((svcGetSystemTick()-t2)*1000.0/SYSCLOCK_ARM11);
@@ -301,7 +304,7 @@ void MenuModels::draw(Renderer& renderer,const MenuState& state,const UiTransiti
         C3D_Mtx matrix;Mtx_Identity(&matrix);
         const auto placement=uiMenuModelPlacement(state.page,motion);
         const float x=200.f+placement.x*400.f/608.f;
-        const float y=120.f-placement.y*225.f/456.f;
+        const float y=120.f-placement.y*display::MenuScaleY;
         constexpr unsigned ids[]={0,1,2,6,7,8,3,4,5,9,10,11};
         const unsigned weight=UiCharacters[driverId].weight,vehicle=ids[choice]*3+weight;
         const float scale=vehicle==5?1.03f:weight==0?1.3f:weight==1?1.2f:1.1f;
@@ -310,16 +313,16 @@ void MenuModels::draw(Renderer& renderer,const MenuState& state,const UiTransiti
         // Retail Update builds Euler Y=(90+rotation)*2*pi/720.
         Mtx_RotateY(&matrix,3.14159265359f/4.f,true);
         Mtx_Scale(&matrix,scale,scale,scale);
-        renderer.drawAtScreen(*machine->model,matrix,x,y,1.f,2.f*400.f/832.f*placement.scale,2.f*225.f/456.f*placement.scale);
+        renderer.drawAtScreen(*machine->model,matrix,x,y,1.f,2.f*400.f/832.f*placement.scale,2.f*display::MenuScaleY*placement.scale);
         const auto& seat=MenuSeats[driverId][choice];Mtx_Translate(&matrix,0,seat.y,seat.z,true);
-        renderer.drawAtScreen(*driver->model,matrix,x,y,1.f,2.f*400.f/832.f*placement.scale,2.f*225.f/456.f*placement.scale);
+        renderer.drawAtScreen(*driver->model,matrix,x,y,1.f,2.f*400.f/832.f*placement.scale,2.f*display::MenuScaleY*placement.scale);
     }else if(state.page==UiPage::Character) {
         C3D_Mtx matrix;Mtx_Identity(&matrix);
         Mtx_Translate(&matrix,0.f,-150.f,-15.f,true);Mtx_Scale(&matrix,1.6f,1.6f,1.6f);
         const auto placement=uiMenuModelPlacement(state.page,motion);
         renderer.drawAtScreen(*driver->model,matrix,200.f+placement.x*400.f/608.f,
-                              120.f-placement.y*225.f/456.f,1.f,
-                              2.f*400.f/832.f*placement.scale,2.f*225.f/456.f*placement.scale);
+                              120.f-placement.y*display::MenuScaleY,1.f,
+                              2.f*400.f/832.f*placement.scale,2.f*display::MenuScaleY*placement.scale);
     }
 }
 }

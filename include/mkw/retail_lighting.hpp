@@ -38,6 +38,7 @@ struct CourseLighting {
 namespace retail {
 enum : uint32_t {
     Retail=1u<<0,          // submesh uses retail course lighting
+    Menu=1u<<21,           // racer material alpha/reflection path (menu or race)
     Fog=1u<<1,             // material fog index 0 (G3D fog 0)
     ChannelShift=2,        // 0 unlit (raster = vertex/register colour), 1 GX lit, 2 GX lit + light textures
     ChannelMask=3u<<2,

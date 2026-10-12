@@ -1,0 +1,53 @@
+#pragma once
+namespace mkw {
+struct ObjectSoundEvent {float frame;unsigned short sound;float volume;};
+inline constexpr ObjectSoundEvent ObjectSoundEvents[]={
+{56.f,552,1.00000000f},
+{28.f,552,1.00000000f},
+{56.f,552,1.00000000f},
+{28.f,552,1.00000000f},
+{29.f,652,1.00000000f},
+{3.f,652,1.00000000f},
+{46.f,653,1.00000000f},
+{3.f,653,1.00000000f},
+{1.f,654,1.00000000f},
+{20.f,656,1.00000000f},
+{8.f,659,1.00000000f},
+{20.f,839,1.00000000f},
+{9.f,838,1.00000000f},
+{28.f,841,1.00000000f},
+{8.f,843,1.00000000f},
+{26.f,844,1.00000000f},
+{20.f,835,1.00000000f},
+{9.f,834,1.00000000f},
+{110.f,633,0.62500000f},
+{85.f,633,0.39062500f},
+{25.f,633,0.39062500f},
+{50.f,633,0.62500000f},
+{8.f,634,1.00000000f},
+{17.f,633,1.00000000f},
+{40.f,602,1.00000000f},
+{10.f,601,1.00000000f},
+{46.f,602,1.00000000f},
+{4.f,608,1.00000000f},
+{44.f,601,1.00000000f},
+};
+struct ObjectSoundClip {const char* resource;const char* name;unsigned frames,first,count;};
+inline constexpr ObjectSoundClip ObjectSoundClips[]={
+{"kuribo","walk_l",59,0,2},
+{"kuribo","walk_r",59,2,2},
+{"cow","walk",60,4,2},
+{"cow","run",60,6,2},
+{"cow","eat",30,8,1},
+{"cow","eat_ed",60,9,1},
+{"cow","surprise",30,10,1},
+{"penguin_s","walk",23,11,2},
+{"penguin_s","dive",56,13,1},
+{"penguin_s","stand_up",45,14,2},
+{"penguin_m","walk",23,16,2},
+{"pakkun_f","wait",120,18,4},
+{"pakkun_f","attack",41,22,2},
+{"poihana","walk",59,24,2},
+{"poihana","throw",75,26,3},
+};
+}

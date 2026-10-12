@@ -22,9 +22,14 @@ public:
     void prepare(const Renderer& renderer,unsigned tick,Vec3 camera);
     // tick: simulation frames since the race scene began.
     void draw(Renderer& renderer,unsigned tick,Vec3 camera);
+    // Transparent tide layers, after opaque scenery and racers, before effects.
+    void drawWater(Renderer& renderer);
     // Sky-pass objects (suns, Rainbow Road's Earth glow): drawn after the sky,
     // before the course, so walls and scenery cover them.
     void drawSky(Renderer& renderer,unsigned tick,Vec3 camera);
+    // GPU-idle pause: keep controllers/physics links while releasing all meshes.
+    void suspendGraphics();
+    bool resumeGraphics();
     void reset();
     // Renderer::moveToVram for every object model's textures; returns the
     // number moved. GPU idle (Renderer::waitForGpu).

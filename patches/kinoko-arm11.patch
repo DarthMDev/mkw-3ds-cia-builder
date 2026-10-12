@@ -35,7 +35,7 @@ index eb8ee04..c5e3fe0 100644
  #ifdef BUILD_DEBUG
  #define DEBUG(m, ...) \
 diff --git a/source/abstract/File.cc b/source/abstract/File.cc
-index ee849c9..d882277 100644
+index ee849c9..4e11802 100644
 --- a/source/abstract/File.cc
 +++ b/source/abstract/File.cc
 @@ -16,7 +16,12 @@ u8 *Load(const char *path, size_t &size) {
@@ -51,6 +51,25 @@ index ee849c9..d882277 100644
  
      if (root && root[0] != '\0') {
          // path relative to KINOKO_FILESYSTEM_ROOT
+@@ -41,7 +46,17 @@ u8 *Load(const char *path, size_t &size) {
+ 
+     std::ifstream file(filepath, std::ios::binary);
+     if (!file) {
+-        PANIC("Failed to load file %s! (KINOKO_FILESYSTEM_ROOT=%s)", path, root ? root : "(unset)");
++        char altPath[256];
++        std::snprintf(altPath, sizeof(altPath), "sdmc:/3ds/mkw-3ds/%s", path);
++        file.open(altPath, std::ios::binary);
++        if (!file) {
++            std::snprintf(altPath, sizeof(altPath), "romfs:/%s", path);
++            file.open(altPath, std::ios::binary);
++        }
++    }
++    if (!file) {
++        size = 0;
++        return nullptr;
+     }
+ 
+     file.seekg(0, std::ios::end);
 diff --git a/source/egg/math/Math.hh b/source/egg/math/Math.hh
 index f0c4cc4..8424fae 100644
 --- a/source/egg/math/Math.hh
@@ -336,6 +355,34 @@ index 11bf1fd..af97e04 100644
      bool m_usePerPointVelocities;
      EGG::Vector3f m_curPos;
      EGG::Vector3f m_curTangentDir;
+diff --git a/source/game/field/RailManager.hh b/source/game/field/RailManager.hh
+index ee30843..175d4bf 100644
+--- a/source/game/field/RailManager.hh
++++ b/source/game/field/RailManager.hh
+@@ -22,13 +22,21 @@ class RailManager {
+ 
+ public:
+     /// @beginGetters
++    [[nodiscard]] size_t railCount() const {
++        return m_rails.size();
++    }
++
++    [[nodiscard]] bool hasRail(size_t idx) const {
++        return idx < m_rails.size();
++    }
++
+     [[nodiscard]] Rail *rail(size_t idx) {
+-        ASSERT(idx < m_rails.size());
++        if (idx >= m_rails.size()) return nullptr;
+         return m_rails[idx];
+     }
+ 
+     [[nodiscard]] const Rail *rail(size_t idx) const {
+-        ASSERT(idx < m_rails.size());
++        if (idx >= m_rails.size()) return nullptr;
+         return m_rails[idx];
+     }
+     /// @endGetters
 diff --git a/source/game/field/StateManager.hh b/source/game/field/StateManager.hh
 index e715fa3..9b631c8 100644
 --- a/source/game/field/StateManager.hh
@@ -606,7 +653,7 @@ index 0b38874..8f34e85 100644
      const f32 m_finalVel;
      const f32 m_accel;
 diff --git a/source/game/field/obj/ObjectCarTGE.cc b/source/game/field/obj/ObjectCarTGE.cc
-index bd434d7..c922727 100644
+index bd434d7..7b5a2a9 100644
 --- a/source/game/field/obj/ObjectCarTGE.cc
 +++ b/source/game/field/obj/ObjectCarTGE.cc
 @@ -6,17 +6,32 @@
@@ -643,8 +690,33 @@ index bd434d7..c922727 100644
      u32 carVariant = static_cast<u32>(params.setting(3));
      m_highwayVel = static_cast<f32>(params.setting(2));
      m_localVel = static_cast<f32>(params.setting(1));
-@@ -45,13 +60,16 @@ ObjectCarTGE::ObjectCarTGE(const System::MapdataGeoObj &params)
-     } else if (strcmp(name, "kart_truck") == 0) {
+@@ -26,7 +41,7 @@ ObjectCarTGE::ObjectCarTGE(const System::MapdataGeoObj &params)
+     // The base game returns before the StateManager sets its state entries.
+     // Since we handle this in the template specialization's constructor in Kinoko,
+     // we need to reset the StateManager parameters back to their default values before returning.
+-    if (pathId == -1) {
++    if (pathId < 0 || !RailManager::Instance()->hasRail(pathId)) {
+         m_nextStateId = -1;
+         m_currentStateId = 0;
+         m_currentFrame = 0;
+@@ -35,23 +50,32 @@ ObjectCarTGE::ObjectCarTGE(const System::MapdataGeoObj &params)
+     }
+ 
+     // The base game preemptively calculates collision for all points along the rail.
+-    RailManager::Instance()->rail(pathId)->checkSphereFull();
++    auto *railObj = RailManager::Instance()->rail(pathId);
++    if (railObj) {
++        railObj->checkSphereFull();
++    }
+ 
+     const auto *name = getName();
+ 
+-    if (strcmp(name, "car_body") == 0) {
++    if (strcmp(name, "car_body") == 0 || strcmp(name, "K_car_body") == 0) {
+         snprintf(m_carName, sizeof(m_carName), "%s", "K_car_body");
+         m_carType = CarType::Normal;
+-    } else if (strcmp(name, "kart_truck") == 0) {
++    } else if (strcmp(name, "kart_truck") == 0 || strcmp(name, "K_truck") == 0) {
          snprintf(m_carName, sizeof(m_carName), "%s", "K_truck");
          m_carType = CarType::Truck;
 -    } else if (strcmp(name, "K_bomb_car") == 0) {
@@ -652,6 +724,9 @@ index bd434d7..c922727 100644
 +    } else if (strcmp(name, "K_bomb_car") == 0 || strcmp(name, "K_bomb_car1") == 0) {
 +        snprintf(m_carName, sizeof(m_carName), "%s", name);
 +        m_carType = CarType::BombCar;
++    } else {
++        snprintf(m_carName, sizeof(m_carName), "%s", name);
++        m_carType = CarType::Normal;
      }
  
      const auto *resourceName = getResources();
@@ -663,7 +738,16 @@ index bd434d7..c922727 100644
      case 0: {
          if (strcmp(resourceName, "K_truck") == 0) {
              snprintf(m_mdlName, sizeof(m_mdlName), "%s_b", "K_truck");
-@@ -86,11 +104,14 @@ ObjectCarTGE::ObjectCarTGE(const System::MapdataGeoObj &params)
+@@ -74,7 +98,7 @@ ObjectCarTGE::ObjectCarTGE(const System::MapdataGeoObj &params)
+         }
+     } break;
+     default: {
+-        PANIC("Bomb cars are not implemented!");
++        snprintf(m_mdlName, sizeof(m_mdlName), "%s", resourceName);
+         break;
+     }
+     }
+@@ -86,11 +110,14 @@ ObjectCarTGE::ObjectCarTGE(const System::MapdataGeoObj &params)
      case CarType::Truck:
          m_dummyId = ObjectDirector::Instance()->flowTable().getIdFromName("kart_truck_dummy");
          break;
@@ -680,7 +764,7 @@ index bd434d7..c922727 100644
      if (System::RaceConfig::Instance()->raceScenario().course == Course::Moonview_Highway) {
          registerManagedObject();
      }
-@@ -131,11 +152,21 @@ void ObjectCarTGE::init() {
+@@ -131,11 +158,21 @@ void ObjectCarTGE::init() {
          m_nextStateId = 2;
      }
  
@@ -703,7 +787,7 @@ index bd434d7..c922727 100644
  }
  
  /// @addr{0x806D6ECC}
-@@ -153,7 +184,25 @@ void ObjectCarTGE::calc() {
+@@ -153,7 +190,25 @@ void ObjectCarTGE::calc() {
          }
      }
  
@@ -730,7 +814,7 @@ index bd434d7..c922727 100644
  
      m_hasAuxCollision = false;
  }
-@@ -165,11 +214,14 @@ void ObjectCarTGE::createCollision() {
+@@ -165,11 +220,14 @@ void ObjectCarTGE::createCollision() {
      constexpr f32 NORMAL_RADIUS = 150.0f;
      constexpr f32 NORMAL_HEIGHT = 200.0f;
  
@@ -748,7 +832,7 @@ index bd434d7..c922727 100644
  
      f32 radius = isTruck ? TRUCK_RADIUS : NORMAL_RADIUS;
      f32 height = isTruck ? TRUCK_HEIGHT : NORMAL_HEIGHT;
-@@ -187,6 +239,9 @@ void ObjectCarTGE::calcCollisionTransform() {
+@@ -187,6 +245,9 @@ void ObjectCarTGE::calcCollisionTransform() {
  
      calcTransform();
      col->transform(transform(), scale(), m_scaledTangentDir);
@@ -758,7 +842,7 @@ index bd434d7..c922727 100644
      calcTransform();
      EGG::Matrix34f mat;
      SetRotTangentHorizontal(mat, transform().base(2), EGG::Vector3f::ey);
-@@ -199,16 +254,41 @@ void ObjectCarTGE::calcCollisionTransform() {
+@@ -199,16 +260,41 @@ void ObjectCarTGE::calcCollisionTransform() {
  f32 ObjectCarTGE::getCollisionRadius() const {
      constexpr f32 NORMAL_RADIUS = 600.0f;
      constexpr f32 TRUCK_RADIUS = 1100.0f;
@@ -803,7 +887,7 @@ index bd434d7..c922727 100644
      if (!m_hasAuxCollision) {
          EGG::Vector3f hitDepthNorm = hitDepth;
          hitDepthNorm.normalise2();
-@@ -218,14 +298,20 @@ Kart::Reaction ObjectCarTGE::onCollision(Kart::KartObject *kartObj, Kart::Reacti
+@@ -218,14 +304,20 @@ Kart::Reaction ObjectCarTGE::onCollision(Kart::KartObject *kartObj, Kart::Reacti
          }
      }
  
@@ -827,7 +911,7 @@ index bd434d7..c922727 100644
          calcTransform();
          EGG::Vector3f v2 = transform().base(2);
          v2.y = 0.0f;
-@@ -249,7 +335,7 @@ bool ObjectCarTGE::checkCollision(ObjectCollisionBase *lhs, EGG::Vector3f &dist)
+@@ -249,7 +341,7 @@ bool ObjectCarTGE::checkCollision(ObjectCollisionBase *lhs, EGG::Vector3f &dist)
      dist = EGG::Vector3f::zero;
      bool hasCol = lhs->check(*m_collision, dist);
  
@@ -836,7 +920,7 @@ index bd434d7..c922727 100644
          hasCol = lhs->check(*m_auxCollision, dist);
          m_hasAuxCollision = hasCol;
      }
-@@ -338,4 +424,122 @@ void ObjectCarTGE::calcPos() {
+@@ -338,4 +430,122 @@ void ObjectCarTGE::calcPos() {
      setMatrixTangentTo(m_up, m_tangent);
  }
  
@@ -1095,10 +1179,21 @@ index 6316a2c..593f5c3 100644
  
  /// @addr{0x806BB144}
 diff --git a/source/game/field/obj/ObjectCollidable.cc b/source/game/field/obj/ObjectCollidable.cc
-index c7c65b0..9ea35a8 100644
+index c7c65b0..50935bf 100644
 --- a/source/game/field/obj/ObjectCollidable.cc
 +++ b/source/game/field/obj/ObjectCollidable.cc
-@@ -51,6 +51,12 @@ void ObjectCollidable::calcCollisionTransform() {
+@@ -41,7 +41,9 @@ void ObjectCollidable::load() {
+ /// @addr{0x8081F7C8}
+ void ObjectCollidable::calcCollisionTransform() {
+     calcTransform();
+-    m_collision->transform(transform(), scale(), getCollisionTranslation());
++    if (m_collision) {
++        m_collision->transform(transform(), scale(), getCollisionTranslation());
++    }
+ }
+ 
+ /// @addr{0x806815A0}
+@@ -51,6 +53,12 @@ void ObjectCollidable::calcCollisionTransform() {
  f32 ObjectCollidable::getCollisionRadius() const {
      const auto &flowTable = ObjectDirector::Instance()->flowTable();
      const auto *collisionSet = flowTable.set(flowTable.slot(id()));
@@ -1111,6 +1206,37 @@ index c7c65b0..9ea35a8 100644
  
      f32 zRadius = scale().z * static_cast<f32>(parse<s16>(collisionSet->params.box.z));
      f32 xRadius = scale().x * static_cast<f32>(parse<s16>(collisionSet->params.box.x));
+@@ -95,6 +103,9 @@ void ObjectCollidable::processKartReactions(Kart::KartObject *kartObj,
+ 
+ /// @addr{0x80681748}
+ bool ObjectCollidable::checkCollision(ObjectCollisionBase *lhs, EGG::Vector3f &dist) {
++    if (!m_collision || !lhs) {
++        return false;
++    }
+     return lhs->check(*collision(), dist);
+ }
+ 
+@@ -104,8 +115,8 @@ void ObjectCollidable::createCollision() {
+     const auto *collisionSet = flowTable.set(flowTable.slot(id()));
+ 
+     if (!collisionSet) {
+-        PANIC("Invalid object ID when creating primitive collision! ID: %zu",
+-                static_cast<size_t>(id()));
++        m_collision = nullptr;
++        return;
+     }
+ 
+     switch (static_cast<CollisionMode>(parse<s16>(collisionSet->mode))) {
+@@ -124,8 +135,7 @@ void ObjectCollidable::createCollision() {
+                 collisionCenter());
+         break;
+     default:
+-        PANIC("Invalid collision mode when creating primitive collision! ID: %zu; Mode: %d",
+-                static_cast<size_t>(id()), parse<s16>(collisionSet->mode));
++        m_collision = nullptr;
+         break;
+     }
+ }
 diff --git a/source/game/field/obj/ObjectCow.cc b/source/game/field/obj/ObjectCow.cc
 index 1d1d81e..f0b06ac 100644
 --- a/source/game/field/obj/ObjectCow.cc
@@ -1218,10 +1344,20 @@ index 6d7ed5d..2cb9f89 100644
  }
  
 diff --git a/source/game/field/obj/ObjectDokan.cc b/source/game/field/obj/ObjectDokan.cc
-index 9b48872..98dab76 100644
+index 9b48872..863a16d 100644
 --- a/source/game/field/obj/ObjectDokan.cc
 +++ b/source/game/field/obj/ObjectDokan.cc
-@@ -82,6 +82,13 @@ void ObjectDokan::calcFloor() {
+@@ -37,6 +37,9 @@ void ObjectDokan::calcCollisionTransform() {
+         ObjectCollidable::calcCollisionTransform();
+     } else {
+         // rMR piranhas
++        if (!m_collision) {
++            return;
++        }
+         calcTransform();
+         EGG::Matrix34f mat = transform();
+         mat.setBase(3, mat.translation() + EGG::Vector3f::ey * 300.0f);
+@@ -82,6 +85,13 @@ void ObjectDokan::calcFloor() {
          if (m_velocity.length() < ACCELERATION * PIPE_SQRT_RADIUS) {
              m_b0 = false;
          }
@@ -1554,10 +1690,31 @@ index d447748..f025476 100644
  
      void calcErupted();
 diff --git a/source/game/field/obj/ObjectHanachan.cc b/source/game/field/obj/ObjectHanachan.cc
-index 15870f0..0538007 100644
+index 15870f0..f95c0e8 100644
 --- a/source/game/field/obj/ObjectHanachan.cc
 +++ b/source/game/field/obj/ObjectHanachan.cc
-@@ -186,6 +186,11 @@ void ObjectHanachan::calcWalk() {
+@@ -64,6 +64,9 @@ ObjectHanachanHead::~ObjectHanachanHead() = default;
+ 
+ /// @addr{0x806C8450}
+ void ObjectHanachanHead::calcCollisionTransform() {
++    if (!m_collision) {
++        return;
++    }
+     calcTransform();
+ 
+     EGG::Matrix34f trans = transform();
+@@ -95,6 +98,10 @@ void ObjectHanachanBody::calcCollisionTransform() {
+         return;
+     }
+ 
++    if (!m_collision) {
++        return;
++    }
++
+     EGG::Matrix34f trans = transform();
+     trans.setBase(3, pos() + trans.base(2) * 80.0f * scale().y);
+     EGG::Vector3f posDelta = pos() - m_lastPos;
+@@ -186,6 +193,11 @@ void ObjectHanachan::calcWalk() {
      calcRailAlignmentMotion();
      m_chain.calc();
  
@@ -1898,10 +2055,10 @@ index 9ff7961..ad95f27 100644
      enum class State {
          Tangible = 0,
 diff --git a/source/game/field/obj/ObjectKoopaFigure64.cc b/source/game/field/obj/ObjectKoopaFigure64.cc
-index b2afa76..f5a83a5 100644
+index b2afa76..8f6ffb9 100644
 --- a/source/game/field/obj/ObjectKoopaFigure64.cc
 +++ b/source/game/field/obj/ObjectKoopaFigure64.cc
-@@ -53,6 +53,10 @@ void ObjectKoopaFigure64::calc() {
+@@ -53,11 +53,18 @@ void ObjectKoopaFigure64::calc() {
          disableCollision();
      }
  
@@ -1912,6 +2069,14 @@ index b2afa76..f5a83a5 100644
      ++m_cycleFrame;
  }
  
+ /// @addr{0x806DAFB8}
+ void ObjectKoopaFigure64::calcCollisionTransform() {
++    if (!m_collision) {
++        return;
++    }
+     constexpr EGG::Vector3f FIRE_POS_OFFSET = EGG::Vector3f(0.0f, -280.0f, 4000.0f);
+ 
+     calcTransform();
 diff --git a/source/game/field/obj/ObjectKuribo.hh b/source/game/field/obj/ObjectKuribo.hh
 index 4be2781..5a38aeb 100644
 --- a/source/game/field/obj/ObjectKuribo.hh
@@ -2033,7 +2198,7 @@ index 4a09456..66e3366 100644
      enum class State {
          Raised,
 diff --git a/source/game/field/obj/ObjectPropeller.cc b/source/game/field/obj/ObjectPropeller.cc
-index af14ace..c16814e 100644
+index af14ace..4a96b66 100644
 --- a/source/game/field/obj/ObjectPropeller.cc
 +++ b/source/game/field/obj/ObjectPropeller.cc
 @@ -38,6 +38,8 @@ void ObjectPropeller::calc() {
@@ -2045,6 +2210,17 @@ index af14ace..c16814e 100644
  }
  
  /// @addr{0x807655B4}
+@@ -71,7 +73,9 @@ void ObjectPropeller::calcCollisionTransform() {
+         mat.setBase(3, pos() + dir);
+ 
+         auto *&blade = m_blades[i];
+-        blade->transform(mat, scale());
++        if (blade) {
++            blade->transform(mat, scale());
++        }
+     }
+ }
+ 
 diff --git a/source/game/field/obj/ObjectPylon.cc b/source/game/field/obj/ObjectPylon.cc
 index b71200d..7ee8ca2 100644
 --- a/source/game/field/obj/ObjectPylon.cc
@@ -3573,7 +3749,7 @@ index b777ce7..2285ef9 100644
      setAngle(left);
      status().setBit(eStatus::InATrick);
 diff --git a/source/game/kart/KartMove.cc b/source/game/kart/KartMove.cc
-index 3f8a267..e747496 100644
+index 3f8a267..e2b5572 100644
 --- a/source/game/kart/KartMove.cc
 +++ b/source/game/kart/KartMove.cc
 @@ -1,8 +1,10 @@
@@ -3829,7 +4005,34 @@ index 3f8a267..e747496 100644
          m_kclSpeedFactor = 1.0f;
          m_kclRotFactor = param()->stats().kclRot[0];
      } else {
-@@ -1147,6 +1307,7 @@ void KartMove::releaseMt() {
+@@ -1065,14 +1225,15 @@ void KartMove::calcManualDrift() {
+         }
+     } else {
+         // This is a different comparison than @ref KartMove::canStartDrift().
+-        bool canStartDrift = m_speed > MINIMUM_DRIFT_THRESOLD * m_baseSpeed;
++        const f32 driftThreshold = mkw::modEngine().isBrakeDriftEnabled() ? 0.15f : MINIMUM_DRIFT_THRESOLD;
++        bool canStartDrift = m_speed > driftThreshold * m_baseSpeed;
+ 
+         if (status.offBit(eStatus::OverZipper) &&
+                 (status.offAnyBit(eStatus::DriftInput, eStatus::Accelerate) ||
+                         status.onBit(eStatus::InAction, eStatus::RejectRoadTrigger,
+                                 eStatus::Wall3Collision, eStatus::WallCollision) ||
+                         !canStartDrift)) {
+-            if (canStartDrift) {
++            if (canStartDrift || status.offBit(eStatus::DriftInput)) {
+                 releaseMt();
+             }
+ 
+@@ -1134,7 +1295,7 @@ void KartMove::releaseMt() {
+ 
+     auto &status = KartObjectProxy::status();
+ 
+-    if (m_driftState < DriftState::ChargedMt || status.onBit(eStatus::Brake)) {
++    if (m_driftState < DriftState::ChargedMt || (!mkw::modEngine().isBrakeDriftEnabled() && status.onBit(eStatus::Brake))) {
+         m_driftState = DriftState::NotDrifting;
+         return;
+     }
+@@ -1147,6 +1308,7 @@ void KartMove::releaseMt() {
  
      if (status.offBit(eStatus::BeforeRespawn, eStatus::InAction)) {
          activateBoost(KartBoost::Type::AllMt, mtLength);
@@ -3837,7 +4040,18 @@ index 3f8a267..e747496 100644
      }
  
      m_driftState = DriftState::NotDrifting;
-@@ -1342,8 +1503,14 @@ void KartMove::calcVehicleSpeed() {
+@@ -1197,6 +1359,10 @@ void KartMove::calcRotation() {
+ 
+     if (drifting) {
+         turn = autoDrift ? stats.driftAutomaticTightness : stats.driftManualTightness;
++        if (mkw::modEngine().isBrakeDriftEnabled() &&
++                status.onBit(eStatus::TouchingGround) && inputs()->currentState().brake()) {
++            turn *= 1.35f;
++        }
+     } else {
+         turn = autoDrift ? stats.handlingAutomaticTightness : stats.handlingManualTightness;
+     }
+@@ -1342,8 +1508,14 @@ void KartMove::calcVehicleSpeed() {
          }
      } else if (status.offBit(eStatus::Boost)) {
          if (status.offBit(eStatus::JumpPad, eStatus::RampBoost)) {
@@ -3854,7 +4068,7 @@ index 3f8a267..e747496 100644
                          status.onBit(eStatus::HalfPipeRamp) ? 5.0f : calcVehicleAcceleration();
              } else {
                  if (status.offBit(eStatus::Brake) ||
-@@ -1438,7 +1605,13 @@ void KartMove::calcAcceleration() {
+@@ -1438,7 +1610,13 @@ void KartMove::calcAcceleration() {
          dynamics()->setKillExtVelY(status.onBit(eStatus::RespawnKillY));
      }
  
@@ -3869,7 +4083,7 @@ index 3f8a267..e747496 100644
          m_speed = 0.0f;
      } else {
          if (m_acceleration < 0.0f) {
-@@ -1468,9 +1641,25 @@ void KartMove::calcAcceleration() {
+@@ -1468,9 +1646,25 @@ void KartMove::calcAcceleration() {
          }
      }
  
@@ -3897,7 +4111,7 @@ index 3f8a267..e747496 100644
      m_jumpPadBoostMultiplier = boostMultiplier;
  
      f32 scaleMultiplier = m_shockSpeedMultiplier;
-@@ -1498,6 +1687,12 @@ void KartMove::calcAcceleration() {
+@@ -1498,6 +1692,12 @@ void KartMove::calcAcceleration() {
          speedLimit = std::max(speedLimit, 100.0f);
      }
  
@@ -3910,7 +4124,7 @@ index 3f8a267..e747496 100644
      m_lastDir = (m_speed > 0.0f) ? 1.0f * m_dir : -1.0f * m_dir;
  
      f32 local_c8 = 1.0f;
-@@ -1669,6 +1864,7 @@ void KartMove::calcWallCollisionStart(f32 param_2) {
+@@ -1669,6 +1869,7 @@ void KartMove::calcWallCollisionStart(f32 param_2) {
          if (wallKclType() == COL_TYPE_SPECIAL_WALL && wallKclVariant() == 0) {
              dynamics()->addForce(colData.wallNrm * 15.0f);
              collide()->startFloorMomentRate();
@@ -3918,7 +4132,7 @@ index 3f8a267..e747496 100644
          }
      }
  }
-@@ -1959,6 +2155,7 @@ void KartMove::initOob() {
+@@ -1959,6 +2160,7 @@ void KartMove::initOob() {
  /// @brief Initializes hop information, resets upwards EV and clears upwards force.
  /// @addr{0x8057DA5C}
  void KartMove::hop() {
@@ -3926,7 +4140,7 @@ index 3f8a267..e747496 100644
      status().setBit(eStatus::Hop).resetBit(eStatus::DriftManual);
      onHop();
  
-@@ -1987,7 +2184,9 @@ void KartMove::hop() {
+@@ -1987,7 +2189,9 @@ void KartMove::hop() {
  void KartMove::tryStartBoostPanel() {
      constexpr s16 BOOST_PANEL_DURATION = 60;
  
@@ -3937,7 +4151,7 @@ index 3f8a267..e747496 100644
          return;
      }
  
-@@ -2003,13 +2202,15 @@ void KartMove::tryStartBoostRamp() {
+@@ -2003,13 +2207,15 @@ void KartMove::tryStartBoostRamp() {
  
      auto &status = KartObjectProxy::status();
  
@@ -3954,7 +4168,7 @@ index 3f8a267..e747496 100644
  }
  
  /// @stage 2
-@@ -2030,7 +2231,9 @@ void KartMove::tryStartJumpPad() {
+@@ -2030,7 +2236,9 @@ void KartMove::tryStartJumpPad() {
  
      auto &status = KartObjectProxy::status();
  
@@ -3965,7 +4179,7 @@ index 3f8a267..e747496 100644
          return;
      }
  
-@@ -2079,6 +2282,7 @@ void KartMove::tryStartJumpPad() {
+@@ -2079,6 +2287,7 @@ void KartMove::tryStartJumpPad() {
      m_jumpPadMinSpeed = m_jumpPadProperties->minSpeed;
      m_jumpPadMaxSpeed = m_jumpPadProperties->maxSpeed;
      m_speed = std::max(m_speed, m_jumpPadMinSpeed);
@@ -3973,7 +4187,7 @@ index 3f8a267..e747496 100644
  }
  
  /// @addr{0x80582530}
-@@ -2114,7 +2318,10 @@ void KartMove::cancelJumpPad() {
+@@ -2114,7 +2323,10 @@ void KartMove::cancelJumpPad() {
  
  /// @addr{0x8057F090}
  void KartMove::activateBoost(KartBoost::Type type, s16 frames) {
@@ -3984,7 +4198,7 @@ index 3f8a267..e747496 100644
          status().setBit(eStatus::Boost);
      }
  }
-@@ -2260,6 +2467,7 @@ void KartMove::activateCrush(u16 timer) {
+@@ -2260,6 +2472,7 @@ void KartMove::activateCrush(u16 timer) {
      status().setBit(eStatus::Crushed);
      m_crushTimer = timer;
      m_kartScale->startCrush();
@@ -3992,7 +4206,7 @@ index 3f8a267..e747496 100644
  }
  
  /// @addr{0x80580F9C}
-@@ -2271,6 +2479,7 @@ void KartMove::calcCrushed() {
+@@ -2271,6 +2484,7 @@ void KartMove::calcCrushed() {
      if (--m_crushTimer == 0) {
          status().resetBit(eStatus::Crushed);
          m_kartScale->endCrush();
@@ -4000,7 +4214,7 @@ index 3f8a267..e747496 100644
      }
  }
  
-@@ -2280,7 +2489,7 @@ void KartMove::calcScale() {
+@@ -2280,7 +2494,7 @@ void KartMove::calcScale() {
  
      const EGG::Vector3f sizeScale = m_kartScale->sizeScale();
      setScale(m_kartScale->pressScale() * sizeScale);
@@ -4009,7 +4223,7 @@ index 3f8a267..e747496 100644
      m_hitboxScale = std::max(sizeScale.z, m_totalScale);
  
      if (sizeScale.z != 1.0f) {
-@@ -2290,22 +2499,161 @@ void KartMove::calcScale() {
+@@ -2290,22 +2504,161 @@ void KartMove::calcScale() {
      m_invScale = m_scale.z > 1.0f ? 1.0f / m_scale.z : 1.0f;
  }
  
@@ -4176,7 +4390,7 @@ index 3f8a267..e747496 100644
  }
  
  /// @addr{0x80580998}
-@@ -2328,6 +2676,7 @@ void KartMove::deactivateShock(bool resetSpeed) {
+@@ -2328,6 +2681,7 @@ void KartMove::deactivateShock(bool resetSpeed) {
      status().resetBit(eStatus::Shocked);
      m_shockTimer = 0;
      m_kartScale->endShrink(0);
@@ -4184,7 +4398,7 @@ index 3f8a267..e747496 100644
  
      if (resetSpeed) {
          m_shockSpeedMultiplier = 1.0f;
-@@ -2366,6 +2715,7 @@ void KartMove::enterCannon() {
+@@ -2366,6 +2720,7 @@ void KartMove::enterCannon() {
      m_vel1Dir = m_cannonEntryOfs;
      m_cannonOrthog = EGG::Vector3f::ey.perpInPlane(m_cannonEntryOfs, true);
      m_cannonProgress.setZero();
@@ -4192,7 +4406,7 @@ index 3f8a267..e747496 100644
  }
  
  /// @addr{0x80584D58}
-@@ -2405,7 +2755,7 @@ void KartMove::calcCannon() {
+@@ -2405,7 +2760,7 @@ void KartMove::calcCannon() {
  
          newSpeed = cannonParams.endDecel;
          if (newSpeed <= 0.0f) {
@@ -4201,7 +4415,7 @@ index 3f8a267..e747496 100644
          }
  
          newSpeed += factor * (cannonParams.speed - newSpeed);
-@@ -2468,6 +2818,7 @@ void KartMove::exitCannon() {
+@@ -2468,6 +2823,7 @@ void KartMove::exitCannon() {
  void KartMove::triggerRespawn() {
      m_timeInRespawn = 0;
      status().setBit(eStatus::TriggerRespawn);
@@ -4209,7 +4423,7 @@ index 3f8a267..e747496 100644
  }
  
  /// @addr{0x80587B30}
-@@ -2483,6 +2834,7 @@ void KartMoveBike::startWheelie() {
+@@ -2483,6 +2839,7 @@ void KartMoveBike::startWheelie() {
      constexpr u16 WHEELIE_COOLDOWN = 20;
  
      status().setBit(eStatus::Wheelie);
@@ -4755,6 +4969,45 @@ index 69c0072..ee45754 100644
  private:
      bool m_somethingLeft;
      bool m_somethingRight;
+diff --git a/source/game/system/DvdArchive.cc b/source/game/system/DvdArchive.cc
+index 6eba8bb..0592273 100644
+--- a/source/game/system/DvdArchive.cc
++++ b/source/game/system/DvdArchive.cc
+@@ -19,7 +19,16 @@ DvdArchive::~DvdArchive() {
+ /// @addr{0x80519508}
+ void DvdArchive::decompress() {
+     m_archiveSize = EGG::Decomp::GetExpandSize(reinterpret_cast<u8 *>(m_fileStart));
++    if (m_archiveSize <= 0) {
++        m_state = State::Cleared;
++        return;
++    }
+     m_archiveStart = static_cast<u8 *>(EGG::egg_alloc(m_archiveSize));
++    if (!m_archiveStart) {
++        m_archiveSize = 0;
++        m_state = State::Cleared;
++        return;
++    }
+     EGG::Decomp::DecodeSZS(reinterpret_cast<u8 *>(m_fileStart),
+             reinterpret_cast<u8 *>(m_archiveStart));
+     m_state = State::Decompressed;
+@@ -98,8 +107,16 @@ void DvdArchive::load(void *fileStart, size_t fileSize, bool decompress_) {
+ 
+ /// @addr{0x80518DCC}
+ void DvdArchive::mount() {
++    if (m_state != State::Decompressed || !m_archiveStart) {
++        m_state = State::Cleared;
++        return;
++    }
+     m_archive = EGG::Archive::Mount(m_archiveStart);
+-    m_state = State::Mounted;
++    if (m_archive) {
++        m_state = State::Mounted;
++    } else {
++        m_state = State::Cleared;
++    }
+ }
+ 
+ /// @addr{0x805195A4}
 diff --git a/source/game/system/GhostFile.hh b/source/game/system/GhostFile.hh
 index 48542d4..69c546b 100644
 --- a/source/game/system/GhostFile.hh
@@ -4926,7 +5179,7 @@ index b323386..ae9b7d5 100644
  }
  
 diff --git a/source/game/system/RaceConfig.hh b/source/game/system/RaceConfig.hh
-index e9ab671..a84d605 100644
+index e9ab671..dbe9d71 100644
 --- a/source/game/system/RaceConfig.hh
 +++ b/source/game/system/RaceConfig.hh
 @@ -27,7 +27,8 @@ public:
@@ -4939,8 +5192,34 @@ index e9ab671..a84d605 100644
              Ghost = 3, // Inputs managed by ghost
              None = 5,
          };
+@@ -41,7 +42,10 @@ public:
+     struct Scenario {
+     public:
+         enum class GameMode {
++            Grand_Prix = 0,
++            Versus = 1,
+             Time_Trial = 2,
++            Battle = 3,
+             Ghost_Race = 5,
+         };
+ 
+@@ -50,6 +54,14 @@ public:
+         std::array<Player, 12> players;
+         u8 playerCount;
+         Course course;
++        u8 engineClass = 2; // Retail settings: 0=50cc, 1=100cc, 2=150cc.
++        GameMode gameMode = GameMode::Time_Trial;
++        bool mirror = false;
++        [[nodiscard]] f32 engineClassRate() const {
++            // USA Kart::Movement constructor 80571840; table 808b1414.
++            constexpr f32 rates[] = {0.8f, 0.9f, 1.0f};
++            return rates[engineClass < 3 ? engineClass : 2];
++        }
+     };
+ 
+     typedef std::function<void(RaceConfig *, void *)> InitCallback;
 diff --git a/source/game/system/RaceManager.cc b/source/game/system/RaceManager.cc
-index 42decd3..3990388 100644
+index 42decd3..7c2a7b9 100644
 --- a/source/game/system/RaceManager.cc
 +++ b/source/game/system/RaceManager.cc
 @@ -1,4 +1,5 @@
@@ -5089,7 +5368,7 @@ index 42decd3..3990388 100644
  
      if (courseMap->getCheckPointCount() == 0 || courseMap->getCheckPathCount() == 0 ||
              kart->status().onBit(Kart::eStatus::BeforeRespawn)) {
-@@ -275,7 +319,7 @@ void RaceManager::Player::incrementLap() {
+@@ -275,18 +319,18 @@ void RaceManager::Player::incrementLap() {
          return;
      }
  
@@ -5098,6 +5377,21 @@ index 42decd3..3990388 100644
      u16 addMs = CourseMap::Instance()->getCheckPointEntryOffsetMs(m_checkpointId, kart->pos(),
              kart->prevPos());
  
+     const Timer &currentTimer = RaceManager::Instance()->timerManager().currentTimer();
+     Timer timer = currentTimer + static_cast<f32>(addMs);
+ 
+-    // TODO: Handle this case more gracefully
+-    ASSERT(static_cast<size_t>(m_maxLap - 1) < m_lapTimers.size());
+-    m_lapTimers[m_maxLap - 1] = timer;
++    if (static_cast<size_t>(m_maxLap - 1) < m_lapTimers.size()) {
++        m_lapTimers[m_maxLap - 1] = timer;
++    }
+ 
+-    if (m_maxLap >= 3) {
++    if (m_maxLap >= RaceManager::Instance()->lapCount()) {
+         endRace(timer);
+     } else {
+         m_maxLap = m_currentLap;
 @@ -295,8 +339,9 @@ void RaceManager::Player::incrementLap() {
  
  /// @addr{0x805347F4}
@@ -5110,7 +5404,7 @@ index 42decd3..3990388 100644
  
  RaceManager *RaceManager::s_instance = nullptr; ///< @addr{0x809BD730}
 diff --git a/source/game/system/RaceManager.hh b/source/game/system/RaceManager.hh
-index 0faeaf7..dea1f38 100644
+index 0faeaf7..529cb6e 100644
 --- a/source/game/system/RaceManager.hh
 +++ b/source/game/system/RaceManager.hh
 @@ -33,12 +33,23 @@ public:
@@ -5138,6 +5432,15 @@ index 0faeaf7..dea1f38 100644
          [[nodiscard]] u16 checkpointId() const {
              return m_checkpointId;
          }
+@@ -55,7 +66,7 @@ public:
+             return m_drivingWrongWay;
+         }
+ 
+-        [[nodiscard]] const std::array<Timer, 3> &lapTimers() const {
++        [[nodiscard]] const std::array<Timer, 9> &lapTimers() const {
+             return m_lapTimers;
+         }
+ 
 @@ -82,6 +93,9 @@ public:
          void incrementLap();
          void endRace(const Timer &finishTime);
@@ -5148,6 +5451,15 @@ index 0faeaf7..dea1f38 100644
          u16 m_checkpointId;
          f32 m_raceCompletion;
          f32 m_checkpointFactor; ///< The proportion of a lap for the current checkpoint
+@@ -92,7 +106,7 @@ public:
+         s8 m_maxLap;
+         s8 m_maxKcp;
+         bool m_drivingWrongWay;
+-        std::array<Timer, 3> m_lapTimers;
++        std::array<Timer, 9> m_lapTimers;
+         Timer m_raceTimer;
+         const KPad *m_inputs;
+     };
 @@ -107,8 +121,9 @@ public:
  
      void init();
@@ -5168,7 +5480,7 @@ index 0faeaf7..dea1f38 100644
  
      /// @beginGetters
      /// @addr{0x80533090}
-@@ -130,14 +145,22 @@ public:
+@@ -130,18 +145,34 @@ public:
          return m_random;
      }
  
@@ -5193,13 +5505,26 @@ index 0faeaf7..dea1f38 100644
      [[nodiscard]] Stage stage() const {
          return m_stage;
      }
-@@ -161,13 +184,18 @@ private:
+ 
++    [[nodiscard]] u8 lapCount() const {
++        return m_lapCount;
++    }
++
++    void setLapCount(u8 laps) {
++        m_lapCount = laps > 0 ? laps : 3;
++    }
++
+     [[nodiscard]] u32 timer() const {
+         return m_timer;
+     }
+@@ -161,13 +192,19 @@ private:
      ~RaceManager() override;
  
      Random m_random;
 -    Player m_player;
 +    std::array<Player, 12> m_players;
 +    size_t m_playerCount = 1;
++    u8 m_lapCount = 3;
 +    u8 m_finishCount = 0;
 +    u16 m_postFinishTimer = 0;
      TimerManager m_timerManager;
@@ -5214,7 +5539,7 @@ index 0faeaf7..dea1f38 100644
  
      static RaceManager *s_instance; ///< @addr{0x809BD730}
 diff --git a/source/game/system/ResourceManager.cc b/source/game/system/ResourceManager.cc
-index 20d58f6..10d3e54 100644
+index 20d58f6..c528a1c 100644
 --- a/source/game/system/ResourceManager.cc
 +++ b/source/game/system/ResourceManager.cc
 @@ -1,6 +1,11 @@
@@ -5229,7 +5554,7 @@ index 20d58f6..10d3e54 100644
  
  namespace Kinoko::System {
  
-@@ -46,6 +51,16 @@ MultiDvdArchive *ResourceManager::load(s32 idx, const char *filename) {
+@@ -46,6 +51,18 @@ MultiDvdArchive *ResourceManager::load(s32 idx, const char *filename) {
  /// @addr{0x80540760}
  MultiDvdArchive *ResourceManager::load(Course courseId) {
      char buffer[256];
@@ -5240,7 +5565,9 @@ index 20d58f6..10d3e54 100644
 +        char* ext = strstr(buffer, ".szs");
 +        if (ext) *ext = '\0';
 +        m_archives[1]->load(buffer);
-+        return m_archives[1];
++        if (m_archives[1]->isLoaded()) {
++            return m_archives[1];
++        }
 +    }
 +#endif
      snprintf(buffer, sizeof(buffer), "Race/Course/%s", COURSE_NAMES[static_cast<s32>(courseId)]);

@@ -1,5 +1,6 @@
 // Retail race audio. Addresses are USA StaticR (docs/AUDIO_SOURCE.md "Race").
 #include <mkw/race_sound.hpp>
+#include <mkw/race_damage_residency.hpp>
 #include <mkw/race_voice_tables.hpp>
 #include <mkw/sound_ids.hpp>
 #include <mkw/sound_system.hpp>
@@ -76,8 +77,8 @@ std::uint32_t goalVariant(unsigned character, unsigned result) {
 // LINEAR left free for what loads mid-race: course object skin copies (made
 // only while over 2 MB is free, course_objects.cpp SkinReserve) and the pause
 // and result pages' textures (the menu cache adapts to what is free). Below
-// the soft reserve the optional tiers move to the wave cache; the hard
-// reserve is never used.
+// the soft reserve the optional tiers move to the wave cache. The fallback
+// cache uses the hard floor: pause releases scenery before loading its UI.
 constexpr std::uint32_t LinearReserve = 2048u * 1024, HardReserve = 1024u * 1024;
 constexpr std::uint32_t CacheMin = 192u * 1024, CacheMax = 640u * 1024;
 }
@@ -183,6 +184,15 @@ void RaceSound::begin(const Setup& s) {
  sys.setLayer(&layer_);
 }
 
+bool RaceSound::prepareScene(){
+ if(!SoundSystem::instance().available())return false;
+ planScene();
+ return budget_.cache>=CacheMin;
+}
+bool RaceSound::resourcesReady() const{
+ const auto& sys=SoundSystem::instance();
+ return sys.available()&&!planPending_&&budget_.cache>=CacheMin&&sys.sceneReady()&&sys.stats().cacheBytes>=budget_.cache;
+}
 void RaceSound::planScene() {
  planPending_ = false;
  auto& sys = SoundSystem::instance();
@@ -233,6 +243,13 @@ void RaceSound::planScene() {
  }
  for (unsigned v = 0; v < 36; ++v) if (vehicles[v]) must.push_back(HornBase + v);
  for (std::uint32_t id = id::SE_UI_TITLE_OUT; id <= id::SE_UI_CTRL_REJECT; ++id) must.push_back(id);   // race UI bank
+ appendRaceDamageEffects(must);
+ must.push_back(id::SE_RC_GOAL);
+ for(auto goal:goalVoice_)if(goal)must.push_back(goal);
+ // Rainbow's collision bank belongs to its course group, not GRP_RACE.
+ if(course==0x0d)must.push_back(id::SE_VCL_COL_RAINBOW);
+ for(unsigned i=0;i<s.racers&&i<s.racer.size();++i)
+  if(s.racer[i].local)appendRaceDamageVoices(must,s.racer[i].character);
  SoundSystem::Scene scene;
  scene.groups = groups.data(); scene.groupCount = int(groups.size());
  scene.onDemandSounds = onDemand.data(); scene.onDemandCount = int(onDemand.size());
@@ -246,7 +263,8 @@ void RaceSound::planScene() {
  const std::uint32_t streams = std::max<std::uint32_t>(stream, 64u * 1024) * 2;
  const std::uint32_t free = std::uint32_t(linearSpaceFree());
  budget_.linearFree = free;
- budget_.budget = free > LinearReserve + streams ? free - LinearReserve - streams : 0;
+ const auto graphicsReserve=std::max(LinearReserve,s.graphicsReserve);
+ budget_.budget = free > graphicsReserve + streams ? free - graphicsReserve - streams : 0;
  auto measure = [&]() {
   scene.residentGroups = resident.data(); scene.residentCount = int(resident.size());
   budget_.resident = sys.residentBytes(scene);
@@ -255,9 +273,15 @@ void RaceSound::planScene() {
  for (measure(); budget_.resident + CacheMin > budget_.budget && resident.size() > 1; measure()) { resident.pop_back(); ++budget_.demoted; }
  if (budget_.budget >= budget_.resident + CacheMin) budget_.cache = std::min(CacheMax, budget_.budget - budget_.resident);
  else {
-  // Even the essentials exceed the soft reserve: keep a small cache above the hard one.
+  // The measured pause UI is a soft target, not a hard race allocation:
+  // entering pause first frees track/sky, and resume frees the UI first.
+  // Keep the minimum wave cache when it fits above the hard race floor;
+  // otherwise all demoted tyre/drift/boost sounds wait forever for waves.
+  // Use remaining headroom up to CacheMax: CacheMin is a floor, not a cap.
+  // Coconut car loops plus race waves can pin almost all of a 192 KiB arena.
   const std::uint32_t used = budget_.resident + streams;
-  budget_.cache = free > used + HardReserve ? std::min(CacheMin, free - used - HardReserve) : 0;
+  const auto hardReserve=HardReserve;
+  budget_.cache = free > used + hardReserve ? std::min(CacheMax, free - used - hardReserve) : 0;
  }
  scene.cacheBytes = budget_.cache;
  sys.loadScene(scene);
@@ -448,6 +472,19 @@ void RaceSound::step(const Frame& f, RaceAudioFrame* actors) {
  if (!active_ || paused_) return;
  auto& sys = SoundSystem::instance();
  ++tick_;
+ // Bounded release diagnostics for silent race actors; no per-frame file I/O.
+ if (tick_ == 300 || tick_ == 900 || tick_ == 1800) {
+  const auto st = sys.stats();
+  if (FILE* log = std::fopen("sdmc:/3ds/mkw-3ds/audio-race-status.txt", "a")) {
+   std::fprintf(log, "tick=%u course=%u ready=%d actor_frames=%lu actor_sounds=%lu voices=%lu missing=%lu failed=%lu last=%lu/%lu/%lu cache=%lu/%lu waves=%lu linear=%lu\n",
+    tick_, setup_.course, int(sys.sceneReady()), (unsigned long)layer_.framesUsed.load(),
+    (unsigned long)layer_.actorSounds.load(), (unsigned long)st.voices, (unsigned long)st.missing,
+    (unsigned long)st.failed, (unsigned long)st.lastMissingSound, (unsigned long)st.lastMissingFile,
+    (unsigned long)st.lastMissingWave, (unsigned long)st.cacheUsed, (unsigned long)st.cacheBytes,
+    (unsigned long)sys.residentWaveBytes(), (unsigned long)linearSpaceFree());
+   std::fclose(log);
+  }
+ }
  if (planPending_) {
   // LINEAR settled (45 unchanged ticks) or 150 ticks into the race: plan now.
   const std::uint32_t free = std::uint32_t(linearSpaceFree());
@@ -466,16 +503,13 @@ void RaceSound::step(const Frame& f, RaceAudioFrame* actors) {
    }
   }
  }
- // The finish camera and results sequence play music only. Removing the
- // layer stops its active engine, voice, item, object and ambience handles
- // on the audio thread, and prevents queued actor frames from restarting
- // them. Stop the remaining race/UI one-shots once; later menu sounds may
- // still use the UI player. Music is on player 0 and keeps running.
+ // KartActor::UpdateLapSounds (USA 80704980): crossing the line plays
+ // SE_RC_GOAL once. Keep feeding the actor layer: CharacterActor::Update
+ // owns the delayed result voice and still runs during the finish camera.
  if (f.finished && !finished_) {
   finished_ = true; rank_ = f.rank;
-  sys.setLayer(nullptr);
-  for (std::uint32_t p = 1; p < 11; ++p) post(SoundCommand::StopPlayer, 0, p, 0, 0);
-  sys.stopSlot(GoalSlot, 0); sys.stopSlot(AlterationSlot, 0);
+  sys.stopSlot(AlterationSlot, 0);
+  sys.play(battleCourse(setup_.course) ? id::SE_RC_BTL_FINISH : id::SE_RC_GOAL, GoalSlot);
   triggers_.ambience.clear(); triggers_.music.clear();
   bgmValue_ = AudioTrack{}; bgmValue_.value = bgmValue_.target = 1;
   setRaceState(7);
@@ -528,7 +562,7 @@ void RaceSound::step(const Frame& f, RaceAudioFrame* actors) {
  postVolumes(false);
  // The race actors' state for this frame, then one game frame for the audio
  // thread (RaceAudioLayer, then the BasicSound updates).
- if (actors && !finished_) {
+ if (actors) {
   RaceAudioFrame& a = *actors;
   // RaceAmbienceMgr requests, in order; any that do not fit wait a tick.
   std::size_t moved = 0;
@@ -544,12 +578,6 @@ void RaceSound::step(const Frame& f, RaceAudioFrame* actors) {
   // A frame dropped by a full ring keeps its cues for the next one.
   if (layer_.push(a)) { for (auto& k : a.kart) { k.cues = 0; k.bumpedBy = 0; } a.itemSounds = 0; a.ambienceOps = 0; a.objectSounds = 0; }
  }
- if (actors && finished_) {
-  // The main thread still consumes Kinoko's audio-only cues during the
-  // finish camera. Do not carry these discarded cues into the next race.
-  for (auto& k : actors->kart) { k.cues = 0; k.bumpedBy = 0; }
-  actors->itemSounds = actors->ambienceOps = actors->objectSounds = 0;
- }
  SoundCommand c; c.type = SoundCommand::Layer; sys.post(c);
 }
 
@@ -558,7 +586,8 @@ void RaceSound::pause(bool paused) {
  if (!active_ || paused == paused_) return;
  paused_ = paused;
  auto& sys = SoundSystem::instance();
- sys.play(paused ? id::SE_RC_PAUSE_ON : id::SE_RC_PAUSE_OFF);
+ // Resume cue is posted at accepted menu input; this only resumes players.
+ if(paused)sys.play(id::SE_RC_PAUSE_ON);
  if (bgm_.delay < 1 && bgm_.active >= 0) post(SoundCommand::Pause, bgm_.slot[bgm_.active], 0, paused ? 1.0f : 0.0f, 0);
  // PlayersVolumeMgr::PauseAllButTrackUI: every player but BGM and menu UI.
  for (std::uint32_t p = 2; p < 11; ++p) post(SoundCommand::PausePlayer, 0, p, paused ? 1.0f : 0.0f, 10);

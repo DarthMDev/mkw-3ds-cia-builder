@@ -103,6 +103,20 @@ bool ObjectBank::load(const char* path){
         for(unsigned j=0;j<c.count;++j)if(c.shapes[j]>=shapes_){reset();return false;}
         clr_.push_back(c);
     }
+    if(at<size){
+        const auto* header=take(8);
+        if(!header||std::memcmp(header,"MORF",4)||u32(header+4)>chr_.size()){reset();return false;}
+        for(unsigned i=0;i<u32(header+4);++i){
+            const auto* record=take(12);if(!record){reset();return false;}
+            const unsigned clip=u32(record),count=u32(record+4),frames=u32(record+8);
+            if(clip>=chr_.size()||frames!=chr_[clip].frames||count>vertices_){reset();return false;}
+            const auto* indices=take(size_t(count)*4);
+            const auto* deltas=take(size_t(count)*24);
+            const auto* weights=take(size_t(frames)*4);
+            if(!indices||!deltas||!weights){reset();return false;}
+            for(unsigned j=0;j<count;++j)if(u32(indices+j*4)>=vertices_){reset();return false;}
+        }
+    }
     if(at!=size){reset();return false;}
     return true;
 }

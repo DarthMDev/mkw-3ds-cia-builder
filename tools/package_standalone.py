@@ -13,7 +13,11 @@ def stage_assets(stage):
     """Link (or copy) every RomFS asset of the staged SD package into stage; return {name: sha256}."""
     manifest=json.loads((SOURCE/'manifest.json').read_text())
     # Cook receipts (JSON) are build records the game never reads: they stay out.
-    assets={name:h for name,h in manifest.items() if (Path(name).parts[0] in ('Race','models','textures','movies','audio') and not name.endswith('.json')) or name=='pulsar_manifest.json'}
+    # The packs hold every texture (package_sd.py ships none loose that they
+    # contain); the content lists below are read at run time.
+    runtime_json={'models/ceremony.json','models/battle.json','models/effect-archives.json'}
+    assets={name:h for name,h in manifest.items() if name in ('menu.pak','race.pak','pulsar_manifest.json') or name in runtime_json
+            or (Path(name).parts[0] in ('Race','models','textures','movies','audio','ui-data') and not name.endswith('.json'))}
     if not assets:raise ValueError('Run tools/package_sd.py first')
     stage.mkdir(exist_ok=True)
     for stale in stage.rglob('*'):

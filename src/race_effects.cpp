@@ -1,7 +1,9 @@
 #include "mkw/render_quality.hpp"
 #include <mkw/race_effects.hpp>
+#include <mkw/asset_pack.hpp>
 #include <cstdio>
 #include <cstring>
+#include <cerrno>
 namespace mkw {
 namespace {
 using ef::be16;using ef::be32;using ef::bef;
@@ -56,28 +58,61 @@ ef::Mtx34 frameMtx(const EffectFrame& f){
 
 RaceEffects::RaceEffects():system_(std::make_unique<ef::System>()){system_->reset();}
 RaceEffects::~RaceEffects()=default;
+void RaceEffects::unload(){
+    reset();ready=false;
+    decltype(system_->resources){}.swap(system_->resources);
+    decltype(textures){}.swap(textures);decltype(blob_){}.swap(blob_);
+}
 
 bool RaceEffects::load(const char* path){
-    ready=false;textures.clear();system_->resources.clear();blob_.clear();
-    FILE* f=std::fopen(path,"rb");if(!f)return false;
-    uint32_t h[5]{};
-    bool ok=std::fread(h,1,sizeof h,f)==sizeof h&&!std::memcmp(h,"REFX",4)&&h[1]==3&&h[2]>0&&h[2]<=255&&h[3]<=96&&h[4]<=(1u<<20);
+    unload();loadError_="open";loadErrno_=0;
+    // Use the same already-open archive path as models and textures. Loose
+    // SD files remain supported, but are no longer the only source here.
+    std::vector<uint8_t> packed;
+    if(pack::read(path,packed))return loadMemory(packed.data(),packed.size());
+    FILE* f=std::fopen(path,"rb");if(!f){loadErrno_=errno;return false;}
+    // One bounded read, rather than hundreds of tiny reads and a trailing
+    // fgetc EOF probe. Native SD and emulator stdio must parse the same bytes.
+    std::setvbuf(f,nullptr,_IONBF,0);
+    loadError_="file size";
+    const bool sized=std::fseek(f,0,SEEK_END)==0;
+    const long length=sized?std::ftell(f):-1;
+    if(length<20||length>2*1024*1024){loadErrno_=errno;std::fclose(f);return false;}
+    std::vector<uint8_t> file(size_t(length),0);bool read=false;
+    loadError_="SD read";
+    for(unsigned attempt=0;attempt<3&&!read;++attempt){
+        std::clearerr(f);
+        read=std::fseek(f,0,SEEK_SET)==0&&std::fread(file.data(),1,file.size(),f)==file.size();
+    }
+    if(!read)loadErrno_=errno;
+    std::fclose(f);if(!read)return false;
+    return loadMemory(file.data(),file.size());
+}
+bool RaceEffects::loadMemory(const void* bytes,size_t size){
+    unload();loadError_="header";loadErrno_=0;
+    if(size<20)return false;
+    const auto* file=static_cast<const uint8_t*>(bytes);
+    uint32_t h[5]{};std::memcpy(h,file,sizeof h);
+    bool ok=!std::memcmp(h,"REFX",4)&&h[1]==3&&h[2]>0&&h[2]<=255&&h[3]<=96&&h[4]<=(1u<<20);
     struct Record { char name[32]; uint32_t desc,ptcl; uint16_t texture[3],ptclTracks,ptclInit,emitTracks,emitInit,ptclSize,pad[2]; uint32_t list; };
     static_assert(sizeof(Record)==64,"REFX record");
-    std::vector<Record> records;
-    if(ok){
-        textures.resize(h[3]);records.resize(h[2]);blob_.resize(h[4]);
-        for(auto& t:textures)ok&=std::fread(&t,1,40,f)==40;
-        for(auto& r:records)ok&=std::fread(&r,1,64,f)==64;
-        ok&=std::fread(blob_.data(),1,blob_.size(),f)==blob_.size()&&std::fgetc(f)==EOF;
-    }
-    std::fclose(f);
+    if(!ok)return false;
+    loadError_="table/payload size";
+    const size_t expected=sizeof h+size_t(h[3])*40+size_t(h[2])*64+h[4];
+    if(size!=expected)return false;
+    std::vector<Record> records(h[2]);textures.resize(h[3]);blob_.resize(h[4]);
+    size_t at=sizeof h;
+    if(!textures.empty())std::memcpy(textures.data(),file+at,textures.size()*40);
+    at+=textures.size()*40;
+    std::memcpy(records.data(),file+at,records.size()*64);at+=records.size()*64;
+    if(!blob_.empty())std::memcpy(blob_.data(),file+at,blob_.size());
+    loadError_="resource offsets";
     auto& res=system_->resources;
     if(ok)res.resize(records.size());
     for(size_t i=0;ok&&i<records.size();++i){
         Record& r=records[i];r.name[31]=0;
         const size_t curves=size_t(r.ptclTracks)+r.emitTracks;
-        ok&=r.desc+0x14c<=blob_.size()&&r.ptcl+0x88u<=blob_.size()&&r.ptclInit<=r.ptclTracks&&r.emitInit<=r.emitTracks&&
+        ok&=r.desc<=blob_.size()&&blob_.size()-r.desc>=0x14c&&r.ptcl<=blob_.size()&&blob_.size()-r.ptcl>=0x88u&&r.ptclInit<=r.ptclTracks&&r.emitInit<=r.emitTracks&&
             (!curves||r.list+curves*4<=blob_.size());
         for(int k=0;k<3;++k)ok&=r.texture[k]==0xffff||r.texture[k]<textures.size();
         if(!ok)break;
@@ -87,7 +122,8 @@ bool RaceEffects::load(const char* path){
         parsePtcl(e.ptcl,blob_.data()+r.ptcl,r.texture);
         for(size_t k=0;k<curves;++k){
             uint32_t at;std::memcpy(&at,blob_.data()+r.list+k*4,4);
-            ok&=at+0x40<=blob_.size();
+            loadError_="curve offsets";
+            ok&=at<=blob_.size()&&blob_.size()-at>=0x40;
             if(!ok)break;
             (k<r.ptclTracks?e.ptclTracks:e.emitTracks).push_back(blob_.data()+at);
         }
@@ -96,6 +132,7 @@ bool RaceEffects::load(const char* path){
     for(auto& t:textures)t.name[31]=0;
     if(!ok){textures.clear();res.clear();blob_.clear();}
     reset();
+    if(ok)loadError_="none";
     return ready=ok;
 }
 int RaceEffects::find(const char* name) const {
@@ -103,7 +140,7 @@ int RaceEffects::find(const char* name) const {
     for(size_t i=0;i<res.size();++i)if(!std::strcmp(res[i].name,name))return int(i);
     return -1;
 }
-void RaceEffects::reset(){system_->reset();slots_={};serial_=0;}
+void RaceEffects::reset(){system_->reset();slots_={};serial_=0;++generation_;diagnosticMask_=0;}
 unsigned RaceEffects::liveParticles() const {return system_->liveParticles;}
 void RaceEffects::setCamera(const float view[3][4]){std::memcpy(system_->cameraMtx.m,view,sizeof(float)*12);}
 void RaceEffects::setCamera(Vec3 eye,Vec3 target,Vec3 up){
@@ -116,6 +153,19 @@ void RaceEffects::setCamera(Vec3 eye,Vec3 target,Vec3 up){
 ef::Effect* RaceEffects::start(int spec,const EffectFrame& frame,uint8_t group){
     if(!ready||spec<0||size_t(spec)>=system_->resources.size())return nullptr;
     ef::Effect* e=system_->createEffect(system_->resources[size_t(spec)],0,group);
+    // Bounded transition diagnostics for the reported missing item/hit/boost
+    // effects. One line per local/shared root per race; no per-frame I/O.
+    if(group==0||group==2){
+        const char* name=system_->resources[size_t(spec)].name;
+        constexpr const char* names[]={"rk_itemBox","rk_bananaSmk","rk_miniTurbo","rk_spinHalfL","rk_spinHalfR","rk_spinL","rk_spinR"};
+        for(unsigned i=0;i<std::size(names);++i)if(!std::strcmp(name,names[i])&&!(diagnosticMask_&(1u<<i))){
+            diagnosticMask_|=1u<<i;
+            if(FILE* log=std::fopen("sdmc:/3ds/mkw-3ds/effects-state.txt","a")){
+                std::fprintf(log,"create generation=%u root=%s ok=%u particles=%u effects=%lu emitters=%lu managers=%lu\n",generation_,name,e!=nullptr,system_->liveParticles,(unsigned long)system_->effects.used(),(unsigned long)system_->emitters.used(),(unsigned long)system_->managers.used());
+                std::fclose(log);
+            }
+        }
+    }
     if(!e)return nullptr;
     e->serial=++serial_;
     system_->setRootMtx(*e,frameMtx(frame));
@@ -137,8 +187,24 @@ void RaceEffects::followFade(unsigned slot){
     if(!alive(slot))return;
     system_->retireEmitters(*slots_[slot].effect);slots_[slot].fading=true;
 }
+void RaceEffects::fade(unsigned slot){
+    if(alive(slot))system_->retireEmitters(*slots_[slot].effect);
+    if(slot<SlotCount)slots_[slot]={};
+}
 void RaceEffects::setColor(unsigned slot,const uint8_t rgba[4]){
     if(alive(slot))system_->setColor(*slots_[slot].effect,rgba);
+}
+void RaceEffects::setParticleLife(unsigned slot,uint16_t life){
+    if(alive(slot))system_->setParticleLife(*slots_[slot].effect,life);
+}
+void RaceEffects::setParticleScale(unsigned slot,float x,float y){
+    if(alive(slot))system_->setParticleScale(*slots_[slot].effect,x,y);
+}
+void RaceEffects::setEmissionRatio(unsigned slot,float ratio){
+    if(alive(slot))system_->setEmissionRatio(*slots_[slot].effect,ratio);
+}
+void RaceEffects::setSpecificVelocity(unsigned slot,float speed){
+    if(alive(slot))system_->setSpecificVelocity(*slots_[slot].effect,speed);
 }
 void RaceEffects::kill(unsigned slot){
     if(alive(slot))system_->retireEffect(*slots_[slot].effect);

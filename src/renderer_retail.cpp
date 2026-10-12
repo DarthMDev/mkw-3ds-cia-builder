@@ -50,6 +50,7 @@ bool Renderer::retailUniformLocations(){
 }
 
 void Renderer::setRetailLighting(const CourseLighting* course){
+    if(course==retail_)return;
     // Light textures and the fog ramp belong to the drawing side.
     drain();
     retail_=course;retailTexturesValid_=false;
@@ -220,7 +221,10 @@ bool Renderer::retailCombiners(const Submesh& s,const C3D_Mtx& modelView,bool ba
             // saturated stage gives the same result for a non-negative C1.
             static const float factor[]={1.f,2.f,4.f,.5f};
             uint32_t add=0;
-            for(unsigned i=0;i<3;++i)add|=uint32_t(std::min(255.f,std::floor(unit(s.add,i)*255.f*factor[albedoScale]+.5f)))<<(8*i);
+            for(unsigned i=0;i<3;++i){
+                const float c=additive?float((additiveRgb>>(8*i))&255):unit(s.add,i)*255.f;
+                add|=uint32_t(std::min(255.f,std::floor(c*factor[albedoScale]+.5f)))<<(8*i);
+            }
             e=next();C3D_TexEnvColor(e,add|0xff000000u);
             C3D_TexEnvSrc(e,C3D_RGB,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(e,C3D_RGB,GPU_ADD);
             C3D_TexEnvSrc(e,C3D_Alpha,GPU_PREVIOUS);C3D_TexEnvFunc(e,C3D_Alpha,GPU_REPLACE);
@@ -230,6 +234,13 @@ bool Renderer::retailCombiners(const Submesh& s,const C3D_Mtx& modelView,bool ba
         }else if(secondary==1){
             e=next();C3D_TexEnvSrc(e,C3D_RGB,GPU_TEXTURE2,GPU_PREVIOUS,GPU_PREVIOUS);
             C3D_TexEnvOpRgb(e,GPU_TEVOP_RGB_SRC_COLOR,GPU_TEVOP_RGB_SRC_ALPHA,GPU_TEVOP_RGB_SRC_COLOR);C3D_TexEnvFunc(e,C3D_RGB,GPU_MULTIPLY_ADD);
+        }
+        if(additive&&!(s.lighting&retail::AlbedoAdd)){
+            // Star animates GX C1. Rebuilding the light-texture stages must
+            // retain it, before fog, without changing the material alpha.
+            e=next();C3D_TexEnvColor(e,additiveRgb);
+            C3D_TexEnvSrc(e,C3D_RGB,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(e,C3D_RGB,GPU_ADD);
+            C3D_TexEnvSrc(e,C3D_Alpha,GPU_PREVIOUS);C3D_TexEnvFunc(e,C3D_Alpha,GPU_REPLACE);
         }
         if(fog){
             // GX fog at the object's eye depth: lerp(fog colour, colour, 1-f).
@@ -244,6 +255,12 @@ bool Renderer::retailCombiners(const Submesh& s,const C3D_Mtx& modelView,bool ba
         // Output alpha: the albedo alpha (konst 1 or APREV in retail; these
         // materials are opaque unless they alpha-test it).
         C3D_TexEnvSrc(e,C3D_Alpha,GPU_TEXTURE0);C3D_TexEnvFunc(e,C3D_Alpha,GPU_REPLACE);
+        if((s.lighting&retail::Menu)&&((s.flags>>20)&7)==4){
+            // Retail menu drivers end with a fixed konst alpha. Their lit
+            // raster alpha remains an internal light-texture mask only.
+            auto* alpha=next();C3D_TexEnvColor(alpha,s.constant);
+            C3D_TexEnvSrc(alpha,C3D_Alpha,GPU_CONSTANT);C3D_TexEnvFunc(alpha,C3D_Alpha,GPU_REPLACE);
+        }
         C3D_TexBind(1,&retailTexture_[0]);C3D_TexBind(2,&retailTexture_[1]);retailFogBound_=true;
         C3D_BoolUnifSet(GPU_VERTEX_SHADER,retailBoolLoc_,true);retailTextureDirty_=true;
         retailEnvironment(modelView);

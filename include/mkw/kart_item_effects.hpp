@@ -24,15 +24,35 @@ enum class KartFx : uint8_t {
     PowUp,         // 0x238 rk_powUp
     SlipStreamPre, // 0x1fc rk_slipStreamPre, drafting
     SlipStream,    // 0x200 rk_slipStream, the slipstream boost
+    CollisionHit,  // 0x29c rk_hitA, kart contact / wall burst
+    SpinHalfL,     // 0x260 rk_spinHalfL, one spin, positive direction
+    SpinL,         // 0x264 rk_spinL, multiple spins, positive direction
+    SpinHalfR,     // 0x268 rk_spinHalfR, one spin, negative direction
+    SpinR,         // 0x26c rk_spinR, multiple spins, negative direction
+    WaterWave,     // 0x1f4 rk_wave, surface wake
+    WaterBubbles,  // 0x28c rk_awa, submerged kart
+    WaterSpinHalf, // 0x274 rk_spinWaterHalf
+    WaterSpin,     // 0x278 rk_spinWater
+    FakeBoxBreak,  // 0x248 rk_niseBox, hit fragments follow the kart pose
+    FakeBoxVanish, // 0x244 rk_niseBoxVan, immunity smoke follows translation
+    ItemBoxBreak,  // 0x27c rk_itemBox, pickup shards follow the contacted racer
+    FakeBoxSpark,  // 0x240 rk_niseBoxBiri, the original smooth electrical ribbon
+    Crash,         // 0x1f0 rk_crash, launch-reaction stars
+    WaterCrash,    // 0x270 rk_crashWater, launch reaction while Diving
+    WaterLanding,  // 0x24c rk_pochaWaterMini, floor contact in water
+    WaterWheelL,   // 0x330 rk_water, rear-wheel sprays (bike uses the right only)
+    WaterWheelR,   // 0x334 rk_water
+    WaterFall,     // course pocha archive: large drowning splash, fixed world origin
+    Catapult,      // 0x1f8 rk_uchiage, Poihana's first throw contact
     Count
 };
 inline constexpr unsigned KartFxCount=unsigned(KartFx::Count);
 // Each effect's index in KartEffect's handle table at +0x1f0: (offset above - 0x1f0) / 4.
-inline constexpr uint8_t KartFxTableIndex[KartFxCount]={5,6,7,8,9,10,11,15,16,17,18,3,4};
+inline constexpr uint8_t KartFxTableIndex[KartFxCount]={5,6,7,8,9,10,11,15,16,17,18,3,4,43,28,29,30,31,1,39,33,34,22,21,35,20,0,32,23,80,81,255,2};
 // 0x8069146c with argument 0, the kart effect LOD's kill, spares indices 5..12, 14..19, 27
 // and 35: every power-up here and the item box hit; it kills the slipstream (3, 4).
 constexpr bool keptByLodKill(unsigned tableIndex){
-    return (tableIndex>=5&&tableIndex<=12)||(tableIndex>=14&&tableIndex<=19)||tableIndex==27||tableIndex==35;
+    return (tableIndex>=5&&tableIndex<=12)||(tableIndex>=14&&tableIndex<=19)||tableIndex==27||tableIndex==35||tableIndex==255;
 }
 
 // What KartEffect copies from the kart (0x8068fa0c) and the item events of this step.
@@ -46,9 +66,20 @@ struct KartFxInput {
     // KartAction: the current action, its frame and the POW dodge (+0xcc bit 1);
     // powPending is KartMove::calcPow's POW-target-in-window test (0x8057a844).
     int action=-1;uint32_t actionFrame=0;bool powDodged=false,powPending=false;
+    uint32_t spinSerial=0,spinRotations=0;bool spinLeft=false;
     // Item events: a Lightning bolt (fn_1_288374), the Thunder Cloud's strike (0x80579d88)
     // and a POW stomp wave on a target (stomps 1 and 2, 0x807d9b10).
     bool lightningBolt=false,cloudBolt=false,powWave=false;
+    // HandleFibCollision (8056e40c) starts these on the contacted racer,
+    // regardless of the box owner's identity. The existing sound event
+    // records the same immunity decision before the item disappears.
+    bool fakeBoxHit=false,fakeBoxVanish=false;
+    bool itemBoxHit=false;
+    // DriverController::get-effect-matrix (807c4e08) supplies only the
+    // origin; KartEffect overwrites its axes with the kart pose. False uses
+    // the original pose fallback (806a6b24). Local driver animation supplies
+    // its cached skeletal root plus the physics-position delta and velocity.
+    bool hasFakeBoxDriverOrigin=false;Vec3 fakeBoxDriverOrigin{};
     // Slipstream (0x806972c0): state bits 64 drafting and 65 boost (KartState +0xc bits 0
     // and 1; Kinoko KartMove::slipstreamCharging/Boost) and status 32 InAction (+0xb9).
     bool drafting=false,slipBoost=false,inAction=false;
@@ -56,11 +87,27 @@ struct KartFxInput {
     // (KartDynamics, Kart::Link::GetSpeed), getScale before it is made uniform, and +0x49:
     // action 14 or status 80 (Crushed).
     Vec3 velocity{},kartScale{1,1,1};
+    float baseSpeed=50; // Stats speed, KartEffect +0x6f0 (minimum 50)
     bool pressed=false;
     // Effects::Player hits during this step's kart collision: a counted wall contact
     // (0x8069d1d8, countedWallContact) and a bush (0x806a221c) with the capped speed ratio.
     bool wallHit=false,bushHit=false;
+    bool kartContact=false,otherContactFast=false;
+    Vec3 contact{};
+    bool objectHit=false,poihanaThrow=false;
+    Vec3 objectContact{};
     float speedRatio=0;
+    // UpdateWaterEffects (80698368), the original height probe 8058ab84
+    // and rear wheel edges. Sea presence is separate from its height.
+    bool diving=false,hasSea=false;
+    float seaHeight=0,waterBodyHeight=0,waterRearHeight=0,waterBaseSpeed=50;
+    // KartEffect +0xc halves emission for the reduced screen mode;
+    // +0xb suppresses remote wakes in a split-screen mode, not LOD +7.
+    bool waterReducedScreen=false,waterSplitScreen=false;
+    bool bike=false,groundStart=false,hardLanding=false,jumpPad=false;
+    bool waterKcl=false,waterWheelKcl[2]{},waterDeep=false,chargingSSMT=false,countdownAccelerate=false;
+    Vec3 waterRear[2]{};
+    uint32_t crashSerial=0;
 };
 
 // EGG::Effect calls on one racer's slots.
@@ -71,8 +118,13 @@ public:
     virtual void create(KartFx fx,const EffectFrame& frame)=0; // no-op while the instance runs
     virtual void setFrame(KartFx fx,const EffectFrame& frame)=0;
     virtual void followFade(KartFx fx)=0;
+    virtual void fade(KartFx fx){followFade(fx);}
     virtual void kill(KartFx fx)=0;
     virtual void setColor(KartFx fx,const uint8_t rgba[4])=0; // +0x50, active managers only
+    virtual void setParticleLife(KartFx,uint16_t){}
+    virtual void setParticleScale(KartFx,float,float){}
+    virtual void setEmissionRatio(KartFx,float){}
+    virtual void setSpecificVelocity(KartFx,float){}
 };
 
 class KartItemEffects {
@@ -100,12 +152,112 @@ public:
         // race). It also marks BeforeRespawn's first frame (+0x98).
         keepAlive_=false;
         if(ghost_)return;
+        // Poihana's contact callback (806a325c) creates +1f8 exactly once
+        // per throw request and releases +1f4's wave emission. It does not
+        // restart the finite effect on every frame of action8.
+        if(in.poihanaThrow&&!lod){
+            sink.create(KartFx::Catapult,pose(in));
+            if(sink.alive(KartFx::WaterWave))sink.fade(KartFx::WaterWave);
+        }
+        // The original updater806a332c copies the kart pose and calls Calc;
+        // no separate emitter scale override is applied to this effect.
+        if(sink.alive(KartFx::Catapult)){
+            if(in.beforeRespawn)sink.kill(KartFx::Catapult);
+            else sink.setFrame(KartFx::Catapult,pose(in));
+        }
+        const bool crash=in.crashSerial!=crashSerial_;
+        crashSerial_=in.crashSerial;
+        if(crash&&!lod&&!in.beforeRespawn&&in.action>=2&&in.action<=6){
+            auto f=pose(in);float scale=1;if(effectScale(in,scale))f.scale=scale;
+            sink.create(KartFx::Crash,f);
+            if(in.diving)sink.create(KartFx::WaterCrash,scaled(world(in),in));
+        }
+        if(sink.alive(KartFx::Crash)){
+            if(in.beforeRespawn)sink.kill(KartFx::Crash);
+            else {auto f=pose(in);float scale=1;if(effectScale(in,scale))f.scale=scale;sink.setFrame(KartFx::Crash,f);keepAlive_=true;}
+        }
+        // Original +0xad is an actual box-contact event, not an inventory
+        // roulette edge. It restarts +0x27c and follows the kart even under
+        // item-effect LOD (80698a94 / 80698c98, table index 35).
+        if(in.itemBoxHit&&!in.beforeRespawn){
+            sink.kill(KartFx::ItemBoxBreak);sink.create(KartFx::ItemBoxBreak,pose(in));
+        }
+        if(sink.alive(KartFx::ItemBoxBreak)){
+            if(in.beforeRespawn)sink.kill(KartFx::ItemBoxBreak);
+            else {
+                sink.setSpecificVelocity(KartFx::ItemBoxBreak,boxFragmentSpeed(in));
+                sink.setFrame(KartFx::ItemBoxBreak,pose(in));keepAlive_=true;
+            }
+        }
+        // Original hit callback 806a685c / 806a6d4c. These finite emitters
+        // stay attached to the racer after the item object has been freed.
+        // Fragment and immunity-smoke creation are both independent of +7;
+        // only the separate electrical ribbon uses that LOD gate.
+        if(!in.beforeRespawn){
+            if(in.fakeBoxHit)sink.create(KartFx::FakeBoxBreak,pose(in));
+            if(in.fakeBoxHit&&!lod){
+                if(!sink.alive(KartFx::FakeBoxSpark))fakeBoxSparkScale_=1;
+                float scale=1;if(effectScale(in,scale))fakeBoxSparkScale_=scale;
+                sink.create(KartFx::FakeBoxSpark,fakeBoxSparkFrame(in));
+            }
+            if(in.fakeBoxVanish){
+                sink.kill(KartFx::FakeBoxVanish);sink.create(KartFx::FakeBoxVanish,world(in));
+            }
+        }
+        if(sink.alive(KartFx::FakeBoxSpark)){
+            if(in.beforeRespawn)sink.kill(KartFx::FakeBoxSpark);
+            else {sink.setFrame(KartFx::FakeBoxSpark,fakeBoxSparkFrame(in));keepAlive_=true;}
+        }
+        for(KartFx fx:{KartFx::FakeBoxBreak,KartFx::FakeBoxVanish})if(sink.alive(fx)){
+            if(in.beforeRespawn)sink.kill(fx);
+            else {
+                if(fx==KartFx::FakeBoxBreak)sink.setSpecificVelocity(fx,boxFragmentSpeed(in));
+                sink.setFrame(fx,fx==KartFx::FakeBoxBreak?pose(in):world(in));
+                keepAlive_=true;
+            }
+        }
+        // RMCU startRotation 0x80563b98 -> CreateSpinEffect 0x806a2370.
+        // This is a start event, not a per-frame action test: POW can begin
+        // its rotation after its hit, and a second spin must retrigger it.
+        bool waterSpinStart=false;
+        if(in.spinSerial!=spinSerial_){
+            spinSerial_=in.spinSerial;
+            if(in.spinRotations&&!lod&&!in.beforeRespawn){
+                const KartFx fx=in.spinLeft?(in.spinRotations==1?KartFx::SpinHalfL:KartFx::SpinL):
+                                              (in.spinRotations==1?KartFx::SpinHalfR:KartFx::SpinR);
+                auto f=pose(in);float scale=1;if(effectScale(in,scale))f.scale=scale;
+                sink.create(fx,f);
+                waterSpinStart=true;
+            }
+        }
         const bool respawnStart=in.beforeRespawn&&!wasBeforeRespawn_;
         wasBeforeRespawn_=in.beforeRespawn;
+        if(respawnStart&&in.hasSea&&in.diving){
+            // CreatePochaEffect 806a7708: predicted X/Z and authored
+            // surface Y. The splash stays where the kart entered the sea.
+            auto f=world(in);f.origin=in.position+in.velocity;f.origin.y=in.seaHeight;f.scale=in.scale;
+            sink.kill(KartFx::WaterFall);sink.create(KartFx::WaterFall,f);
+        }
         // During the kart collision, before this update: Effects::Player counts the wall
         // contacts (+0x7b0, 0x8069d1d8) and OnBushCollision (0x806a221c) restarts the bush
         // timer for the player's own kart.
         wallContacts_+=in.wallHit;
+        if(local_&&!in.beforeRespawn&&in.objectHit&&hitFrames_[ObjectHit]>HitGap){
+            auto f=pose(in);f.origin=in.objectContact;float scale=1;
+            if(effectScale(in,scale))f.scale=scale;
+            if(sink.alive(KartFx::CollisionHit))sink.kill(KartFx::CollisionHit);
+            sink.create(KartFx::CollisionHit,f);hitFrames_[ObjectHit]=0;
+        }
+        // OnKartCollision (USA 806a1fa0): local racer, either kart above
+        // speed 30, more than ten frames since the burst, at the contact.
+        if(local_&&!in.beforeRespawn&&in.kartContact&&
+           (length(in.velocity)>30.f||in.otherContactFast)&&kartContactFrames_>10){
+            auto f=pose(in);f.origin=in.contact;float scale=1;
+            if(effectScale(in,scale))f.scale=scale;
+            if(sink.alive(KartFx::CollisionHit))sink.kill(KartFx::CollisionHit);
+            sink.create(KartFx::CollisionHit,f);kartContactFrames_=0;hitFrames_[KartHit]=0;
+        }
+        kartContactFrames_=std::min(kartContactFrames_+1,100);
         if(local_&&in.bushHit&&hitFrames_[BushHit]>HitGap&&in.speedRatio>=0.5f)hitFrames_[BushHit]=0;
         // KartMove::calcPow (0x8057a844): the hit at action 11 frame 8 restarts +0x54 unless
         // dodged (0x806a6044); a pending POW keeps rk_powUp alive (0x806a5d40).
@@ -121,7 +273,7 @@ public:
         wasMega_=in.mega;
         // While the Bullet runs its update (0x80698c98) ends with its own wall hit and the
         // update returns: no LOD edge, no matrix, no slipstream, no reset of +0x7b0.
-        if(bulletStep(in,sink)){wallHit(in);return;}
+        if(bulletStep(in,sink)){wallHit(in,sink);return;}
         normalStep(in,sink);
         // +7's rising edge (+8) kills every effect but the power-ups (0x8069146c, argument 0).
         if(lod&&!wasLod_)lodKill(sink);
@@ -131,7 +283,8 @@ public:
         // the slipstream first and checks for a wall hit last; 0x80692868 clears +0x7b0.
         for(auto& f:hitFrames_)f=int8_t(std::min<int>(f+1,HitFramesMax));
         slipstream(in,respawnStart,sink);
-        wallHit(in);
+        water(in,waterSpinStart,sink);
+        wallHit(in,sink);
         wallContacts_=0;
     }
     // +9: an effect that keeps this racer's effect group calculated and drawn under the LOD
@@ -170,28 +323,108 @@ public:
     }
     int8_t hitFrames(Hit hit) const { return hitFrames_[hit]; }
     uint32_t wallContacts() const { return wallContacts_; }
+    // Original +0xaac=200, +0xab0=0 from 80898fd0's constant table:
+    // box shards inherit specific-direction velocity, not emission count.
+    static float boxFragmentSpeed(const KartFxInput& in){
+        const float top=std::max(in.baseSpeed,50.f);
+        return std::clamp(length(in.velocity),0.f,top)*(200.f/top);
+    }
     int32_t slipFade() const { return slipFade_; }
     int32_t lightningTimer() const { return lightning_; }
     int32_t cloudTimer() const { return cloud_; }
     int32_t powHitTimer() const { return powHit_; }
     int32_t powWaveTimer() const { return powWave_; }
 private:
+    // Original UpdateWaterEffects / CreateWave (80698368 / 806a33d0).
+    // Wave is world aligned at the current sea; bubbles follow the kart.
+    // Particle size uses EGG's manager modifier, not emitter/world scale.
+    void water(const KartFxInput& in,bool spinStart,KartFxSink& sink){
+        EffectFrame wave;wave.origin={in.position.x,in.seaHeight,in.position.z};
+        const bool contact=in.hasSea&&in.diving;
+        const bool surface=contact&&in.waterBodyHeight>=in.seaHeight&&in.waterRearHeight<in.seaHeight;
+        float size=1;effectScale(in,size);
+        if(surface&&(!in.waterSplitScreen||local_)){
+            const float top=std::max(in.waterBaseSpeed,50.f);
+            const float speed=std::clamp(length(in.velocity),0.f,top);
+            const float maxEmit=local_&&!in.waterSplitScreen?.25f:.15f;
+            float ratio=.075f+speed*((maxEmit-.075f)/top);
+            if(in.waterReducedScreen)ratio*=.5f;
+            const uint16_t life=uint16_t(60.f-speed*((60.f-12.f)/top));
+            sink.create(KartFx::WaterWave,wave);sink.setFrame(KartFx::WaterWave,wave);
+            sink.setEmissionRatio(KartFx::WaterWave,ratio);
+            sink.setParticleLife(KartFx::WaterWave,life);
+            sink.setParticleScale(KartFx::WaterWave,size,size);
+        }else if(sink.alive(KartFx::WaterWave)){
+            if(contact)sink.followFade(KartFx::WaterWave);
+            else sink.fade(KartFx::WaterWave);
+            // With no Diving flag retail Fade() leaves the last transform.
+            if(contact)sink.setFrame(KartFx::WaterWave,wave);
+        }
+        auto bubbles=world(in);bubbles.scale=size;
+        if(contact&&!surface){
+            sink.create(KartFx::WaterBubbles,bubbles);
+            sink.setFrame(KartFx::WaterBubbles,bubbles);
+        }else if(sink.alive(KartFx::WaterBubbles))sink.fade(KartFx::WaterBubbles);
+        // Original 806960a8: a hard floor contact splashes in water;
+        // a regular GroundStart splashes while only partly immersed.
+        const bool splash=(in.hardLanding&&(in.waterKcl||contact))||
+                          (in.groundStart&&(in.waterKcl||(contact&&!in.waterDeep)));
+        auto splashFrame=world(in);splashFrame.scale=size;
+        if(splash&&!in.beforeRespawn)sink.create(KartFx::WaterLanding,splashFrame);
+        for(KartFx fx:{KartFx::WaterCrash,KartFx::WaterLanding})if(sink.alive(fx)){
+            if(in.beforeRespawn)sink.kill(fx);
+            else sink.setFrame(fx,splashFrame);
+        }
+        // Original CreateWaterEffect 806ab2e0: existing rk_water at
+        // rear-wheel edges, speed emission 0..0.5 (local), 0..0.25 (S).
+        const float top=std::max(in.waterBaseSpeed,50.f);
+        float speed=std::clamp(length(in.velocity),0.f,top);
+        if(!in.waterSplitScreen&&(in.chargingSSMT||in.countdownAccelerate))speed=top*.5f;
+        float ratio=speed/top*(local_?.5f:.25f);
+        if(in.waterReducedScreen)ratio*=.5f;
+        for(unsigned wheel=0;wheel<2;++wheel){
+            const KartFx fx=wheel?KartFx::WaterWheelR:KartFx::WaterWheelL;
+            auto f=pose(in);f.origin=in.waterRear[wheel];
+            const bool spray=!in.beforeRespawn&&(!in.bike||wheel==1)&&
+                             (in.waterWheelKcl[wheel]||(surface&&!in.waterDeep));
+            if(spray){sink.create(fx,f);sink.setEmissionRatio(fx,ratio);}
+            else if(sink.alive(fx))sink.followFade(fx);
+            if(sink.alive(fx)){sink.setFrame(fx,f);sink.setParticleScale(fx,size,size);}
+        }
+        if(contact&&spinStart){
+            const KartFx fx=in.spinRotations==1?KartFx::WaterSpinHalf:KartFx::WaterSpin;
+            sink.create(fx,bubbles);
+        }
+        // The finite spin splashes finish even when the kart leaves water.
+        for(KartFx fx:{KartFx::WaterSpinHalf,KartFx::WaterSpin})
+            if(sink.alive(fx))sink.setFrame(fx,bubbles);
+    }
     // The wall hit (sparks and rumble; the end of 0x80691720 and 0x80699444 in the Bullet
     // update): a counted contact since +0x7b0 was last cleared, speed above 30 and 30 frames
     // since the last.
-    void wallHit(const KartFxInput& in){
-        if(!in.beforeRespawn&&wallContacts_>0&&length(in.velocity)>30.f&&hitFrames_[WallHit]>HitGap)hitFrames_[WallHit]=0;
+    void wallHit(const KartFxInput& in,KartFxSink& sink){
+        if(!in.beforeRespawn&&wallContacts_>0&&length(in.velocity)>30.f&&hitFrames_[WallHit]>HitGap){
+            hitFrames_[WallHit]=0;
+            if(local_){
+                auto f=pose(in);float scale=1;if(effectScale(in,scale))f.scale=scale;
+                if(sink.alive(KartFx::CollisionHit))sink.kill(KartFx::CollisionHit);
+                sink.create(KartFx::CollisionHit,f);
+            }
+        }
     }
     void lodKill(KartFxSink& sink) const {
-        for(unsigned index=0;index<0x2c;++index)
-            for(unsigned fx=0;fx<KartFxCount;++fx)
-                if(KartFxTableIndex[fx]==index&&!keptByLodKill(index)&&sink.alive(KartFx(fx)))sink.kill(KartFx(fx));
+        for(unsigned fx=0;fx<KartFxCount;++fx)
+            if(!keptByLodKill(KartFxTableIndex[fx])&&sink.alive(KartFx(fx)))sink.kill(KartFx(fx));
     }
     static EffectFrame frame(Vec3 origin,Vec3 x,Vec3 y,Vec3 z,float scale=1){
         EffectFrame f;f.origin=origin;f.x=x;f.y=y;f.z=z;f.scale=scale;return f;
     }
     // The pose matrix (+0x6f4), as Mega, rk_powUp and the POW frames use it.
     static EffectFrame pose(const KartFxInput& in){return frame(in.position,in.right,in.up,in.forward);}
+    EffectFrame fakeBoxSparkFrame(const KartFxInput& in) const {
+        auto f=pose(in);if(in.hasFakeBoxDriverOrigin)f.origin=in.fakeBoxDriverOrigin;
+        f.scale=fakeBoxSparkScale_;return f;
+    }
     // EGG keeps setScale apart from setMtx, so a scaled instance stays scaled as it follows.
     static EffectFrame scaled(EffectFrame f,const KartFxInput& in){f.scale=in.scale;return f;}
     // Star and crackle: up, forward and right as the axes (0x806a464c, 0x806a5244).
@@ -235,6 +468,13 @@ private:
         if(in.star){sink.create(KartFx::Star,body(in));sink.setFrame(KartFx::Star,body(in));keepAlive_=true;}
         else stop(KartFx::Star,body(in),sink);
         bolts(in,sink);powHit(in,sink);powWave(in,sink);powUp(in,sink);
+        // Normal update (0x8069bfa0) uses the kart pose and keeps a finite
+        // spin effect following until its particles finish. Lightning and
+        // POW-up replace these particles immediately.
+        for(KartFx fx:{KartFx::SpinHalfL,KartFx::SpinL,KartFx::SpinHalfR,KartFx::SpinR})if(sink.alive(fx)){
+            if(in.beforeRespawn||lightning_<BoltWindow||cloud_<BoltWindow||sink.alive(KartFx::PowUp))sink.kill(fx);
+            else sink.setFrame(fx,scaled(pose(in),in));
+        }
         if(sink.alive(KartFx::Kyodai)){sink.setFrame(KartFx::Kyodai,scaled(pose(in),in));keepAlive_=true;} // 0x806a6770
     }
     // 0x8069971c: Lightning (+0x4c) and Thunder Cloud (+0x50) bolts and the shocked crackle.
@@ -322,16 +562,18 @@ private:
     float bulletHeight_=0;
     uint8_t index_=0;
     bool local_=false,ghost_=false,wasBullet_=false,wasMega_=false,powUp_=false;
-    // Retail resets only the wall and bush timers here: the object timer (+0x7b5, course
-    // objects' hit callbacks) is not ported, and kart contact (+0x7b6, OnKartCollision)
-    // reaches only the touched racer of a pair, never racer 0, which checks its pairs first.
+    // Object callbacks (+0x7b5) are handled by their course presenters.
     std::array<int8_t,HitCount> hitFrames_{};
+    int kartContactFrames_=0; // +0x7b8, separate from the effect-matrix timer
     int32_t slipFade_=-1;          // +0x8c, -1 idle
     bool slipVisible_=false;       // +0x89
     bool wasBeforeRespawn_=false;  // +0x97
     bool wasLod_=false;            // +8, +7 at the last update outside a Bullet
     bool keepAlive_=false;         // +9
     uint32_t wallContacts_=0;      // +0x7b0
+    uint32_t spinSerial_=0;
+    uint32_t crashSerial_=0;
+    float fakeBoxSparkScale_=1;
     std::array<EggScale,2> eggScale_{};
 };
 
@@ -341,10 +583,12 @@ private:
 class KartFxSlots final : public KartFxSink {
 public:
     static constexpr unsigned FirstSlot=32,MaxRacers=12,FirstGroup=2;
+    static constexpr unsigned FirstFreeSlot=FirstSlot+MaxRacers*KartFxCount;
     static_assert(FirstSlot+MaxRacers*KartFxCount<=RaceEffects::SlotCount,"KartEffect slots");
+    static_assert(FirstFreeSlot+2<=RaceEffects::SlotCount,"off-road dust slots");
     static_assert(FirstGroup+MaxRacers<=32,"one mask bit per group");
     static constexpr uint32_t groupBit(unsigned racer){return 1u<<(FirstGroup+racer);}
-    void bind(RaceEffects& effects){
+    bool bind(RaceEffects& effects){
         static constexpr const char* names[KartFxCount][2]={
             {"rk_star","rk_starS"},{"rk_killer","rk_killerS"},{"rk_killer1T","rk_killer1TS"},
             {"rk_thunder","rk_thunderS"},{"rk_kaminariGumo","rk_kaminariGumoS"},
@@ -352,9 +596,21 @@ public:
             {"rk_kyodai","rk_kyodaiS"},{"rk_pow","rk_powS"},{"rk_pow1","rk_pow1S"},{"rk_powUp","rk_powUp"},
             // 0x8068abbc: the boost's full emitter also goes to split-screen players
             // (+0x11, +0x13); with one screen both pick by the player's own kart (+0xf).
-            {"rk_slipStreamPre","rk_slipStreamPreS"},{"rk_slipStream","rk_slipStreamS"}};
+            {"rk_slipStreamPre","rk_slipStreamPreS"},{"rk_slipStream","rk_slipStreamS"},
+            {"rk_hitA","rk_hitAS"},
+            {"rk_spinHalfL","rk_spinHalfLS"},{"rk_spinL","rk_spinLS"},
+            {"rk_spinHalfR","rk_spinHalfRS"},{"rk_spinR","rk_spinRS"},
+            {"rk_wave","rk_wave"},{"rk_awa","rk_awa"},
+            {"rk_spinWaterHalf","rk_spinWaterHalfS"},{"rk_spinWater","rk_spinWaterS"},
+            {"rk_niseBox","rk_niseBoxS"},{"rk_niseBoxVan","rk_niseBoxVan"},
+            {"rk_itemBox","rk_itemBoxS"},{"rk_niseBoxBiri","rk_niseBoxBiri"},
+            {"rk_crash","rk_crashS"},{"rk_crashWater","rk_crashWaterS"},
+            {"rk_pochaWaterMini","rk_pochaWaterMini"},{"rk_water","rk_water"},{"rk_water","rk_water"},
+            {"rk_pochaWater","rk_pochaWaterS"},{"rk_uchiage","rk_uchiageS"}};
         effects_=&effects;
         for(unsigned i=0;i<KartFxCount;++i)for(unsigned j=0;j<2;++j)specs_[i][j]=effects.find(names[i][j]);
+        for(const auto& row:specs_)for(int spec:row)if(spec<0)return false;
+        return effects.ready;
     }
     void select(unsigned racer,bool local){racer_=racer<MaxRacers?racer:0;local_=local;}
     bool alive(KartFx fx) const override { return effects_&&effects_->alive(slot(fx)); }
@@ -364,8 +620,13 @@ public:
     }
     void setFrame(KartFx fx,const EffectFrame& frame) override { if(effects_)effects_->move(slot(fx),frame); }
     void followFade(KartFx fx) override { if(effects_)effects_->followFade(slot(fx)); }
+    void fade(KartFx fx) override { if(effects_)effects_->fade(slot(fx)); }
     void kill(KartFx fx) override { if(effects_)effects_->kill(slot(fx)); }
     void setColor(KartFx fx,const uint8_t rgba[4]) override { if(effects_)effects_->setColor(slot(fx),rgba); }
+    void setParticleLife(KartFx fx,uint16_t life) override { if(effects_)effects_->setParticleLife(slot(fx),life); }
+    void setParticleScale(KartFx fx,float x,float y) override { if(effects_)effects_->setParticleScale(slot(fx),x,y); }
+    void setEmissionRatio(KartFx fx,float ratio) override { if(effects_)effects_->setEmissionRatio(slot(fx),ratio); }
+    void setSpecificVelocity(KartFx fx,float speed) override { if(effects_)effects_->setSpecificVelocity(slot(fx),speed); }
 private:
     unsigned slot(KartFx fx) const { return FirstSlot+racer_*KartFxCount+unsigned(fx); }
     RaceEffects* effects_=nullptr;

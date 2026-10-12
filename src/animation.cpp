@@ -13,13 +13,30 @@ namespace mkw {
 // resident. On an Old 3DS the ordinary heap also holds Kinoko's 16 MiB arena
 // and is the scarce region, while LINEAR has room once menu textures are gone,
 // so bank storage comes from the (thread-safe, see linear_lock.cpp) LINEAR heap.
-void DriverAnimation::reset(){if(data_)linearFree(data_);data_=nullptr;ready=false;rigidParts_.clear();count_=faceCount_=hairNodeCount_=hairClipCount_=uvClipCount_=0;baseUV_.clear();lastClip_=-1;hasPreviousPose_=false;cachedVertices_=nullptr;cachedSettled_=false;poseBoundsValid_=false;usedMatrices_.fill(false);neutralUv_=nullptr;uvBuffer_=nullptr;uvNeutral_=true;shared_={};handleDrive_=dash_=shake_=-1;gpu_=false;shapeHidden_.fill(false);}
+// Banks are read only by the CPU. They stay in LINEAR while it has room, so
+// the ordinary heap keeps its Old 3DS headroom (main.cpp), and spill to the
+// heap once LINEAR would drop under the reserve later race loads need: eleven
+// bike riders' banks (100cc Grand Prix) are about 5.5 MiB more than karts'.
+static uint8_t* allocateBank(size_t size,bool& linear){
+    constexpr size_t LinearReserve=3u<<20;
+    linear=linearSpaceFree()>size+LinearReserve;
+    if(linear)if(void* p=linearAlloc(size))return static_cast<uint8_t*>(p);
+    linear=false;return static_cast<uint8_t*>(std::aligned_alloc(16,(size+15)&~size_t(15)));
+}
+void DriverAnimation::reset(){if(data_){if(dataLinear_)linearFree(data_);else std::free(data_);}data_=nullptr;ready=false;rigidParts_.clear();count_=faceCount_=hairNodeCount_=hairClipCount_=uvClipCount_=0;baseUV_.clear();lastClip_=-1;hasPreviousPose_=false;cachedVertices_=nullptr;cachedSettled_=false;poseBoundsValid_=false;usedMatrices_.fill(false);neutralUv_=nullptr;uvBuffer_=nullptr;uvNeutral_=true;shared_={};handleDrive_=dash_=shake_=-1;gpu_=false;shapeHidden_.fill(false);}
 bool DriverAnimation::gpuSkin(Model& model){
-    if(!ready||gpu_||skinNormals_||matrices_>Renderer::MaxSkinBones||vertices_!=model.vertexCount)return false;
+    if(!ready||gpu_||matrices_>Renderer::MaxSkinBones||vertices_!=model.vertexCount)return false;
+    if(skinNormals_){
+        if(!model.skinBoneIndices)model.skinBoneIndices=static_cast<float*>(linearAlloc(vertices_*sizeof(float)));
+        if(!model.skinBoneIndices)return false;
+    }
     for(unsigned i=0;i<vertices_;++i){
         const auto& v=source_[i];
-        model.vertices[i].position={v.p[0],v.p[1],v.p[2]};model.vertices[i].normal={float(v.matrix*3),0,0};
+        model.vertices[i].position={v.p[0],v.p[1],v.p[2]};
+        if(skinNormals_){model.vertices[i].normal={v.n[0],v.n[1],v.n[2]};model.skinBoneIndices[i]=float(v.matrix*3);}
+        else model.vertices[i].normal={float(v.matrix*3),0,0};
     }
+    if(skinNormals_)flushGpuData(model.skinBoneIndices,vertices_*sizeof(float));
     flushGpuData(model.vertices,vertices_*sizeof(Vertex));
     shapeHidden_.fill(false);cachedVertices_=nullptr;cachedSettled_=false;uvBuffer_=nullptr;uvNeutral_=true;
     uvDisjoint_=true;
@@ -42,6 +59,13 @@ bool DriverAnimation::prepareUnlitSkinning(Model& model){
     skinNormals(false);
     return false;
 }
+bool DriverAnimation::prepareLitSkinning(Model& model){
+    skinNormals(true);
+    if(!ready)return false;
+    if(gpu_&&model.skinBoneIndices)return true;
+    gpu_=false; // An earlier unlit setup must retain normals before lit draws.
+    return gpuSkin(model);
+}
 int DriverAnimation::find(const char* name)const{if(name)for(unsigned i=0;i<count_;++i)if(!std::strcmp(name,clips_[i].name))return i;return -1;}
 int DriverAnimation::face(const char* name)const{if(name)for(unsigned i=0;i<faceCount_;++i)if(!std::strcmp(name,faces_[i].name))return i;return -1;}
 bool DriverAnimation::load(const char* path,const Model& model){
@@ -50,7 +74,7 @@ bool DriverAnimation::load(const char* path,const Model& model){
     bool ok=false;size_t size=0;
     if(const long packed=pack::size(path);packed>=0){
         size=size_t(packed);if(size<28||size>12*1024*1024)return false;
-        data_=static_cast<uint8_t*>(linearAlloc(size));if(!data_)return false;
+        data_=allocateBank(size,dataLinear_);if(!data_)return false;
         ok=pack::readInto(path,data_,size);
     }else{
         FILE* f=std::fopen(path,"rb");
@@ -62,14 +86,21 @@ bool DriverAnimation::load(const char* path,const Model& model){
         if(!f)return false;std::fseek(f,0,SEEK_END);long length=std::ftell(f);std::rewind(f);
         if(length<0){std::fclose(f);return false;}size=size_t(length);
         if(size<28||size>12*1024*1024){std::fclose(f);return false;}
-        data_=static_cast<uint8_t*>(linearAlloc(size));if(!data_){std::fclose(f);return false;}
+        data_=allocateBank(size,dataLinear_);if(!data_){std::fclose(f);return false;}
         ok=std::fread(data_,1,size,f)==size;std::fclose(f);
     }
     auto u32=[](const uint8_t* p){uint32_t v;std::memcpy(&v,p,4);return v;};
-    if(!ok||std::memcmp(data_,"DSKM",4)||u32(data_+4)<2||u32(data_+4)>4){reset();return false;}
+    if(!ok||std::memcmp(data_,"DSKM",4)||u32(data_+4)<2||u32(data_+4)>5){reset();return false;}
     vertices_=u32(data_+8);matrices_=u32(data_+12);count_=u32(data_+16);shapes_=u32(data_+20);faceCount_=u32(data_+24);
     if(vertices_!=model.vertexCount||!matrices_||matrices_>128||!count_||count_>64||shapes_>64||faceCount_>64||model.submeshes.size()>64){reset();return false;}
-    size_t cursor=28;source_=reinterpret_cast<const SourceVertex*>(data_+cursor);cursor+=vertices_*sizeof(SourceVertex);
+    size_t cursor=28;
+    int32_t rootSlot=-2;
+    if(u32(data_+4)==5){
+        if(size<32){reset();return false;}
+        rootSlot=int32_t(u32(data_+28));cursor=32;
+        if(rootSlot < -1 || (rootSlot>=0&&unsigned(rootSlot)>=matrices_)){reset();return false;}
+    }
+    source_=reinterpret_cast<const SourceVertex*>(data_+cursor);cursor+=vertices_*sizeof(SourceVertex);
     ranges_=reinterpret_cast<const Range*>(data_+cursor);cursor+=shapes_*sizeof(Range);
     if(cursor>size){reset();return false;}
     for(unsigned i=0;i<vertices_;++i)if(source_[i].matrix>=matrices_){reset();return false;}
@@ -102,7 +133,7 @@ bool DriverAnimation::load(const char* path,const Model& model){
             c.data=data_+cursor;cursor+=size_t(c.count)*hairNodeCount_*84;if(cursor>size){reset();return false;}
         }
     }
-    if(u32(data_+4)==4){
+    if(u32(data_+4)>=4){
         if(cursor+8>size||std::memcmp(data_+cursor,"UVAN",4)){reset();return false;}
         uvClipCount_=u32(data_+cursor+4);cursor+=8;
         if(uvClipCount_>uvClips_.size()){reset();return false;}
@@ -115,6 +146,17 @@ bool DriverAnimation::load(const char* path,const Model& model){
         }
         baseUV_.resize(vertices_);
         for(unsigned i=0;i<vertices_;++i)baseUV_[i]={model.vertices[i].uv[0],model.vertices[i].uv[1]};
+    }
+    // DSKM5 appends translation tracks only for a root outside the palette.
+    // Ordinary skin/face/hair/UV payloads retain their previous layout.
+    if(u32(data_+4)==5&&rootSlot==-1){
+        if(cursor+8>size||std::memcmp(data_+cursor,"ROOT",4)||u32(data_+cursor+4)!=count_){reset();return false;}
+        cursor+=8;
+        for(unsigned i=0;i<count_;++i){
+            const size_t bytes=size_t(clips_[i].count)*12;
+            if(bytes>size-cursor){reset();return false;}
+            cursor+=bytes;
+        }
     }
     if(cursor!=size){reset();return false;}
     for(unsigned i=0;i<model.submeshes.size();++i)baseTextures_[i]=model.submeshes[i].texture;

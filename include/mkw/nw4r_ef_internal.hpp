@@ -56,6 +56,12 @@ struct System {
     // EGG::Effect::setColor (0x80223794 -> 0x80026d20): every active ParticleManager of the
     // effect's emitters gets light type 1 with this ambient colour.
     void setColor(Effect& e,const u8 rgba[4]);
+    void setParticleLife(Effect& e,u16 life);
+    void setParticleScale(Effect& e,float x,float y);
+    void setEmissionRatio(Effect& e,float ratio);
+    // EGG vtable +0x3c (8022333c): Emitter+0x7c is the specific-direction
+    // velocity power, not the particle emission ratio.
+    void setSpecificVelocity(Effect& e,float speed);
     void setRootMtx(Effect& e,const Mtx34& m);
     bool alive(const Effect* e,u16 serial) const {return e&&e->life!=Closed&&e->life!=Closing&&e->serial==serial;}
     void garbageCollection();

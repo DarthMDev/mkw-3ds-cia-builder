@@ -582,6 +582,40 @@ void emitDisc(System& s,Emitter& em,ParticleManager& pm,int count,u32 flags,cons
         if(uniform)angle+=step;
     }
 }
+void emitCylinder(System& s,Emitter& em,ParticleManager& pm,int count,u32 flags,const float* params,u16 life,float lifeRandom,const Mtx34* space){
+    // NW4R EmitterFormCylinder::Emission/EmissionSub. Keep the source
+    // random stream and uniform count-by-count rings (start charge / spins).
+    if(count<1)return;
+    const float xr=FltEpsilon<std::fabs(params[0])?params[0]:FltEpsilon;
+    const float yr=FltEpsilon<std::fabs(params[4])?params[4]:FltEpsilon;
+    const float zr=flags&0x2000000?xr:(FltEpsilon<std::fabs(params[5])?params[5]:FltEpsilon);
+    const float base=flags&0x40000?params[2]:2.f*Pi*(float(em.random.rand())/65536.f);
+    const bool uniform=flags&0x20000;
+    float step=0.f;
+    if(uniform){
+        const float span=std::fmod(params[3]-params[2],2.f*Pi);
+        step=(params[3]-params[2])/float(span<0.0001917476038215682f||6.282993793487549f<span?em.prm.emitDiv:int(em.prm.emitDiv)-1);
+    }
+    const int rings=uniform?count:1;
+    for(int ring=0;ring<rings;++ring){
+        float angle=0;
+        const float height=count>1?(float(ring)/float(count-1)-.5f)*yr*2.f:0.f;
+        for(int i=0;i<count;++i){
+            float radius=float(em.random.rand())/65536.f;
+            const float hollow=params[1]/100.f;
+            radius=flags&0x1000000?std::sqrt(radius+hollow*hollow*(1-radius)):radius+hollow*(1-radius);
+            if(!uniform)angle=(params[3]-params[2])*(float(em.random.rand())/65536.f);
+            float sa,ca;sinCosRad(base+angle,sa,ca);
+            const Vec3 fromY{sa,0.f,-ca};
+            const Vec3 pos{sa*radius*xr,uniform?height:(2.f*(float(em.random.rand())/65536.f)-1.f)*yr,-ca*radius*zr};
+            Vec3 normal{pos.x,0.f,pos.z},origin=pos;
+            normalize(normal);normalize(origin);
+            const Vec3 velocity=calcVelocity(em,normal,origin,fromY);
+            emitOne(s,em,pm,pos,velocity,life,lifeRandom,space);
+            if(uniform)angle+=step;
+        }
+    }
+}
 void emitSphere(System& s,Emitter& em,ParticleManager& pm,int count,u32 flags,const float* params,u16 life,float lifeRandom,const Mtx34* space){
     if(count<1)return;
     const float hollow=params[1]/100.f;
@@ -650,6 +684,7 @@ void formEmission(System& s,Emitter& em,ParticleManager& pm,int count,u32 flags,
     case 9:emitPoint(s,em,pm,count,life,lifeRandom,space);break;
     case 1:emitLine(s,em,pm,count,flags,params,life,lifeRandom,space);break;
     case 0:emitDisc(s,em,pm,count,flags,params,life,lifeRandom,space);break;
+    case 7:emitCylinder(s,em,pm,count,flags,params,life,lifeRandom,space);break;
     case 8:emitSphere(s,em,pm,count,flags,params,life,lifeRandom,space);break;
     default:break;
     }
@@ -1198,7 +1233,13 @@ void beginCalc(ParticleManager& pm,bool onlyIfRemain){
 void endCalc(ParticleManager& pm){for(Particle* p=pm.particles.head;p;p=p->next)if(p->life==Active&&p->eval==EvalSkip)p->eval=EvalDone;}
 void calcParticles(System& s,Emitter& em){
     if(em.prm.comFlags&EmitterDesc::DisableCalc)return;
-    snapshot(em.managers,[&](ParticleManager* pm){calcManager(s,*pm);});
+    snapshot(em.managers,[&](ParticleManager* pm){
+        calcManager(s,*pm);
+        // EGG::ExpParticleManager runs this after the NW4R calculation.
+        // Repeated changes to the control's life do not re-age old waves.
+        if(pm->overrideLife)for(Particle* p=pm->particles.head;p;p=p->next)
+            if(p->tick==1&&(p->life==Active||p->life==Wait))p->lifeSpan=pm->particleLife;
+    });
 }
 
 void calcEffect(System& s,Effect& e){
@@ -1318,6 +1359,24 @@ void System::setColor(Effect& e,const u8 rgba[4]){
     for(Emitter* em=e.emitters.head;em;em=em->next)
         for(ParticleManager* pm=em->managers.head;pm;pm=pm->next)
             if(pm->life==Active){pm->lightType=1;std::copy(rgba,rgba+4,pm->lightAmbient);}
+}
+void System::setParticleLife(Effect& e,u16 life){
+    // EGG SetLife (8022302c) enumerates current emitter/manager lists.
+    for(Emitter* em=e.emitters.head;em;em=em->next)
+        for(ParticleManager* pm=em->managers.head;pm;pm=pm->next){pm->particleLife=life;pm->overrideLife=true;}
+}
+void System::setParticleScale(Effect& e,float x,float y){
+    // EGG SetScale(Vector2) (8022391c): ParticleManager modifier,
+    // separate from the emitter transform and authored emission geometry.
+    for(Emitter* em=e.emitters.head;em;em=em->next)
+        for(ParticleManager* pm=em->managers.head;pm;pm=pm->next){pm->modifierScale[0]=x;pm->modifierScale[1]=y;}
+}
+void System::setEmissionRatio(Effect& e,float ratio){
+    // EGG SetEmitRatio (802230ec): absolute emitRatio, not a multiplier.
+    for(Emitter* em=e.emitters.head;em;em=em->next)em->prm.emitRatio=ratio;
+}
+void System::setSpecificVelocity(Effect& e,float speed){
+    for(Emitter* em=e.emitters.head;em;em=em->next)em->prm.velPowerSpecDir=speed;
 }
 void System::setRootMtx(Effect& e,const Mtx34& m){
     e.root=m;

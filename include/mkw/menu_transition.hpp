@@ -18,6 +18,7 @@ struct UiTransitionView {
 };
 
 const char* uiSelectedMenuControl(const MenuState&,bool back=false);
+const char* uiPauseMenuControl(const MenuState&);
 float uiMenuMaxDelay(const MenuState&);
 float uiMenuExitHold(const MenuState&,bool back=false);
 bool uiMenuChangesSection(UiPage from,UiPage to,UiAction action=UiAction::None);
@@ -32,6 +33,7 @@ public:
  // Start on `incoming` as a section change seen from black (the race faded
  // out): fade in with the page's entrance. The caller resets the page age.
  void enterSection(const MenuState& incoming);
+ void enterPage(const MenuState& incoming);
  // Replaces logical.advance(): the incoming clock is held while the previous
  // page is visible. Returns true when the visible page changes this call.
  // While incomingReady is false the transition holds at the boundary where

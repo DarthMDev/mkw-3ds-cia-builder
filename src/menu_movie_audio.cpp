@@ -70,6 +70,13 @@ void MenuMovieAudio::initialize(){
  // One-time DSP component load, done at boot rather than on a page change.
  if(dspState)return;
  const Result result=ndspInit();dspState=R_SUCCEEDED(result)?1:-1;
+ // A failed DSP bootstrap disables all audio. Keep its result available in
+ // release test builds, without logging audio streams or writing per frame.
+ if(auto* log=std::fopen("sdmc:/3ds/mkw-3ds/audio-status.txt","w")){
+  std::fprintf(log,"ndspInit=0x%08lx\nready=%s\nfirmware=sdmc:/3ds/dspfirm.cdc\n",
+      static_cast<unsigned long>(result),dspState>0?"true":"false");
+  std::fclose(log);
+ }
 #ifndef MKW_RELEASE
  if(dspState<0)std::fprintf(stderr,"Opening audio unavailable: NDSP initialization failed (0x%08lx).\n",static_cast<unsigned long>(result));
 #endif

@@ -64,7 +64,7 @@ struct EndCommand {static constexpr uint16_t Type=CmdEnd;};
 struct ProjectionCommand {static constexpr uint16_t Type=CmdProjection;C3D_Mtx projection;};
 struct CourseLightingCommand {static constexpr uint16_t Type=CmdCourseLighting;bool enabled;};
 struct RetailFogCommand {static constexpr uint16_t Type=CmdRetailFog;RetailFog fog;};
-struct RequestBloomCommand {static constexpr uint16_t Type=CmdRequestBloom;float threshold,intensity;uint32_t tint;};
+struct RequestBloomCommand {static constexpr uint16_t Type=CmdRequestBloom;const CourseBloom* settings;};
 struct ApplyBloomCommand {static constexpr uint16_t Type=CmdApplyBloom;};
 struct BottomCommand {static constexpr uint16_t Type=CmdBottom;};
 struct DrawCommand {
@@ -281,7 +281,7 @@ void Renderer::execute(FrameList& list){
         case CmdProjection:projection_=eyeProjection(static_cast<const ProjectionCommand*>(body)->projection);break;
         case CmdCourseLighting:courseLighting_=static_cast<const CourseLightingCommand*>(body)->enabled;break;
         case CmdRetailFog:retailFogNow(static_cast<const RetailFogCommand*>(body)->fog);break;
-        case CmdRequestBloom:{const auto& c=*static_cast<const RequestBloomCommand*>(body);requestBloomNow(c.threshold,c.tint,c.intensity);break;}
+        case CmdRequestBloom:{const auto& c=*static_cast<const RequestBloomCommand*>(body);requestBloomNow(*c.settings);break;}
         case CmdApplyBloom:applyBloom();break;
         case CmdBottom:bottom=true;if(eye+1==eyes)beginBottom();break;
         case CmdDraw:{
@@ -388,12 +388,12 @@ void Renderer::setRetailFog(const RetailFog& fog){
     if(recording())command<RetailFogCommand>().fog=fog;
     else retailFogNow(fog);
 }
-void Renderer::requestBloom(float threshold,uint32_t tint,float intensity){
-    if(!recording()){requestBloomNow(threshold,tint,intensity);return;}
+void Renderer::requestBloom(const CourseBloom& settings){
+    if(!recording()){requestBloomNow(settings);return;}
     // Bloom's VRAM targets (unless reserved at load) and LINEAR vertices:
     // create them here, once, with the render thread idle.
-    if(intensity>0&&!bloomVertices_&&!bloomFailed_){drain();initBloom();}
-    auto& c=command<RequestBloomCommand>();c.threshold=threshold;c.tint=tint;c.intensity=intensity;
+    if(settings.enabled()&&!bloomVertices_&&!bloomFailed_){drain();initBloom();}
+    command<RequestBloomCommand>().settings=&settings;
 }
 void Renderer::begin(Vec3 eye,Vec3 target,Vec3 up){
     auto e=FVec3_New(eye.x,eye.y,eye.z),t=FVec3_New(target.x,target.y,target.z),u=FVec3_New(up.x,up.y,up.z);

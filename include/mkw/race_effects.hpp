@@ -21,10 +21,14 @@ struct EffectTexture { char name[32]; uint16_t width,height,paddedWidth,paddedHe
 // Steps at the 60 Hz simulation rate; presentation only.
 class RaceEffects {
 public:
-    static constexpr unsigned SlotCount=192;
+    static constexpr unsigned SlotCount=592;
     RaceEffects();
     ~RaceEffects();
     bool load(const char* path);
+    bool loadMemory(const void* data,size_t size);
+    const char* loadError() const {return loadError_;}
+    int loadErrno() const {return loadErrno_;}
+    void unload();
     int find(const char* name) const;
     // One-shot effect with its authored emission life, not tied to a slot.
     void burst(int spec,const EffectFrame& frame);
@@ -42,10 +46,19 @@ public:
     // instance is created in; KartEffect uses 2 + racer (USA 0x8068abbc).
     void create(unsigned slot,int spec,const EffectFrame& frame,uint8_t group=0);
     void followFade(unsigned slot);
+    // EGG Fade (+0x10): stop emission and release the handle. Existing
+    // particles retain their final transform and can coexist with a new instance.
+    void fade(unsigned slot);
     void kill(unsigned slot);
     // setColor (+0x50, 0x80223794): the instance's active particle managers scale their
     // colours by this RGBA (light type 1) from the next draw on.
     void setColor(unsigned slot,const uint8_t rgba[4]);
+    // EGG SetLife / SetEmitRatio: affect existing managers/emitters.
+    // Life is applied to newly calculated particles, not a reset of all ages.
+    void setParticleLife(unsigned slot,uint16_t life);
+    void setParticleScale(unsigned slot,float x,float y);
+    void setEmissionRatio(unsigned slot,float ratio);
+    void setSpecificVelocity(unsigned slot,float speed);
     // EffectSystem::SetProcessCamera (0x800276b0): the view matrix (world to camera, 3x4)
     // that billboard emitters (EMIT_FLAG_15/16) calculate against. MKW's EffectManager
     // calc (RMCU 0x80678818) sets it after the kart effect groups, so each step uses the
@@ -59,6 +72,7 @@ public:
     void step();
     void reset();
     unsigned liveParticles() const;
+    unsigned generation() const { return generation_; }
     ef::System& system() { return *system_; }
     const ef::System& system() const { return *system_; }
     std::vector<EffectTexture> textures;
@@ -70,5 +84,8 @@ private:
     std::vector<uint8_t> blob_;
     std::array<Slot,SlotCount> slots_{};
     uint16_t serial_=0;
+    unsigned generation_=0,diagnosticMask_=0;
+    const char* loadError_="not loaded";
+    int loadErrno_=0;
 };
 }

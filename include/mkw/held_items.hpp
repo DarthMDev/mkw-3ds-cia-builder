@@ -72,7 +72,7 @@ struct TrailingItems {
     }
     // Original held controller smooths wall correction separately from its
     // articulated bases (.2 on contact, .9 otherwise). Terrain query adapts
-    // the existing native KCL interface; model basis/spin are not yet ported.
+    // the existing native KCL interface; presentation adds shell spin separately.
     void correct(unsigned slot,Vec3 correction,bool contact) {
         corrections[slot]=contact?lerp(corrections[slot],correction,.2f):corrections[slot]*.9f;
         positions[slot]+=corrections[slot];

@@ -14,6 +14,7 @@
 #include "mkw/visibility.hpp"
 #include "mkw/job_worker.hpp"
 #include "mkw/render_metrics.hpp"
+#include "mkw/course_bloom.hpp"
 #include "mkw/stereo.hpp"
 
 namespace mkw {
@@ -31,8 +32,14 @@ struct Submesh { uint32_t first,count; int32_t texture; uint32_t flags; int32_t 
     // GMDL v4 only (zero in v3): retail course lighting word, material
     // ambient register and the constant the light-texture albedo stage adds
     // (GX C1), both 0xRRGGBBAA (include/mkw/retail_lighting.hpp).
-    uint32_t lighting=0,ambient=0,add=0; };
-static_assert(sizeof(Submesh)==56,"GMDL v4 submesh stride");
+    uint32_t lighting=0,ambient=0,add=0;
+    // GMDL v5: original menu vehicle TEV and EnvCamera SRT. Mode 1 masks
+    // the reflection with the albedo alpha; mode 2 uses a GX konst colour;
+    // mode 3 adds C1 to the albedo without a reflection texture. World items
+    // also use mode 4 (banana's raster lerp) and 6 (shell's raster-alpha mask).
+    uint32_t menuReflection=0,reflectionConstant=0,reflectionAdd=0;
+    float reflectionUv[6]{}; };
+static_assert(offsetof(Submesh,menuReflection)==56&&sizeof(Submesh)==92,"GMDL v5 submesh stride");
 struct CourseLighting;
 struct RetailFog;
 class Texture {
@@ -57,6 +64,9 @@ public:
 class Model {
 public:
     Vertex* vertices=nullptr;
+    // Lit GPU skinning keeps the original normal/UV attributes intact.
+    // One immutable float (3 * palette index) per vertex, allocated on load.
+    float* skinBoneIndices=nullptr;
     uint16_t* indices=nullptr;
     uint32_t vertexCount=0,indexCount=0;
     std::vector<Submesh> submeshes;
@@ -270,7 +280,8 @@ public:
     // Course bloom (posteffect.bblm) for the next frame only: the 3D scene renders
     // off screen; applyBloom() composites it with blur(max(scene-threshold,0))
     // *tint*intensity, after which draws (HUD) go straight to the top screen.
-    void requestBloom(float threshold,uint32_t tint,float intensity);
+    // CourseBloom is a generated static resource; it outlives deferred frames.
+    void requestBloom(const CourseBloom& settings);
     void applyBloom();
     // Live sparks and effect particles are copied when recorded; their quads
     // are built where the frame is drawn. Specs and textures must outlive it.
@@ -425,7 +436,7 @@ private:
     void buildEffectList(RaceEffects& effects,const C3D_Mtx& view,ef::DrawList& list);
     void effectListNow(const RaceEffects& effects,const ef::DrawList& list,const Texture* textures);
     void drawEffectsImmediate(RaceEffects& effects,const Texture* textures);
-    void requestBloomNow(float threshold,uint32_t tint,float intensity);
+    void requestBloomNow(const CourseBloom& settings);
     void applyBloomNow();
     void shadowVolumesNow(const ShadowVolume* volumes,unsigned count,float darkness);
     void environmentUvNow(const C3D_Mtx& transform,const float (&uv)[6]);
@@ -486,25 +497,24 @@ private:
     const RigidPose* rigid_=nullptr;
     const float* skinPalette_=nullptr;
     unsigned skinBones_=0,skinStride_=12;
-    int bonesLoc_=-1,skinnedLoc_=-1;
+    int bonesLoc_=-1,skinnedLoc_=-1,skinnedNormalsLoc_=-1;
     const SubmeshOverride* overrides_=nullptr;
     unsigned overrideCount_=0;
     bool initBloomTargets();
     bool initBloom();
     void freeBloom();
     void bloomPass(C3D_RenderTarget* target,unsigned width,unsigned height);
-    void bloomQuad(const C3D_Tex& source,unsigned sourceWidth,unsigned sourceHeight,float width,float height,float du,float dv);
-    C3D_Tex sceneTex_{},bloomTex_[2]{};
+    void bloomQuad(const C3D_Tex& source,unsigned sourceWidth,unsigned sourceHeight,float width,float height,float du,float dv,unsigned secondWidth=0,unsigned secondHeight=0);
+    C3D_Tex sceneTex_{},bloomTex_[3]{};
     C3D_RenderTarget* sceneTarget_=nullptr;
-    C3D_RenderTarget* bloomTarget_[2]={nullptr,nullptr};
+    C3D_RenderTarget* bloomTarget_[3]={nullptr,nullptr,nullptr};
     Vertex* bloomVertices_=nullptr;
     unsigned bloomCount_=0;
     bool bloomRequested_=false,bloomFrame_=false,bloomFailed_=false;
-    float bloomThreshold_=0,bloomIntensity_=0;
-    uint32_t bloomTint_=0;
+    const CourseBloom* bloomSettings_=nullptr;
     C3D_Tex white_{};
     static constexpr int kOverlayCapacity=48;
-    static constexpr unsigned kBloomVertices=6*32;
+    static constexpr unsigned kBloomVertices=6*40;
     Vertex* overlay_=nullptr;
     int overlayCount_=0;
     // Authored Wii HUD panes include layered frames, glyphs and animation quads.

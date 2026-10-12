@@ -17,7 +17,7 @@ sound into 3DS formats.
 On top of dudewhat's original release (Solo VS, 24 drivers, the 6 starting
 vehicles each):
 
-- **Grand Prix** (150cc): the cup's four courses in order, with points and standings
+- **Grand Prix** in 50cc (karts), 100cc (bikes) and 150cc: the cup's four courses in order, with points and standings
 - **Time Trials**: solo, a Triple Mushroom, best time per course saved to the SD card
 - **All 12 vehicles** for every driver, including the unlockables
 - **Speedometer** on the race HUD (SELECT toggles it)
@@ -27,7 +27,7 @@ vehicles each):
 - HOME Menu name and icon, and the standard Nintendo 3DS start-up logo
 
 In progress: Battle (Balloon Battle, Coin Runners) and Team VS, and the Grand
-Prix award ceremony. Not yet: 50cc/100cc/Mirror, online play.
+Prix award ceremony. Not yet: Mirror, online play.
 
 ## What you need
 
@@ -71,7 +71,12 @@ straight from your 3DS.
 **root of your SD card** (it adds the converted game files as `sd:/3ds/mkw-3ds`).
 
 **Then, for every update**, install the small **update CIA** (about 2 MB, no
-Nintendo files) in one of these ways:
+Nintendo files) in one of these ways.
+
+> **The update CIA is not the game.** It only updates a game you have built
+> yourself from your own disc. Installed on its own, nothing appears on the
+> HOME Menu (the 3DS hides updates). Build and install the full CIA first.
+> After an update, the game shows what's new on its first launch.
 
 | | |
 |---|---|
@@ -79,9 +84,15 @@ Nintendo files) in one of these ways:
 | **Universal-Updater**: Settings → Add store → scan this, then install *Mario Kart Wii 3DS (update)* whenever there's a new version | <img src="docs/universal-updater-qr.png" width="160"> |
 | **Manually**: download `MKW-3DS-Update.cia` from the [latest release](../../releases/latest) and install it with FBI | |
 
+The update installs like a Nintendo game update, on top of the game: your
+HOME Menu icon, banner and music (made from your disc) stay as they are.
+
 The QR codes always fetch the newest update. If an update needs newer game
 files, the game tells you on start-up: run the latest builder again (it only
 redoes what changed) and copy `build/release/sd-card/3ds` to your SD card again.
+If you install a newer full CIA later, also install the latest update (or
+delete the old one in FBI → Titles): an installed update always runs instead
+of the game's own code.
 
 ## Controls
 

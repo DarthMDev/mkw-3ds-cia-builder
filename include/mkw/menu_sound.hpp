@@ -4,18 +4,22 @@
 // mixes for SEQ_O_SELECT, and the UI sounds PushButton/Page/MessageBox play.
 // Runs on the main thread and only posts SoundSystem commands.
 #include <mkw/menu_ui.hpp>
+#include <mkw/menu_voice.hpp>
 #include <cstdint>
 
 namespace mkw {
 class MenuSound {
 public:
  // After MenuTransition::input: the logical state before and after this
- // frame's input, and the input itself.
+ // frame's accepted input, and the input itself. Do not call while the
+ // transition blocks input: terminal OK actions keep the logical page.
  void input(const MenuState& before, const MenuState& after, const UiInput& key, UiAction action);
  // Every menu frame (60 Hz): the page on screen drives sections and layers.
  void frame(const MenuState& visual, bool revealed);
  // The race takes over (RaceRSARPlayer); menus resume with frame().
  void leave();
+ // The engine was torn down: reload groups/BGM even on the same page.
+ void resetAfterEngineRestart(){*this=MenuSound{};}
  // Retail EGG::AudioTrack: a value that moves linearly to a target over frames.
  struct Track {
   float value = 1, target = 1, step = 0; int frames = 0;
@@ -36,5 +40,6 @@ private:
  std::uint16_t slot_ = 1;            // alternates 1/2 like SinglePlayer's two handles
  Track volume_, stems_[4]; float postedVolume_ = -1;
  bool unavailable_ = false;
+ MenuVoice voice_;
 };
 }

@@ -4,11 +4,13 @@
 #include <cstring>
 #include <game/kart/KartBody.hh>
 #include <game/kart/KartMove.hh>
+#include <game/kart/KartState.hh>
 #include <game/kart/KartObject.hh>
 #include <game/kart/KartParamFileManager.hh>
 #include <game/kart/KartSuspensionPhysics.hh>
 #include <game/render/KartModel.hh>
 #include <game/system/RaceConfig.hh>
+#include <game/system/RaceManager.hh>
 
 namespace mkw {
 namespace {
@@ -52,7 +54,7 @@ Vec3 vec(const Kinoko::EGG::Vector3f& v){return {v.x,v.y,v.z};}
 void VehicleAnimation::reset(){
     body_=handle_=handleBase_=identity();for(auto& m:wheels_)m=identity();for(auto& m:wheelFrames_)m=identity();
     for(auto& m:accessories_)m=identity();accessorySet_=0;roll_={};travel_={};radii_={};display_={};wheelLocal_={};count_=0;vehicle_=~0u;bike_=false;driveFrame_=15;
-    base_=handleSource_=identity();for(auto& m:wheelSources_)m=identity();tirePositions_={};bspRadii_={};kartScale_={1,1,1};steering_=0;dirty_=false;
+    base_=handleSource_=identity();for(auto& m:wheelSources_)m=identity();tirePositions_={};bspRadii_={};kartScale_={1,1,1};steering_=0;wheelMotion_={};dirty_=false;
 }
 Vec3 VehicleAnimation::displayVec(unsigned offset) const{return {display_[offset/4],display_[offset/4+1],display_[offset/4+2]};}
 void VehicleAnimation::readParameters(unsigned vehicle){
@@ -72,18 +74,27 @@ float VehicleAnimation::advanceRoll(float phase,float signedDistance,float radiu
 void VehicleAnimation::step(Kinoko::Kart::KartObject& kart){
     bike_=kart.param()->isBike();count_=std::min(4u,unsigned(kart.param()->tireCount()));
     const unsigned vehicle=unsigned(Kinoko::System::RaceConfig::Instance()->raceScenario().players[kart.param()->playerIdx()].vehicle);
-    if(vehicle_!=vehicle){roll_={};readParameters(vehicle);}
+    if(vehicle_!=vehicle){roll_={};wheelMotion_={};readParameters(vehicle);}
     base_=fromSource(kart.pose());kartScale_=vec(kart.scale());
     steering_=std::clamp(kart.model()->steeringInput(),-1.f,1.f);
     const auto& bsp=kart.param()->bsp();
-    const float speed=kart.move()->speed();
+    using S=Kinoko::Kart::eStatus;
+    const auto& status=kart.status();
+    const float speed=wheelMotion_.step({
+        unsigned(Kinoko::System::RaceManager::Instance()->stage()),
+        kart.move()->speed(),kart.state()->startBoostCharge(),display_[2],display_[1],
+        status.onBit(S::Accelerate),status.onBit(S::Brake),status.onBit(S::TouchingGround),
+        status.onBit(S::WallCollision,S::Wall3Collision),status.onBit(S::InAction),
+        status.onBit(S::ChargingSSMT),status.onBit(S::Burnout),status.onBit(S::ChargeStartBoost)});
     for(unsigned i=0;i<count_;++i){
         auto* physics=kart.tirePhysics(i);
         const unsigned bspIndex=bike_?i:(count_==3?(i+1)/2:i/2);
         tirePositions_[i]=vec(physics->pos());
         travel_[i]=physics->suspTravel();radii_[i]=physics->effectiveRadius();
-        // The roll phase integrates every source tick.
-        roll_[i]=advanceRoll(roll_[i],speed,std::max(.001f,radii_[i]*kartScale_.y));
+        // Retail Wheel::UpdateMatrix (USA 0x8059444c) uses the unscaled
+        // effective radius at WheelPhysics+0x6c. Scaling only affects the
+        // rendered mesh below, not the roll denominator a second time.
+        roll_[i]=advanceRoll(roll_[i],speed,radii_[i]);
         wheelSources_[i]=fromSource(kart.body()->wheelMatrix(i));
         bspRadii_[i]=bsp.wheels[bspIndex].wheelRadius;
     }

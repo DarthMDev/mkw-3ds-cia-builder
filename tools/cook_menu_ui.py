@@ -15,7 +15,7 @@ from menu_layout import render_layout,controllers,controller_alphas,controller_a
 from menu_movies import extract_movies,ThpMovie
 OUT=ROOT/'sd-card/3ds/mkw-3ds'
 UI=ROOT/'assets/menu-ui/MenuSingle'
-records={}; evidence={}; panel_records={}; pane_records={}; node_records={}; movie_records=[]; glow_records=[]; focus_records=[]; border_records=[]; border_slices=[]; runtime_palette=[]
+records={}; evidence={}; panel_records={}; pane_records={}; node_records={}; movie_records=[]; glow_records=[]; focus_records=[]; panel_layer_records={}; border_records=[]; border_slices=[]; runtime_palette=[]
 def source(p):
  key=p.relative_to(ROOT).as_posix()
  if key not in evidence:evidence[key]=digest(p)
@@ -126,6 +126,18 @@ def bake_panel(name,resource,states=('free','select'),exclude=(),bounds=None,ove
   if control.name.startswith('._'):continue
   candidate=controller_animations(control)
   if candidate['layout']==p.stem:source(control);bindings=candidate;break
+ # These picture panes have their own Select-group alpha/scale, independent
+ # of the button's animated parent. A flattened frame either freezes their
+ # free-state shade or bakes a transparent selected-state glow forever.
+ dynamic_panes=set()
+ if bindings:
+  selection=next((g for g in bindings['groups'] if g['name']=='Select'),None)
+  if selection:
+   for entry in selection['animations']:
+    _,tracks=animation(p.parent.parent/'anim'/entry['file'])
+    dynamic_panes.update(node for node,kind,target in tracks
+                         if node in ('color_down','pikapika','waku_light') and
+                         (kind=='RLPA' or kind=='RLVI' or (kind=='RLVC' and target==16)))
  for state in states:
   ap=p.parent.parent/'anim'/f'{p.stem}_{state}.brlan'
   animations=[ap] if ap.exists() else []
@@ -157,7 +169,18 @@ def bake_panel(name,resource,states=('free','select'),exclude=(),bounds=None,ove
    colors['black_base']=[color,color,[255,255,255,255]]
    pane_overrides['black_base']={'alpha':128/255,'vertexColors':[vertex]*4}
   movie_panes=('black_base','black_base_00','black_base_01','black_base_02') if name=='mode' else ('black_base',) if name in ('main_button','main_multi','main_wifi','class','drift','vs','course','battle') else ()
-  img,rect,panes=render_layout(p,source,animations,exclude=exclude,bounds=bounds,pane_overrides=pane_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes)
+  separate=tuple(sorted(dynamic_panes))
+  img,rect,panes=render_layout(p,source,animations,exclude=exclude,bounds=bounds,pane_overrides=pane_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes+separate)
+  # Split at independently animated pictures, in BRLYT submission order.
+  # Excluded pictures still write source depth in render_layout. Later static
+  # chunks therefore need both depth-film-present and film-absent variants.
+  pictures=[n['name'] for n in node_records[name] if panes.get(n['name'],{}).get('kind') in ('pic1','wnd1')]
+  ordered=[n for n in pictures if n in dynamic_panes]
+  if len(ordered)>2:raise ValueError(f'More than two independently animated depth films: {name}: {ordered}')
+  first_dynamic=pictures.index(ordered[0]) if ordered else len(pictures)
+  before=tuple(pictures[:first_dynamic])
+  if ordered:
+   img,_,_=render_layout(p,source,animations,exclude=exclude,bounds=rect,pane_overrides=pane_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes+separate,include=before)
   key=name+('_'+state if state else '')
   save(key,img,p);panel_records[key]=rect
   pane_records[key]=panes
@@ -165,32 +188,59 @@ def bake_panel(name,resource,states=('free','select'),exclude=(),bounds=None,ove
   if movie_panes:
    movie_z=panes[movie_panes[0]]['z']
    for suffix,z_range in [('underlay',(-float('inf'),movie_z)),('overlay',(movie_z,float('inf')))]:
-    layer,_,_=render_layout(p,source,animations,exclude=exclude,bounds=rect,pane_overrides=pane_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes,z_range=z_range)
+    layer,_,_=render_layout(p,source,animations,exclude=exclude,bounds=rect,pane_overrides=pane_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes+separate,z_range=z_range,include=before if ordered else None)
     save(key+'_'+suffix,layer,p);panel_records[key+'_'+suffix]=rect
     if suffix=='underlay':loop_key=key+'_'+suffix;loop_image=layer;loop_z=z_range
   bake_border_loop(loop_key,p,control,bindings,animations,animation_groups,
-                   dict(exclude=exclude,pane_overrides=pane_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes,z_range=loop_z),rect,loop_image)
+                   dict(exclude=exclude,pane_overrides=pane_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes+separate,z_range=loop_z,include=before if ordered else None),rect,loop_image)
+  for at,member in enumerate(ordered):
+   begin=pictures.index(member)+1;end=pictures.index(ordered[at+1]) if at+1<len(ordered) else len(pictures)
+   after=tuple(n for n in pictures[begin:end] if n not in movie_panes and not any(x in n for x in exclude))
+   if not after:continue
+   for part,z_range in ([(1,(-float('inf'),movie_z)),(2,(movie_z,float('inf')))] if movie_panes else [(0,None)]):
+    entry=panel_layer_records.setdefault((name,at,part),dict(panel=name,after=member,part=part,free=['']*4,select=['']*4))
+    for mask in range(1<<(at+1)):
+     depth_overrides=dict(pane_overrides)
+     for bit,film in enumerate(ordered[:at+1]):depth_overrides[film]={**depth_overrides.get(film,{}),'alpha':float(bool(mask&(1<<bit))),'visible':True}
+     tail,_,_=render_layout(p,source,animations,exclude=exclude,bounds=rect,pane_overrides=depth_overrides,material_overrides=colors,animation_groups=animation_groups,exclude_exact=movie_panes+separate,z_range=z_range,include=after)
+     box=tail.getbbox()
+     if not box:continue
+     tail_key=f'panel_tail_{name}_{state}_{at}_{part}_{mask}'
+     save(tail_key,tail.crop(box),p);panel_records[tail_key]=[rect[0]+box[0],rect[1]+box[1],rect[0]+box[2],rect[1]+box[3]]
+     entry[state][mask]=tail_key
   if state in ('select',''):
    pane_records[name]=panes
-  if state=='select' and 'color_down' in panes:
-   focus_overrides={**pane_overrides,'color_down':{'alpha':1,'visible':True}}
-   try:image,focus_rect,focus_panes=render_layout(p,source,animations,include=('color_down',),pane_overrides=focus_overrides,material_overrides=colors,animation_groups=animation_groups)
-   # Text-only layouts (the cup page's course names) keep a color_down pane
-   # with nothing to draw: they have no focus image.
-   except ValueError as error:
-    if 'no visible picture panes' not in str(error):raise
-   else:
-    focus_key='focus_'+name+'_color_down';save(focus_key,image,p);panel_records[focus_key]=focus_rect
-    focus_records.append(dict(panel=name,pane='color_down',key=focus_key,rect=focus_rect,pivot=focus_panes['color_down']['pivot']))
+  if state=='select':
+   nodes={n['name']:n for n in node_records[name]}
+   for member in ordered:
+    if member not in panes or panes[member]['kind']!='pic1' or any(x in member for x in exclude):continue
+    # Keep the exact selected reference geometry, but bake full inherited
+    # opacity; uiTextMotion restores the complete live alpha hierarchy.
+    focus_overrides=dict(pane_overrides);ancestor=member;hidden_ancestor=False
+    while ancestor:
+     if focus_overrides.get(ancestor,{}).get('visible') is False:hidden_ancestor=True
+     focus_overrides[ancestor]={**focus_overrides.get(ancestor,{}),'alpha':1,'visible':True}
+     ancestor=nodes[ancestor]['parent']
+    if hidden_ancestor:continue
+    try:image,focus_rect,focus_panes=render_layout(p,source,animations,include=(member,),pane_overrides=focus_overrides,material_overrides=colors,animation_groups=animation_groups)
+    except ValueError as error:
+     if 'no visible picture panes' not in str(error):raise
+     continue
+    if not image.getbbox():continue
+    blend=panes[member]['blend']
+    if blend not in ([1,4,5,3],[1,4,1,3]):raise ValueError(f'Unsupported focus blend: {name}/{member}: {blend}')
+    focus_key='focus_'+name+'_'+member;save(focus_key,image,p);panel_records[focus_key]=focus_rect
+    part=(1 if panes[member]['z']<movie_z else 2) if movie_panes else 0
+    focus_records.append(dict(panel=name,pane=member,key=focus_key,rect=focus_rect,pivot=focus_panes[member]['pivot'],part=part,blend=int(blend[2]==1),depthBit=1<<ordered.index(member)))
 
-def bake_ok_glows(name,resource,drivers,cups):
+def bake_ok_glows(name,resource,drivers,cups,group_name='OK'):
  p=ROOT/'assets/menu-ui'/resource;binding=None
  for control in sorted((p.parent.parent/'ctrl').glob('*.brctr')):
   if control.name.startswith('._'):continue
   candidate=controller_animations(control)
   if candidate['layout']==p.stem:source(control);binding=candidate;break
  if not binding:return
- ok=next((g for g in binding['groups'] if g['name']=='OK'),None)
+ ok=next((g for g in binding['groups'] if g['name']==group_name),None)
  if not ok:return
  animations=[];animation_groups=[]
  for group in binding['groups']:
@@ -205,27 +255,28 @@ def bake_ok_glows(name,resource,drivers,cups):
  # parent hierarchy in the selected pose and rasterize at unit own scale.
  overrides={member:{'sx':1,'sy':1,'alpha':1,'visible':True} for member in members}
  _,_,panes=render_layout(p,source,animations,bounds=(-500,-250,500,250),pane_overrides=overrides,animation_groups=animation_groups)
- pane_records[name+'_ok']={member:panes[member] for member in members}
+ suffix='_ok' if group_name=='OK' else '_selectin'
+ pane_records[name+suffix]={member:panes[member] for member in members}
  for member in members:
   pane=panes[member]
   if pane['kind'] not in ('pic1','txt1'):continue
   blend=pane['blend']
   if blend not in ([1,4,5,3],[1,4,1,3]):raise ValueError(f'Unsupported OK glow blend: {name}/{member}: {blend}')
-  entry=dict(panel=name,pane=member,key='',variant=0,blend=1 if blend[2]==1 else 0,pivot=pane['pivot'],sourceBlend=blend,materialColors=pane.get('materialColors',pane.get('textColors')))
+  entry=dict(panel=name,pane=member,key='',group=group_name,variant=0,blend=1 if blend[2]==1 else 0,pivot=pane['pivot'],sourceBlend=blend,materialColors=pane.get('materialColors',pane.get('textColors')))
   if pane['kind']=='pic1':
    replacements=[('',None)]
-   if name=='character':
+   if name=='character' and group_name=='OK':
     entry.update(key='driver_glow_',variant=1)
     replacements=[('driver_glow_'+str(i),UI/'button/timg'/f'tt_{driver}_64x64.tpl') for i,driver in enumerate(drivers)]
-   elif name=='cup':
+   elif name=='cup' and group_name=='OK':
     entry.update(key='cup_glow_',variant=2)
     replacements=[('cup_glow_'+str(i),UI/'button/timg'/f'tt_cup_icon_{cup}_00.tpl') for i,cup in enumerate(cups)]
     replacements += [('cup_glow_'+str(8+i),UI/'button/timg'/texture) for i,texture in enumerate(['tt_wii_icon_128.tpl','tt_classic_icon_sphere_128.tpl'])]
-   elif name=='vehicle':
+   elif name=='vehicle' and group_name=='OK':
     # Retail supplies the generated machine thumbnail to this pane; retain
     # its material mapping for the runtime image instead of baking a dummy.
     entry.update(variant=3);replacements=[]
-   else:entry['key']=name+'_ok_'+member
+   else:entry['key']=name+suffix+'_'+member
    for key,replacement in replacements:
     image,rect,_=render_layout(p,source,animations,include=(member,),pane_overrides=overrides,animation_groups=animation_groups,texture_overrides={member:replacement} if replacement else None)
     key=key or entry['key'];save(key,image,replacement or p);panel_records[key]=rect
@@ -330,6 +381,10 @@ def main():
   ('confirm','MenuSingle/button/blyt/common_w109_go_button.brlyt',('text',)),
  ]
  for name,resource,exclude in specs:bake_panel(name,resource,exclude=exclude)
+ # PressStart is a real layout/control, with a separate expanding light
+ # text pane and a squash/stretch confirmation animation. The fade group is
+ # evaluated live; keep an opaque reference pose for the text textures.
+ bake_panel('press_start','Title/press_start/blyt/press_start.brlyt',states=('',),exclude=('text',),bounds=(-200,-30,200,30),overrides={'press_start_null':{'alpha':1}})
  # Pages::LicenseSelect::OnInit uses top/bottom variants. Empty RKPD slots
  # hide only the native data panes; the authored blank card stays intact.
  empty_license=['mii']+[f'{prefix}_{i:02d}' for prefix in ['cc50','cc100','cc150','cc_mirror'] for i in range(8)]
@@ -391,8 +446,9 @@ def main():
  for i,n in enumerate(['1','2','3','m']):tpl('class_'+str(i),UI/'button/timg'/f'tt_class_kinoko_{n}.tpl')
  for weight in 'sml':
   for i,part in enumerate(['df_kart','a_kart','b_kart','df_bike','a_bike','b_bike','c_kart','d_kart','e_kart','c_bike','d_bike','e_bike']):tpl('vehicle_'+weight+str(i),UI/'control/timg'/f'st_{weight}{part}.tpl')
- for name,resource,_ in specs:bake_ok_glows(name,resource,drivers,cups)
- for position in ['top','bottom']:bake_ok_glows('license_'+position+'_empty','Title/button/blyt/common_w076_license_icon_tex_'+position+'.brlyt',drivers,cups)
+ for group in ['OK','SelectIn']:
+  for name,resource,_ in specs:bake_ok_glows(name,resource,drivers,cups,group)
+  for position in ['top','bottom']:bake_ok_glows('license_'+position+'_empty','Title/button/blyt/common_w076_license_icon_tex_'+position+'.brlyt',drivers,cups,group)
  cook_movies()
  cook_strap()
  message_sources={}
@@ -472,9 +528,10 @@ def main():
  for required in roles.values():
   for label in required:
    if label not in labels:labels.append(label)
+ roles['press_start']=['Press the A Button']
  text_styles=[];style_labels={}
  for panel,panes in pane_records.items():
-  role=re.sub(r'_(free|select|ok)$','',panel)
+  role=re.sub(r'_(free|select|ok|selectin)$','',panel)
   for name,pane in panes.items():
    if pane.get('kind')!='txt1':continue
    # SetMessage replaces the authored font with the BMG INF1 choice. Every
@@ -484,7 +541,7 @@ def main():
    style={'colors':pane['textColors'],'vertices':pane['textVertexColors']}
    if style not in text_styles:text_styles.append(style)
    index=text_styles.index(style)+1;pane['textStyle']=index
-   if panel.endswith('_ok') or name not in ('text_light_01','text_light_02'):
+   if panel.endswith(('_ok','_selectin')) or name not in ('text_light_01','text_light_02'):
     style_labels.setdefault(index,set()).update(roles.get(role,[]))
  font_cells=[]
  for font_id,fontname in enumerate(['kart_kanji_font.brfnt','tt_kart_font_rodan_ntlg_pro_b.brfnt']):
@@ -565,14 +622,15 @@ def main():
  anim=UI/'button/anim/common_w004_menu_free_to_select.brlan';source(anim);dur,tracks=animation(anim)
  scales=[sample(tracks[('pause_w_fade_n','RLPA',6)],i) for i in range(dur)]
  ctr={};alphas={};qualified_controllers={}
- for archive in ['Title','MenuSingle']:
-  for p in sorted((ROOT/'assets/menu-ui'/archive).rglob('*.brctr')):
-   if p.name.startswith('._'):continue
-   source(p);data=controllers(p);ctr.setdefault(p.stem,{}).update(data);alphas.setdefault(p.stem,{}).update(controller_alphas(p));qualified_controllers[p.relative_to(ROOT).as_posix()]=data
- manifest={'version':2,'canvas':{'width':608,'height':456,'artBleedWidth':832,'aspectAdjustScale':[608/832,1.0],'displayAspect':'16:9','target':'400x225 centered on top LCD; lower LCD unused'},'sprites':records,'maps':maps,'sourceHashes':evidence,'archiveInventory':inventory,'controllers':ctr,'controllerAlphas':alphas,'controllerSources':qualified_controllers,'messageSources':message_sources,'helpMessageIds':help_ids,'runtimePalette':{'source':'build/itembox-retail.rel','tableAddress':'0x8088fd18','slots':runtime_palette,'borderPane':'fuchi_pattern','basePane':'color_base'},'textStyles':text_styles,'driverStats':driver_stats,'vehicleStats':vehicle_stats,'panels':panel_records,'panes':pane_records,'paneNodes':node_records,'movies':movie_records,'glows':glow_records,'focusSprites':focus_records,'borderLoops':border_records,'borderSlices':border_slices,'selectionScale60Hz':scales,'limitations':['This menu inventory uses 16 source samples across each retail loop for host previews and fallback. Full-rate streamed movies are cooked and receipted separately.','Offline pane rasterization supports 2D affine transforms and authored TEV arithmetic; live 3D preview objects are rendered separately.','Original font glyphs and spacing are retained; per-page dynamic text effects are runtime responsibilities.']}
+ controller_paths=[p for archive in ['Title','MenuSingle'] for p in sorted((ROOT/'assets/menu-ui'/archive).rglob('*.brctr'))]
+ controller_paths += [ROOT/'assets/race-ui/Race/button/ctrl'/(name+'.brctr') for name in ['PauseMenuVS','PauseMenuGrandPrix','PauseMenuTimeAttack','PauseMenuBT']]
+ for p in controller_paths:
+  if p.name.startswith('._'):continue
+  source(p);data=controllers(p);ctr.setdefault(p.stem,{}).update(data);alphas.setdefault(p.stem,{}).update(controller_alphas(p));qualified_controllers[p.relative_to(ROOT).as_posix()]=data
+ manifest={'version':2,'canvas':{'width':608,'height':456,'artBleedWidth':832,'aspectAdjustScale':[608/832,1.0],'displayAspect':'16:9','target':'400x225 centered on top LCD; lower LCD unused'},'sprites':records,'maps':maps,'sourceHashes':evidence,'archiveInventory':inventory,'controllers':ctr,'controllerAlphas':alphas,'controllerSources':qualified_controllers,'messageSources':message_sources,'helpMessageIds':help_ids,'runtimePalette':{'source':'build/itembox-retail.rel','tableAddress':'0x8088fd18','slots':runtime_palette,'borderPane':'fuchi_pattern','basePane':'color_base'},'textStyles':text_styles,'driverStats':driver_stats,'vehicleStats':vehicle_stats,'panels':panel_records,'panes':pane_records,'paneNodes':node_records,'movies':movie_records,'glows':glow_records,'focusSprites':focus_records,'panelTails':list(panel_layer_records.values()),'borderLoops':border_records,'borderSlices':border_slices,'selectionScale60Hz':scales,'limitations':['This menu inventory uses 16 source samples across each retail loop for host previews and fallback. Full-rate streamed movies are cooked and receipted separately.','Offline pane rasterization supports 2D affine transforms and authored TEV arithmetic; live 3D preview objects are rendered separately.','Original font glyphs and spacing are retained; per-page dynamic text effects are runtime responsibilities.']}
  (OUT/'models/menu-ui.json').write_text(json.dumps(manifest,indent=2)+'\n')
- lines=['#pragma once','#include <array>','namespace mkw {','struct UiSpriteInfo {const char* key;const char* path;float w,h,u,v;const char* text;unsigned font,style;};','inline constexpr UiSpriteInfo UiSprites[]={']
- for n,r in records.items():lines.append('{'+','.join([json.dumps(n),json.dumps(r['path']),*(f'{float(r[k]):.8f}f' for k in ['width','height','u','v']),json.dumps(r.get('text','')),str(r.get('font',0)),str(r.get('style',0))])+'},')
+ lines=['#pragma once','#include <array>','namespace mkw {','struct UiSpriteInfo {const char* key;const char* path;float w,h,u,v;const char* text;unsigned font,style,gpuBytes;};','inline constexpr UiSpriteInfo UiSprites[]={']
+ for n,r in records.items():lines.append('{'+','.join([json.dumps(n),json.dumps(r['path']),*(f'{float(r[k]):.8f}f' for k in ['width','height','u','v']),json.dumps(r.get('text','')),str(r.get('font',0)),str(r.get('style',0)),str(r['padded'][0]*r['padded'][1]*4)])+'},')
  lines+=['};']
  for name,values in help_text.items():lines.append('inline constexpr const char* '+name+'[]={'+','.join(json.dumps(v) for v in values)+'};')
  lines+=['inline constexpr unsigned UiDriverStats[27][7]={'+','.join('{'+','.join(str(v) for v in row)+'}' for row in driver_stats)+'};','inline constexpr unsigned UiVehicleStats[3][12][7]={'+','.join('{'+','.join('{'+','.join(str(v) for v in row)+'}' for row in group)+'}' for group in vehicle_stats)+'};']
@@ -592,12 +650,16 @@ def main():
    colors='{'+','.join('{'+','.join(str(c) for c in color)+'}' for color in node['materialColors'])+'}'
    vertices='{'+','.join('0x'+''.join(f'{c:02x}' for c in color)+'u' for color in node['vertexColors'])+'}'
    lines.append('{'+','.join([json.dumps(panel),*(json.dumps(node[k]) for k in ['name','parent','material']),*(f'{v:.8f}f' for v in node['values']+[node['alpha']]+node['fontSize']),str(node['flags']),str(node['origin']),colors,vertices])+'},')
- lines+=['};','struct UiGlowInfo {const char* panel;const char* pane;const char* key;unsigned variant,blend;float pivotX,pivotY;unsigned materialColors[2];};','inline constexpr UiGlowInfo UiGlows[]={']
+ lines+=['};','struct UiGlowInfo {const char* panel;const char* pane;const char* key;const char* group;unsigned variant,blend;float pivotX,pivotY;unsigned materialColors[2];};','inline constexpr UiGlowInfo UiGlows[]={']
  for glow in glow_records:
   packed=['0x'+''.join(f'{max(0,min(255,c)):02x}' for c in color)+'u' for color in glow['materialColors']]
-  lines.append('{'+','.join([*(json.dumps(glow[k]) for k in ['panel','pane','key']),str(glow['variant']),str(glow['blend']),*(f'{v:.8f}f' for v in glow['pivot']),'{'+','.join(packed)+'}'])+'},')
- lines+=['};','struct UiFocusSprite {const char* panel;const char* pane;const char* key;};','inline constexpr UiFocusSprite UiFocusSprites[]={']
- for focus in focus_records:lines.append('{'+','.join(json.dumps(focus[k]) for k in ['panel','pane','key'])+'},')
+  lines.append('{'+','.join([*(json.dumps(glow[k]) for k in ['panel','pane','key','group']),str(glow['variant']),str(glow['blend']),*(f'{v:.8f}f' for v in glow['pivot']),'{'+','.join(packed)+'}'])+'},')
+ lines+=['};','struct UiFocusSprite {const char* panel;const char* pane;const char* key;unsigned part,blend,depthBit;};','inline constexpr UiFocusSprite UiFocusSprites[]={']
+ for focus in focus_records:lines.append('{'+','.join([*(json.dumps(focus[k]) for k in ['panel','pane','key']),str(focus['part']),str(focus['blend']),str(focus['depthBit'])])+'},')
+ lines+=['};','struct UiPanelTail {const char* panel;const char* after;unsigned part;const char* keys[2][4];};','inline constexpr UiPanelTail UiPanelTails[]={']
+ for tail in panel_layer_records.values():
+  keys='{'+','.join('{'+','.join(json.dumps(k) for k in tail[state])+'}' for state in ('free','select'))+'}'
+  lines.append('{'+','.join([json.dumps(tail['panel']),json.dumps(tail['after']),str(tail['part']),keys])+'},')
  lines+=['};','struct UiBorderLoop {const char* key;const char* control;unsigned frames;float x,y,w,h;unsigned firstSlice,sliceCount;};','inline constexpr UiBorderLoop UiBorderLoops[]={']
  for loop in border_records:
   lines.append('{'+','.join([json.dumps(loop['key']),json.dumps(loop['control']),str(loop['frames']),*(f'{v:.8f}f' for v in loop['center']),str(loop['firstSlice']),str(loop['sliceCount'])])+'},')
@@ -609,7 +671,9 @@ def main():
   for region in movie['regions']:lines.append('{'+','.join([json.dumps(region['key']),str(movie['frames']),f"{movie['fps']:.8f}f"] )+'},')
  lines+=['};','inline constexpr unsigned UiMovieFrameCount=16;','inline constexpr float UiSelectScale[]={'+','.join(f'{x:.8f}f' for x in scales)+'};','inline constexpr float UiMapBounds[32][4]={']
  lines += ['{'+','.join(f'{x:.8f}f' for x in m['bounds'])+'},' for m in maps]
- lines+=['};','}'];(ROOT/'include/mkw/menu_assets.hpp').write_text('\n'.join(lines)+'\n')
+ light_blend=pane_records['press_start']['text_light']['blend']
+ if light_blend not in ([1,4,5,3],[1,4,1,3]):raise ValueError('Unsupported PressStart light blend: '+str(light_blend))
+ lines+=['};','inline constexpr bool UiPressStartLightAdditive='+str(light_blend[2]==1).lower()+';','}'];(ROOT/'include/mkw/menu_assets.hpp').write_text('\n'.join(lines)+'\n')
  print(f'Cooked {len(records)} source UI sprites, {len(panel_records)} layout panels, {len(movie_records)} retail movies, 32 source minimaps; {len(evidence)} hashed sources')
  # The runtime textures are fitted to the 3DS screen and LZ11-compressed from
  # these full-resolution PNGs; that pass also rewrites the header's UVs.

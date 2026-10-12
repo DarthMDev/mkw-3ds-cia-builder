@@ -70,8 +70,11 @@ void RaceFlowUi::drawWipe(Renderer& renderer,float progress){
  const float t=FlowWipeTranslateT[i]+(FlowWipeTranslateT[i+1]-FlowWipeTranslateT[i])*(frame-float(i));
  // NW4R texture SRT about the centre: v' = scale (v - 0.5) + translate + 0.5.
  const float v0=(FlowWipeScaleT*-.5f+t+.5f)*FlowWipeTextureV,v1=(FlowWipeScaleT*.5f+t+.5f)*FlowWipeTextureV;
+ // tex3ds stores rows bottom-up, so V runs opposite to the Wii's: unflipped,
+ // the hold (translate 1) showed the scene and the wipe went black on either
+ // side of it, a second time just after the respawn instead of over it.
  // The pane spans the whole 832x456 screen; colour register 0 is black.
- renderer.drawScreenSpriteRegion(m.wipe,0,0,400,240,0,v0,1,v1,1.f,0x000000ffu);
+ renderer.drawScreenSpriteRegion(m.wipe,0,0,400,240,0,FlowWipeTextureV-v0,1,FlowWipeTextureV-v1,1.f,0x000000ffu);
 }
 
 void RaceFlowUi::step(const RaceResultsFlow& flow){impl_->drawer.step(flow);}

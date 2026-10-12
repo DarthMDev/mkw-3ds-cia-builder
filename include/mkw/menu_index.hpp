@@ -13,6 +13,7 @@ const UiAnimationClip* uiFindAnimationClip(const char* control,const char* group
 const UiPanelInfo* uiFindPanel(const char* key);
 const UiBorderLoop* uiFindBorderLoop(const char* key);
 const UiPaneInfo* uiFindPane(const char* panel,const char* name);
+const UiPaneNode* uiFindPaneNode(const char* panel,const char* name);
 const UiMovieInfo* uiFindMovie(const char* key);
 // Index into UiMovieRegions, or std::size(UiMovieRegions) when absent.
 unsigned uiFindMovieRegion(const char* key);

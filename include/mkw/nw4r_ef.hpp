@@ -215,6 +215,10 @@ struct ParticleManager {
     // ambient. Type 1 scales colours by the ambient (modifyColor); type 2 is not ported.
     u8 lightType=0;
     u8 lightAmbient[4]{};
+    // EGG::ExpParticleManager SetLife/Calc (RMCU 80226058 / 80225f84):
+    // override only particles whose first calculation has reached tick 1.
+    bool overrideLife=false;
+    u16 particleLife=0;
 };
 
 struct Emitter {

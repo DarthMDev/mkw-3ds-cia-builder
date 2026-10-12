@@ -114,6 +114,8 @@ def cook_choice(choice, output, *, source_root=None, export_root=None, models_on
     choice["animationBanks"] = []
     cooked_sources = {}
     encoded_textures = {p.stem for p in (output / 'textures').glob('*.t3x')} if models_only else None
+    if models_only:
+        encoded_textures.update(p.stem for p in (ROOT/'sd-card/3ds/mkw-3ds/textures').glob('*.t3x'))
     for part, source_model in mapping.items():
         name = choice["prefix"] + part
         source_file = archive / ("driver_model.brres" if part == "driver" else "kart_model.brres")
@@ -137,8 +139,8 @@ def cook_choice(choice, output, *, source_root=None, export_root=None, models_on
             for shape in model['shapes']:
                 # Layered GX racer shaders end in a runtime-generated lm_1
                 # light map. Selecting that as albedo renders a black racer.
-                if not shape['flags'] & 8:
-                    raise ValueError('Race material must retain unlit presentation: ' + name)
+                if not shape.get('retail'):
+                    raise ValueError('Race material must retain its source lighting state: ' + name)
                 if shape['texture'] >= 0 and exported['textures'][shape['texture']]['name'].startswith(('lm_0', 'lm_1')):
                     raise ValueError('Race albedo incorrectly selects a light map: ' + name)
         animated = part == "driver" or bool(part_clips.get(source_model))

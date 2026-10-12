@@ -72,6 +72,10 @@ const UiMovieInfo* uiFindMovie(const char* key){
  static const auto index=build<8>(rows(UiMovies),[](unsigned i){return Keys{UiMovies[i].key,nullptr,nullptr};});
  const unsigned row=index.find(key);return row==index.Missing?nullptr:&UiMovies[row];
 }
+const UiPaneNode* uiFindPaneNode(const char* panel,const char* name){
+ static const auto index=build<11>(rows(UiPaneNodes),[](unsigned i){return Keys{UiPaneNodes[i].panel,UiPaneNodes[i].name,nullptr};});
+ const unsigned row=index.find(panel,name);return row==index.Missing?nullptr:&UiPaneNodes[row];
+}
 unsigned uiFindMovieRegion(const char* key){
  static const auto index=build<8>(rows(UiMovieRegions),[](unsigned i){return Keys{UiMovieRegions[i].key,nullptr,nullptr};});
  const unsigned row=index.find(key);return row==index.Missing?unsigned(std::size(UiMovieRegions)):row;

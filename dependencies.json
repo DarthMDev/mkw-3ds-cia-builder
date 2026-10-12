@@ -17,9 +17,10 @@
     "license": "CC0-1.0",
     "files": [
       "src/nw4r/ef/ef_emitterform.cpp",
-      "src/nw4r/ef/emform/ef_disc.cpp"
+      "src/nw4r/ef/emform/ef_disc.cpp",
+      "src/nw4r/ef/emform/ef_cylinder.cpp"
     ],
-    "usage": "Reference for disc emission and velocity cone mathematics; original game BREFF supplies effect parameters."
+    "usage": "Reference for disc/cylinder emission and velocity cone mathematics; original game BREFF supplies effect parameters."
   },
   "citro3d": {
     "url": "https://github.com/devkitPro/citro3d.git",

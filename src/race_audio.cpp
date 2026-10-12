@@ -325,7 +325,7 @@ constexpr u16 ItemObjSound[15][3] = {
 enum ItemCue : u8 {
  ItemThrow, ItemLand, ItemBounce, ItemWallBounce, ItemBreak, ItemHit, ItemExplode, ItemEquip, ItemDecide, ItemRelease,
  ItemFakeBox, ItemBarrier, ItemInk, ItemLightning, ItemStruck, ItemPow, ItemBlooperUse, ItemBlooperAttack,
- ItemCloudOn, ItemCloudAttach, ItemCloudStrike, ItemCloudOff, ItemBoxBreak,
+ ItemCloudOn, ItemCloudAttach, ItemCloudStrike, ItemCloudOff, ItemBoxBreak, ItemHitSuccess,
 };
 // Item::ObjKumo (the Thunder Cloud) over its carrier: its ItemActor, the carrier,
 // the frames since the strike (-1 before it) and the warning flash (+0x1d0).
@@ -1380,6 +1380,11 @@ struct RaceAudioLayer::Impl {
   const int p = c.player < 12 && c.player < frame.karts ? c.player : -1;
   KartAudio* k = p >= 0 && karts[p].present ? &karts[p] : nullptr;
   switch (c.cue) {
+  case ItemHitSuccess:
+   // Kart collision handler 8056dc80 -> CharacterActor 808610e8:
+   // the attacker's local CharacterActor plays type 3, ITM_SCES.
+   if(p>=0&&voices[p].enabled&&voices[p].local)voicePlay(e,p,3);
+   break;
   case ItemFakeBox: if (k) { if (c.flag) startNewLimited(e, *k, sid::BoxSmoke); else startLimited(e, *k, sid::BoxHitFx); } break;
   case ItemBarrier: if (k) startNewLimited(e, *k, sid::StarBarrier); break;
   case ItemInk: if (k) startLimited(e, *k, sid::GesoSumiOn); break;   // Effects::Player::UpdateInkEffect 8069bd4c
@@ -1693,6 +1698,9 @@ struct RaceAudioLayer::Impl {
    case RaceAudioObjectSound::Hold: objectHold(e, o, c.sound, c.value); break;
    case RaceAudioObjectSound::StartNew: objectStartNew(e, o, c.sound, c.value); break;
    case RaceAudioObjectSound::Voice: objectVoice(e, o, c.sound); break;
+   case RaceAudioObjectSound::Animation:
+    if(auto* s=objectStart(e,o,c.sound,0.f))e.setVolume(s->h,c.value);
+    break;
    default: break;
    }
   }

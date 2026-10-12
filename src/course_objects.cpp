@@ -152,7 +152,8 @@ struct CourseObjects::Impl {
     std::vector<C3D_Mtx> palms;
     int course=-1;
     ObjectAssets assets;
-    std::vector<Visual> visuals;
+    std::vector<Visual> visuals,suspendedVisuals;
+    bool graphicsSuspended=false;
     bool linked=false;
     const void* director=nullptr;
     uint32_t lastTimer=0;
@@ -162,7 +163,7 @@ struct CourseObjects::Impl {
     // Re-links after a restarted race builds a new Kinoko scene.
     bool ready();
     // One frame's recorded sky pass and object pass (record), replayed in order.
-    ObjectDrawList sky,objects;
+    ObjectDrawList sky,objects,water;
     ViewFrustum view{};
     unsigned tick=0;
     Vec3 camera{};
@@ -190,7 +191,34 @@ void CourseObjects::reset(){
     auto& d=*impl_;
     d.assets.explosion.reset();d.assets.explosionBank.reset();
     d.palms.clear();d.palm.reset();for(auto& mesh:d.escalators)mesh.reset();d.escalatorBase.clear();d.escalatorWritten={};
+    d.suspendedVisuals.clear();d.graphicsSuspended=false;
     d.visuals.clear();d.assets.models.clear();d.course=-1;d.linked=false;d.director=nullptr;
+}
+void CourseObjects::suspendGraphics(){
+    auto& d=*impl_;if(d.graphicsSuspended)return;
+    jobWorker().finishAll();
+    if(!d.linked)d.link();
+    d.suspendedVisuals=std::move(d.visuals);
+    d.sky.clear();d.objects.clear();d.water.clear();d.shadows.clear();d.skyShadows.clear();
+    d.assets.explosion.reset();d.assets.explosionBank.reset();d.assets.models.clear();
+    d.palm.reset();for(auto& mesh:d.escalators)mesh.reset();d.escalatorBase.clear();
+    d.linked=false;d.linkedReady=false;d.recorded=false;d.queued=false;d.graphicsSuspended=true;
+}
+bool CourseObjects::resumeGraphics(){
+    auto& d=*impl_;if(!d.graphicsSuspended)return true;
+    d.assets.models.clear();d.palm.reset();for(auto& mesh:d.escalators)mesh.reset();
+    if(d.course==5&&!loadCoconut())return false;
+    if(!d.assets.load(d.course))return false;
+    d.link();
+    // Rebind only graphics pointers; preserve route followers, deforming-object
+    // state, sampled animation ages and observed native states from the freeze.
+    for(auto& v:d.visuals)for(auto& saved:d.suspendedVisuals)if(saved.index==v.index){
+        const auto main=v.main,low=v.low,shadow=v.shadow;const auto extra=v.extra;
+        const auto clips=v.clips;const auto present=v.present;
+        v=std::move(saved);v.main=main;v.low=low;v.shadow=shadow;v.extra=extra;
+        v.clips=clips;v.present=present;break;
+    }
+    d.suspendedVisuals.clear();d.graphicsSuspended=false;d.recorded=false;return true;
 }
 void CourseObjects::invalidate(){impl_->linked=false;impl_->visuals.clear();}
 bool CourseObjects::loadCoconut(){
@@ -266,7 +294,7 @@ void CourseObjects::Impl::recordSky(){
     for(auto& v:visuals)if(skyObject(v))drawObject(context,v);
 }
 void CourseObjects::Impl::recordObjects(){
-    objects.clear();
+    objects.clear();water.clear();
     if(palm)for(const auto& matrix:palms)if(!renderQuality().tooSmall({palm->minimum,palm->maximum},matrix,camera))objects.records.push_back({ObjectDrawRecord::Plain,false,0,palm.get(),nullptr,0,0,0,0,0,matrix});
     // Includes the children of paired escalators. Kinoko updates these transforms
     // after its 60 Hz step, including stops/reversals and the looping tread offset.
@@ -293,7 +321,8 @@ void CourseObjects::Impl::recordObjects(){
     if(!linkedReady)return;
     assets.beginFrame();
     ObjectDraw context{view,assets,tick,camera,course,scratch,shadows,objects};
-    for(auto& v:visuals)if(!skyObject(v))drawObject(context,v);
+    ObjectDraw waterContext{view,assets,tick,camera,course,scratch,shadows,water};
+    for(auto& v:visuals)if(!skyObject(v))drawObject(waterObject(v)?waterContext:context,v);
 }
 void CourseObjects::Impl::replay(Renderer& renderer,const ObjectDrawList& list){
     for(const auto& r:list.records){
@@ -333,6 +362,11 @@ void CourseObjects::draw(Renderer& renderer,unsigned tick,Vec3 camera){
     d.recorded=false;
     // Retail shadow volumes darken the course and objects drawn before them.
     if(d.linkedReady)renderer.drawShadowVolumes(d.shadows.data(),unsigned(d.shadows.size()),.5f);
+}
+void CourseObjects::drawWater(Renderer& renderer){
+    // draw() has joined the object job. Keep the recorded materials and pose
+    // at that same tick; no second simulation or recording is needed.
+    impl_->replay(renderer,impl_->water);
 }
 bool CourseObjects::Impl::ready(){
     if(assets.models.empty())return false;

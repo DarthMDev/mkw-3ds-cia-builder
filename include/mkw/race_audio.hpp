@@ -67,7 +67,7 @@ struct RaceAudioItemSound { snd::Vec3f position; std::uint8_t cue = 0, player = 
 // ObjectActorAnim), by registry slot, and one of its actor calls this tick.
 struct RaceAudioObject { snd::Vec3f position; float scale = 1; std::uint16_t id = 0; std::uint8_t mode = 0; std::uint8_t index = 0; };
 struct RaceAudioObjectSound {
- enum Call : std::uint8_t { Start, Hold, StartNew, Voice };
+ enum Call : std::uint8_t { Start, Hold, StartNew, Voice, Animation };
  std::uint16_t slot = 0, sound = 0; std::uint8_t call = Start; float value = 0;
 };
 class RaceItems;

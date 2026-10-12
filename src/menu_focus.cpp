@@ -1,5 +1,6 @@
 #include <mkw/menu_focus.hpp>
 #include <mkw/menu_ui.hpp>
+#include <mkw/menu_transition.hpp>
 #include <mkw/menu_animations.hpp>
 #include <mkw/menu_index.hpp>
 #include <algorithm>
@@ -68,6 +69,7 @@ const char* uiFocusControlName(const MenuState& state,unsigned slot){
  case UiPage::BattleStage:return "BattleStageSelectStage";
  case UiPage::Ghost:return "TimeAttackGhostList";
  case UiPage::Confirm:return "MenuEndConfirm";
+ case UiPage::Pause:return uiPauseMenuControl(state);
  case UiPage::QuitConfirm:return "YesNoButton";
  case UiPage::Error:return "ConfirmOK";
  default:return "";

@@ -106,7 +106,10 @@ void RaceGrid::configure(Kinoko::System::RaceConfig& config,unsigned localChoice
     const unsigned localDriver=localChoice/VehiclesPerDriver;
     for(unsigned i=0;i<Capacity;++i){auto& p=scenario.players[i];
         if(i>=count_){p.type=Kinoko::System::RaceConfig::Player::Type::None;continue;}
-        choices_[i]=i?((localDriver+i)%driverCount)*VehiclesPerDriver:localChoice;
+        // CPUs take each driver's standard kart, or standard bike (garage slot 3)
+        // in the bikes-only 100cc Grand Prix.
+        const unsigned cpuVehicle=config.raceScenario().engineClass==1?3:0;
+        choices_[i]=i?((localDriver+i)%driverCount)*VehiclesPerDriver+cpuVehicle:localChoice;
         const auto& choice=GarageChoices[choices_[i]];
         p.character=static_cast<Kinoko::Character>(choice.character);p.vehicle=static_cast<Kinoko::Vehicle>(choice.vehicle);
         p.type=i?Kinoko::System::RaceConfig::Player::Type::CPU:Kinoko::System::RaceConfig::Player::Type::Local;
@@ -122,14 +125,16 @@ bool RaceGrid::reset(){
     for(unsigned i=0;i<count_;++i){
         auto* kart=kartObjects->object(i);
         ranks_[i]=i+1;
-        drivers_[i].nativeSpeed=kart->param()->stats().speed;
+        // Stat speed times the engine-class rate (retail KartMove +0x14).
+        drivers_[i].nativeSpeed=kart->move()->statBaseSpeed();
         drivers_[i].last=native(kart->pos());
     }
     size_t size=0;const void* kmp=System::ResourceManager::Instance()->getFile("course.kmp",&size,System::ArchiveId::Course);
     bool ok=route_.load(kmp,size);bulletRoute_.load(kmp,size,true);
     size_t paramSize=0;const void* params=System::ResourceManager::Instance()->getFile("kartAISpdParam.bin",&paramSize,System::ArchiveId::Core);
-    // Current VS UI is 150cc / Normal. Difficulty selection is not exposed yet.
-    speedParamReady_=readCpuSpeedParam(params,paramSize,unsigned(config->raceScenario().course),2,1,speedParam_);
+    // The chosen engine class, Normal CPUs. Difficulty selection is not exposed yet.
+    const unsigned engineClass=std::min<unsigned>(config->raceScenario().engineClass,2);
+    speedParamReady_=readCpuSpeedParam(params,paramSize,unsigned(config->raceScenario().course),engineClass,1,speedParam_);
     // Distance adapter: a permitted native ENPT circuit scales checkpoint lap
     // completion. Retail uses mean CKPT circuit length; branched-path parity remains pending.
     lapDistance_=0;std::vector<bool> visited(route_.size(),false);unsigned point=0;
@@ -140,8 +145,8 @@ bool RaceGrid::reset(){
     const float routeLength=lapDistance_;
     lapDistance_=std::clamp(lapDistance_,4500.f,9000.f);
     afterStep();
-    // Retail Enemy::AI (cpu_ai.cpp). VS: 150cc, Normal CPUs (cpuMode 1).
-    CpuAi::Setup setup;setup.route=&route_;setup.count=count_;setup.engineClass=2;setup.cpuMode=1;
+    // Retail Enemy::AI (cpu_ai.cpp): the chosen engine class, Normal CPUs (cpuMode 1).
+    CpuAi::Setup setup;setup.route=&route_;setup.count=count_;setup.engineClass=engineClass;setup.cpuMode=1;
     setup.speed=speedParam_;setup.speedReady=speedParamReady_;
     size_t actionSize=0;const void* actions=System::ResourceManager::Instance()->getFile("kartAIActionParam.bin",&actionSize,System::ArchiveId::Core);
     setup.actionsReady=readCpuActionParam(actions,actionSize,setup.cpuMode,setup.actions);

@@ -21,14 +21,14 @@
 .bool retailLightTexture
 ; Uniform branches skip work whose result cannot contribute to the draw.
 .bool environmentMapped, diffuseLighting
-; GPU skinning (race racers, unlit CPU-weighted course objects): inpos is
-; bone-local and innormal.x holds 3 * bone index; bones holds each bone's
-; 3x4 matrix rows. Skinned draws never read normals (no lighting/env).
+; Unlit course objects keep their palette index in innormal.x. Lit racers
+; use a separate attribute, retaining both UV pairs and bone-local normals.
 .fvec bones[57]
-.bool skinned
+.bool skinned, skinnedNormals
 .constf constants(0.0, 1.0, 0.35, 0.65)
 .constf colorScale(0.00392156863, 0.0, 0.0, 0.0)
 .constf half(0.5, 0.5, 0.5, 0.5)
+.constf normalEpsilon(0.000000000001, 0.0, 0.0, 0.0)
 .out outpos position
 .out outtc texcoord0
 .out outtc1 texcoord1
@@ -38,15 +38,61 @@
 .alias innormal v1
 .alias inuv v2
 .alias incolor v3
+.alias inbone v4
 .proc main
+    mov r15.xyz, innormal
     mov r0.xyz, inpos
     mov r0.w, constants.y
     ifu skinned
-        mova a0.x, innormal.x
+        ifu skinnedNormals
+            mova a0.x, inbone.x
+        .else
+            mova a0.x, innormal.x
+        .end
         dp4 r14.x, bones[a0.x], r0
         dp4 r14.y, bones[a0.x+1], r0
         dp4 r14.z, bones[a0.x+2], r0
+        ifu skinnedNormals
+            ; Cofactor(B)*n / det(B) = inverse-transpose(B)*n. Its magnitude
+            ; cancels in downstream normalization; keep determinant sign.
+            ; This handles nonuniform bone scale without more bone uniforms.
+            mov r0, bones[a0.x]
+            mov r1, bones[a0.x+1]
+            mov r2, bones[a0.x+2]
+            mul r3.xyz, r1.yzx, r2.zxy
+            mul r4.xyz, r1.zxy, r2.yzx
+            add r3.xyz, r3, -r4
+            dp3 r5.x, r3, innormal
+            dp3 r6.x, r0, r3
+            mul r3.xyz, r2.yzx, r0.zxy
+            mul r4.xyz, r2.zxy, r0.yzx
+            add r3.xyz, r3, -r4
+            dp3 r5.y, r3, innormal
+            mul r3.xyz, r0.yzx, r1.zxy
+            mul r4.xyz, r0.zxy, r1.yzx
+            add r3.xyz, r3, -r4
+            dp3 r5.z, r3, innormal
+            cmp constants.x, eq, eq, r6.x
+            ifc cmp.x
+                ; Original normalFromMat4 falls back to B when an authored
+                ; squash makes the transform singular (e.g. Yoshi clips).
+                dp3 r15.x, r0, innormal
+                dp3 r15.y, r1, innormal
+                dp3 r15.z, r2, innormal
+            .else
+                sge r6.x, r6.x, constants.x
+                add r6.x, r6.x, r6.x
+                add r6.x, -constants.y, r6.x
+                mul r15.xyz, r5, r6.x
+            .end
+            ; Small authored scales change cofactor magnitude, not lighting.
+            dp3 r7.x, r15, r15
+            max r7.x, normalEpsilon.x, r7.x
+            rsq r7.x, r7.x
+            mul r15.xyz, r15, r7.x
+        .end
         mov r0.xyz, r14.xyz
+        mov r0.w, constants.y
     .end
     dp4 r1.x, modelView[0], r0
     dp4 r1.y, modelView[1], r0
@@ -74,7 +120,7 @@
     ifu environmentMapped
         ; Same equation as the CPU path: m=normalize(R*n),
         ; uv1=(0.5+0.5*(cos*m.x+sin*m.z), 0.5+0.5*m.y).
-        mov r0.xyz, innormal
+        mov r0.xyz, r15
         mov r0.w, constants.x
         dp3 r7.x, envRow0, r0
         dp3 r7.y, envRow1, r0
@@ -105,7 +151,7 @@
     add r13.x, fogParam.y, r13.x
     mov r13.y, half.y
     ifu diffuseLighting
-        mov r0.xyz, innormal
+        mov r0.xyz, r15
         mov r0.w, constants.x
         dp4 r1.x, modelView[0], r0
         dp4 r1.y, modelView[1], r0

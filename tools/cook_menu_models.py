@@ -31,6 +31,10 @@ MACHINES = ['df_kart','a_kart','b_kart','df_bike','a_bike','b_bike',
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
+def material_revision():
+    return hashlib.sha256(b''.join((ROOT/'tools'/n).read_bytes() for n in
+        ('export_brres.ts','retail_lighting.ts','cook_model.py','gx_material.py'))).hexdigest()
+
 def extract_machines():
     from cook_roster import data_partition
     from extract_disc import Disc
@@ -59,14 +63,14 @@ def machine_record(item, output, reuse_textures=False):
     if receipt.is_file():
         prior=json.loads(receipt.read_text())
         model=output/'models'/f'{prefix}_000.gmdl'
-        if prior.get('conversion_revision')==2 and prior['source_sha256']==sha(source) and model.is_file() and prior['model']['sha256']==sha(model):return prior
+        if prior.get('conversion_revision')==3 and prior.get('material_converter_sha256')==material_revision() and prior['source_sha256']==sha(source) and model.is_file() and prior['model']['sha256']==sha(model):return prior
     export=ROOT/'build/menu-models'/prefix
     subprocess.run(['node',str(ROOT/'build/export_brres.mjs'),str(source),str(export),'menu'],
                    check=True,capture_output=True,text=True,env={**os.environ,'MKW_MENU_MATERIALS':'1'})
     parts=cook(export,output,prefix,max_texture=256,reuse_textures=reuse_textures)
     if len(parts)!=1:raise ValueError('Expected one bounded menu machine '+prefix)
     record={'key':f'machine_{i}_{choice}','prefix':prefix,'source':source.relative_to(ROOT).as_posix(),
-            'source_sha256':sha(source),'model':parts[0],'conversion_revision':2}
+            'source_sha256':sha(source),'model':parts[0],'conversion_revision':3,'material_converter_sha256':material_revision()}
     (output/'models'/f'{prefix}-source.json').write_text(json.dumps(record,indent=2)+'\n')
     return record
 
@@ -157,7 +161,7 @@ def main():
             raise ValueError('Menu animation/model vertex order mismatch: '+prefix)
         record = {'key': key, 'prefix': prefix, 'source': source.relative_to(ROOT).as_posix(),
                   'source_sha256': sha(source), 'animation_sha256': sha(animation_path),
-                  'animation': animation, 'model': parts[0], 'idle_clip': idle,'conversion_revision':2}
+                  'animation': animation, 'model': parts[0], 'idle_clip': idle,'conversion_revision':3,'material_converter_sha256':material_revision()}
         if extra and extra.is_file():record['seated_animation_source']={'path':extra.relative_to(ROOT).as_posix(),'sha256':sha(extra)}
         records=[r for r in records if r['prefix']!=prefix]+[record]
         (args.output/'models'/f'{prefix}-source.json').write_text(json.dumps(record, indent=2)+'\n')

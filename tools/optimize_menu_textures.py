@@ -36,15 +36,16 @@ SHIPPED = ROOT / 'tools/menu_sprite_scales.json'
 
 
 def measure():
-    # The measurement depends only on the menu code and the converted USA menu
-    # files, which are the same for every build: tools/menu_sprite_scales.json
-    # ships it for machines without clang++ (most Windows PCs). With clang++ the
-    # helper is rebuilt and re-run, so menu code changes are measured afresh;
-    # MKW_UPDATE_SPRITE_SCALES=1 then refreshes the shipped copy.
-    if not shutil.which('clang++'):
+    # The measurement depends on the menu code and the converted USA menu files.
+    # Player builds use the shipped tools/menu_sprite_scales.json on every OS,
+    # so Mac and Windows convert the same textures and a later menu code change
+    # (a quick update) does not change the converted files. Developers measure
+    # afresh with clang++ and MKW_UPDATE_SPRITE_SCALES=1, which refreshes it.
+    measuring = os.environ.get('MKW_UPDATE_SPRITE_SCALES') == '1'
+    if not measuring or not shutil.which('clang++'):
         if not SHIPPED.is_file():
-            raise SystemExit('clang++ is needed to measure menu sprites (install LLVM from https://llvm.org)')
-        print('clang++ not found: using the shipped menu sprite measurements', flush=True)
+            raise SystemExit('tools/menu_sprite_scales.json is missing (measure with clang++ and MKW_UPDATE_SPRITE_SCALES=1)')
+        print('using the shipped menu sprite measurements', flush=True)
         # Later steps (tools/pack_menu_assets.py) read the measurement from build/.
         out = ROOT / 'build/host-tools/sprite-scales.json'
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,7 @@ def measure():
     exe = ROOT / 'build/host-tools/menu_sprite_scales'
     exe.parent.mkdir(parents=True, exist_ok=True)
     sources = ['tools/menu_sprite_scales.cpp', 'src/menu_ui.cpp', 'src/menu_state.cpp', 'src/menu_transition.cpp',
-               'src/menu_focus.cpp', 'src/menu_index.cpp']
+               'src/menu_focus.cpp', 'src/menu_index.cpp', 'src/menu_text_motion.cpp']
     try:
         subprocess.run(['clang++', '-std=c++2b', '-O2', '-I' + str(ROOT / 'include'), '-o', str(exe),
                         *[str(ROOT / s) for s in sources]], check=True)
@@ -176,12 +177,18 @@ def rewrite_header(sprites, atlases, slice_uvs):
         if not m:
             raise ValueError('Unexpected UiSprites row: ' + line[:80])
         key = m.group(1)
+        trailing = m.group(7)
+        if key in sprites or key in atlases:
+            # Metadata follows the actual allocation, including power-of-two
+            # padding; compressed file size is not GPU residency.
+            r = sprites.get(key) or atlases[key]
+            trailing = re.sub(r',\d+\},$', ',%d},' % r['bytes'], trailing)
         if key in sprites:
             r = sprites[key]
-            lines[n] = '{"%s","%s",%sf,%sf,%.8ff,%.8ff,%s' % (key, m.group(2), m.group(3), m.group(4), r['u'], r['v'], m.group(7))
+            lines[n] = '{"%s","%s",%sf,%sf,%.8ff,%.8ff,%s' % (key, m.group(2), m.group(3), m.group(4), r['u'], r['v'], trailing)
         elif key in atlases:
             w, h = atlases[key]['texture']
-            lines[n] = '{"%s","%s",%.8ff,%.8ff,%sf,%sf,%s' % (key, m.group(2), w, h, m.group(5), m.group(6), m.group(7))
+            lines[n] = '{"%s","%s",%.8ff,%.8ff,%sf,%sf,%s' % (key, m.group(2), w, h, m.group(5), m.group(6), trailing)
     text = head + 'inline constexpr UiSpriteInfo UiSprites[]={\n' + '\n'.join(lines) + '\n};' + tail
     head, rest = text.split('inline constexpr UiBorderSlice UiBorderSlices[]={\n', 1)
     body, tail = rest.split('\n};', 1)
@@ -203,10 +210,18 @@ def main():
     a = p.parse_args()
     WORK.mkdir(parents=True, exist_ok=True)
     manifest = json.loads((ASSETS / 'models/menu-ui.json').read_text())
-    screen = measure()
     records = manifest['sprites']
     slices = manifest['borderSlices']
     atlas_keys = sorted({s['key'] for s in slices})
+    # Measurement must use the original PNG atlas coordinates. The header
+    # may already contain a fitted atlas from a previous pass, whose UV
+    # footprint would otherwise be mistaken for the original atlas's size.
+    raw_sprites = {k: {'u': r['u'], 'v': r['v'], 'bytes': r['padded'][0]*r['padded'][1]*4}
+                   for k, r in records.items() if k not in atlas_keys}
+    raw_atlases = {k: {'texture': records[k]['padded'], 'bytes': records[k]['padded'][0]*records[k]['padded'][1]*4}
+                   for k in atlas_keys}
+    rewrite_header(raw_sprites, raw_atlases, {i: s['uv'] for i, s in enumerate(slices)})
+    screen = measure()
     by_atlas = {key: [] for key in atlas_keys}
     for index, s in enumerate(slices):
         by_atlas[s['key']].append((index, s))

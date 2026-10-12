@@ -1,7 +1,8 @@
 #pragma once
 // NW4R EF drawing for the 3DS: the retail draw strategies (billboard 0x8003e290 /
 // 0x8003f680, directional 0x80040a90 / 0x80042310, stripe 0x80045f30 with tube
-// 0x80045d40) produce view-space quads and strips, and each GX TEV setup maps to a PICA
+// 0x80045d40), plus closed smooth ribbons (0x80048f20), produce view-space quads
+// and strips, and each GX TEV setup maps to a PICA
 // combiner program. Per-particle TEV registers reach the GPU as the vertex colour and a
 // colour-lookup texel (texture unit 2); register values a program reads from stage
 // constants split batches, like EF's GXSetTevColor per particle.

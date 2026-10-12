@@ -42,9 +42,20 @@ def alpha_expression(material, primary, secondary, constants=None):
         texture = stage['texMap']
         tex = 'p' if texture == primary else 'q' if texture == secondary else 't'+str(texture)
         fixed = (constants or {}).get(str(texture))
-        values = registers + [{(): fixed} if fixed is not None else {(tex,): 1}, {('v',): 1}, {(): konst}, {}]
+        # noclip retains the BP raster selector, not GX ColorChannelID.
+        # Selector 7 means zero even when the channel's material alpha is 1.
+        # Alpha bump and the second raster channel need a separate runtime path.
+        channel = stage['channelId']
+        if 5 in [stage['alphaIn'+letter] for letter in 'ABCD'] and channel not in (0,7):
+            return None, 1
+        raster = {} if channel == 7 else {('v',): 1}
+        values = registers + [{(): fixed} if fixed is not None else {(tex,): 1}, raster, {(): konst}, {}]
         a,b,c,d = [values[stage['alphaIn'+letter]] for letter in 'ABCD']
         expression = add(add(a, mul(add(b,a,-1), c)), d)
+        # A clamped non-negative sum with a constant >=1 is identically one
+        # (menu vehicle materials often add konst 1 to APREV).
+        if stage['alphaClamp'] and expression.get((),0) >= 1 and all(v >= 0 for v in expression.values()):
+            expression = {(): 1.}
         # Only fold expressions whose intermediate range never needs saturation.
         # Products have factors in [0,1], so nonnegative coefficient sum <=1 is safe.
         if any(v < -1e-8 for v in expression.values()) or sum(expression.values()) > 1.000001:
@@ -117,7 +128,13 @@ def material_state(shape):
         # Doubled texture product (sea sparkles): alpha mode 6.
         if alpha_scale == 2 and expression == {('p','q'): 1.}:
             return flags|(6<<20), 1., False, limitation, None, extended
-        return flags, 1., True, 'Unsupported original GX alpha equation', None, extended
+        # A final GX divide-by-two is exact for a nonnegative monomial:
+        # move its scale into the cooked vertex multiplier. Texture alpha is
+        # still sampled at runtime; additive road overlays use raster alpha.
+        # Scales that can saturate must retain their separate runtime mode.
+        if expression is None or len(expression)>1 or sum(expression.values())*alpha_scale>1:
+            return flags, 1., True, 'Unsupported original GX alpha equation', None, extended
+        expression={factors:weight*alpha_scale for factors,weight in expression.items()}
     if expression and set(expression)=={('p',),('q',)} and abs(sum(expression.values())-1)<1e-6:
         # Colour mode 2 (without the constant lerp) weights the secondary texture
         # by the constant's alpha, so it cannot also carry the alpha mix.
@@ -139,8 +156,8 @@ def material_state(shape):
 # uv velocity x4, animationFrames) and v4, which appends the retail course
 # lighting word, the material ambient register and the constant added by a
 # light-texture albedo stage (include/mkw/retail_lighting.hpp).
-GMDL_SUBMESH = {3: '<IIiIiI4fI', 4: '<IIiIiI4fIIII'}
-GMDL_SUBMESH_BYTES = {3: 44, 4: 56}
+GMDL_SUBMESH = {3: '<IIiIiI4fI', 4: '<IIiIiI4fIIII', 5: '<IIiIiI4fIIII3I6f'}
+GMDL_SUBMESH_BYTES = {3: 44, 4: 56, 5: 92}
 RETAIL_LIGHT_SETS = 8
 
 
@@ -152,10 +169,10 @@ def retail_lighting(shape):
     if not retail:
         return [0, 0, 0]
     word, ambient, add = retail['word'], retail['ambient'], retail.get('add', 0)
-    if not word & 1 or word >> 21:
+    if not word & 1 or word >> 22:
         raise ValueError('Invalid retail lighting word: ' + shape['material'])
     channel = word >> 2 & 3
-    if channel == 3 or (channel == 0 and word & ~3):
+    if channel == 3 or (channel == 0 and word & ~(3 | (1 << 21))):
         raise ValueError('Invalid retail lighting channel: ' + shape['material'])
     # Renderer::retailLight takes the ambient from the register; no retail
     # course material sources it from the vertex colour.

@@ -16,6 +16,7 @@ Format (little endian): "MPK1", u32 count, u32 namesBytes, count entries of
 then 32-byte aligned file data.
 """
 import argparse, hashlib, json, struct
+from gx_material import GMDL_SUBMESH_BYTES
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,11 +26,11 @@ ASSETS = ROOT / 'sd-card/3ds/mkw-3ds'
 def model_textures(path):
     data = path.read_bytes()
     magic, version, vertices, indices, submeshes, textures = struct.unpack_from('<4s5I', data)
-    if magic != b'GMDL' or version != 3:
-        raise ValueError('Not a GMDL v3 model: ' + str(path))
+    if magic != b'GMDL' or version not in GMDL_SUBMESH_BYTES:
+        raise ValueError('Unsupported GMDL model: ' + str(path))
     names = []
     for i in range(textures):
-        start = 24 + submeshes * 44 + i * 64
+        start = 24 + submeshes * GMDL_SUBMESH_BYTES[version] + i * 64
         names.append(data[start:start + 64].split(b'\0')[0].decode())
     return names
 

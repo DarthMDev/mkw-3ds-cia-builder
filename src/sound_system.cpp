@@ -4,6 +4,7 @@
 // absent (silent run), DSP_FlushDataCache before queueing, and teardown resets
 // channels, drops wave buffer references, then frees memory a frame later.
 #include <mkw/sound_system.hpp>
+#include <mkw/sound_scene.hpp>
 #include <mkw/menu_movie_audio.hpp>
 #include <mkw/snd_layout.hpp>
 #include <mkw/mod_engine.hpp>
@@ -526,7 +527,7 @@ struct SoundSystem::Impl {
  SoundLayer* layer = nullptr; std::atomic<SoundLayer*> pendingLayer{nullptr}; std::atomic<bool> layerChanged{false};
  // ---- residency
  // mask: per RWAR entry, 1 = keep resident (empty = every wave), set by loadScene.
- struct File { std::unique_ptr<LoadedFile> data; int refs = 0; bool ready = false; bool wanted = false; std::vector<u8> mask; };
+ struct File { std::unique_ptr<LoadedFile> data; int refs = 0; bool ready = false; bool wanted = false; unsigned loadFailures = 0; f32 retryAfter = 0; std::vector<u8> mask; };
  std::vector<File> files;
  LightLock fileLock;               // guards `files` wanted/refs between main and I/O
  std::vector<u32> sceneFiles;
@@ -541,11 +542,13 @@ struct SoundSystem::Impl {
  std::atomic<u32> waveBytes{0};
  // ---- wave cache (audio thread owns blocks; the I/O thread fills them)
  struct CacheJob { u8* dst; u32 offset, size, key; };
+ struct CacheResult { u32 key; bool okay; };
  Ring<CacheJob, 256> cacheJobs;     // audio -> I/O
- Ring<u32, 256> cacheDone;          // I/O -> audio: key (file << 16 | wave)
+ Ring<CacheResult, 256> cacheDone;   // A failed read is never a ready silent wave.
  std::atomic<u32> wantArena{0};
  struct Cache final : WaveResidency {
   Impl& s;
+  f32 retryAfter = 0;
   struct Block { u32 key, at, size; u32 lastUse; bool ready, orphan; };
   std::vector<Block> blocks;        // sorted by `at`
   std::unordered_map<u32, int> pins;
@@ -600,9 +603,9 @@ struct SoundSystem::Impl {
    ++loads;
    LightEvent_Signal(&s.ioEvent);
   }
-  void done(u32 k) {
+  void done(u32 k,bool okay) {
    Block* b = find(k); if (!b) return;
-   if (b->orphan) { blocks.erase(blocks.begin() + (b - blocks.data())); return; }
+   if (b->orphan||!okay) { blocks.erase(blocks.begin() + (b - blocks.data())); return; }
    b->ready = true; b->lastUse = ndspGetFrameCount();
    if (LoadedFile* f = s.engine.fileData(k >> 16)) if ((k & 0xFFFF) < f->cached.size()) f->cached[k & 0xFFFF] = arena + b->at;
   }
@@ -616,13 +619,26 @@ struct SoundSystem::Impl {
   }
   // Scene change: resize the arena once nothing in it is pinned or loading.
   void resize(u32 want) {
-   if (want == arenaBytes) return;
+   if (want == arenaBytes || nowMs() < retryAfter) return;
    while (evictOldest()) {}
    if (!blocks.empty()) return;
-   if (arena) { s.retired.push_back({arena, ndspGetFrameCount()}); s.waveBytes.fetch_sub(arenaBytes); arena = nullptr; arenaBytes = 0; }
+   if (arena) {
+    s.retired.push_back({arena, ndspGetFrameCount()}); s.waveBytes.fetch_sub(arenaBytes); arena = nullptr; arenaBytes = 0;
+    // The DSP can still read the retired arena for two frames. Allocate on
+    // a later pass, after retirement, instead of requiring both arenas at once.
+    retryAfter = nowMs() + 25.f;
+    return;
+   }
    if (!want) return;
    arena = static_cast<u8*>(linearMemAlign(want, 32));
-   if (!arena) { SOUND_DIAG("sound: LINEAR full for a %lu byte wave cache\n", (unsigned long)want); s.wantArena.store(0); return; }
+   if (!arena) {
+    SOUND_DIAG("sound: LINEAR full for a %lu byte wave cache\n", (unsigned long)want);
+    // A transient allocation failure must not turn off every on-demand
+    // race sound until the next scene. Keep the request and retry with backoff.
+    retryAfter = nowMs() + 250.f;
+    return;
+   }
+   retryAfter = 0;
    arenaBytes = want; s.waveBytes.fetch_add(want);
   }
  } cache{*this};
@@ -653,6 +669,7 @@ struct SoundSystem::Impl {
   if (f->waveSize && !loadWaves(*f, *lf, mask)) return false;
   LightLock_Lock(&fileLock);
   files[id].data = std::move(lf);
+  files[id].loadFailures = 0; files[id].retryAfter = 0;
   LightLock_Unlock(&fileLock);
   return true;
  }
@@ -741,6 +758,7 @@ struct SoundSystem::Impl {
  }
  // Large scene reads in pieces, keeping stream refills prompt in between.
  bool readChunked(void* dst, u32 offset, u32 size) {
+  std::clearerr(brsar);
   constexpr u32 Piece = 64 * 1024;
   u8* out = static_cast<u8*>(dst);
   for (u32 done = 0; done < size;) {
@@ -758,20 +776,40 @@ struct SoundSystem::Impl {
    // waiting sound needs.
    did |= pumpFeeds();
    for (CacheJob j; cacheJobs.pop(j); did = true) {
-    if (!readChunked(j.dst, j.offset, j.size)) std::memset(j.dst, 0, j.size);
-    DSP_FlushDataCache(j.dst, j.size);
-    while (!cacheDone.push(j.key)) svcSleepThread(1000000);
+    bool okay=false;
+    for(unsigned attempt=0;attempt<3&&!quit.load();++attempt){
+     if((okay=readChunked(j.dst,j.offset,j.size)))break;
+     svcSleepThread(5*1000000LL);
+    }
+    if(okay)DSP_FlushDataCache(j.dst, j.size);
+    while (!cacheDone.push({j.key,okay}) && !quit.load()) svcSleepThread(1000000);
    }
    // Then at most one scene file per pass so refills stay prompt.
-   u32 next = InvalidId;
+   u32 next = InvalidId; bool pending = false;
+   const f32 retryNow = nowMs();
    LightLock_Lock(&fileLock);
-   for (u32 id : sceneFiles) if (files[id].wanted && !files[id].data) { next = id; break; }
+   for (u32 id : sceneFiles) if (files[id].wanted && !files[id].data) {
+    pending = true;
+    if (next == InvalidId && retryNow >= files[id].retryAfter) next = id;
+   }
    LightLock_Unlock(&fileLock);
    if (next != InvalidId) {
     if (loadFile(next)) readyFiles.push(next);
-    else { LightLock_Lock(&fileLock); files[next].wanted = false; LightLock_Unlock(&fileLock); }
+    else {
+     // A transient LINEAR/SD failure must not remove a required bank for
+     // the entire race. Back off, allowing streams and other banks to load.
+     LightLock_Lock(&fileLock);
+     const unsigned failures = ++files[next].loadFailures;
+     files[next].retryAfter = nowMs() + (failures == 1 ? 250.f : failures == 2 ? 1000.f : 5000.f);
+     LightLock_Unlock(&fileLock);
+     if (failures <= 3) if (FILE* log = std::fopen("sdmc:/3ds/mkw-3ds/audio-load-errors.txt", "a")) {
+      std::fprintf(log, "bank=%lu attempt=%u linear_free=%lu resident=%lu\n", (unsigned long)next,
+                   failures, (unsigned long)linearSpaceFree(), (unsigned long)waveBytes.load());
+      std::fclose(log);
+     }
+    }
     did = true;
-   } else if (!sceneLoaded.load()) sceneLoaded.store(true);
+   } else if (!pending && !sceneLoaded.load()) sceneLoaded.store(true);
    if (!did) LightEvent_WaitTimeout(&ioEvent, 20 * 1000000LL);
   }
  }
@@ -839,7 +877,7 @@ struct SoundSystem::Impl {
     }
     LightLock_Unlock(&fileLock);
    }
-   for (u32 k; cacheDone.pop(k);) cache.done(k);
+   for (CacheResult r; cacheDone.pop(r);) cache.done(r.key,r.okay);
    cache.resize(wantArena.load());
    while (readyFiles.pop(id)) {
     LightLock_Lock(&fileLock);
@@ -1057,6 +1095,9 @@ void SoundSystem::stop() {
  LightEvent_Signal(&s->frameEvent); LightEvent_Signal(&s->ioEvent);
  if (s->audioThread) { threadJoin(s->audioThread, U64_MAX); threadFree(s->audioThread); }
  if (s->ioThread) { threadJoin(s->ioThread, U64_MAX); threadFree(s->ioThread); }
+ // Retire game-facing handles against the engine that created them,
+ // before a replacement engine can reuse its slot/generation numbers.
+ if(s->layer){s->layer->reset(s->engine);s->layer=nullptr;}
  // Teardown order: stop and reset every channel, drop references, then free.
  s->engine.shutdown();
  s->hw.reset();
@@ -1068,42 +1109,6 @@ void SoundSystem::stop() {
  delete s; impl_ = nullptr;
 }
 
-namespace {
-// Files of the scene and, per file with waves, the resident mask (empty:
-// every wave). Main thread; the archive is read only after start().
-struct ScenePlan { std::vector<u32> files; std::vector<std::vector<u8>> masks; };
-ScenePlan planScene(const Archive& a, const SoundSystem::Scene& sc) {
- ScenePlan plan;
- std::vector<u32> items;
- std::vector<u8> inScene(a.fileCount()), resident(a.fileCount());
- for (int i = 0; i < sc.groupCount; ++i) {
-  a.groupFiles(sc.groups[i], items);
-  const bool res = sc.residentCount < 0 || std::find(sc.residentGroups, sc.residentGroups + sc.residentCount, sc.groups[i]) != sc.residentGroups + sc.residentCount;
-  for (u32 f : items) {
-   if (f >= a.fileCount() || std::find(sc.skipFiles, sc.skipFiles + sc.skipCount, f) != sc.skipFiles + sc.skipCount) continue;
-   if (!inScene[f]) { inScene[f] = 1; plan.files.push_back(f); }
-   resident[f] |= res;
-  }
- }
- plan.masks.resize(plan.files.size());
- if (sc.residentCount < 0 && !sc.onDemandCount && !sc.residentSoundCount) return plan;   // every wave resident
- std::vector<std::vector<u8>> byFile(a.fileCount());
- for (u32 f : plan.files) byFile[f].assign(a.file(f)->waveCount, 0);
- // 1: on demand, 2: resident regardless of its group.
- std::vector<u8> pick(a.soundCount());
- for (int i = 0; i < sc.onDemandCount; ++i) if (sc.onDemandSounds[i] < pick.size()) pick[sc.onDemandSounds[i]] = 1;
- for (int i = 0; i < sc.residentSoundCount; ++i) if (sc.residentSounds[i] < pick.size()) pick[sc.residentSounds[i]] = 2;
- for (u32 id = 0; id < a.soundCount(); ++id) {
-  const SoundEntry* e = a.sound(id);
-  if (pick[id] == 1 || !e || e->fileId >= inScene.size() || !inScene[e->fileId]) continue;
-  const WaveReach r = a.reach(id);
-  if (r.file == InvalidId || !inScene[r.file] || (!resident[r.file] && pick[id] != 2)) continue;
-  for (u32 k = 0; k < r.count; ++k) if (r.waves[k] < byFile[r.file].size()) byFile[r.file][r.waves[k]] = 1;
- }
- for (size_t i = 0; i < plan.files.size(); ++i) plan.masks[i] = std::move(byFile[plan.files[i]]);
- return plan;
-}
-}
 
 void SoundSystem::loadScene(const u32* groups, int count, int keepMs, const u32* skip, int skipCount) {
  Scene sc; sc.groups = groups; sc.groupCount = count; sc.keepMs = keepMs; sc.skipFiles = skip; sc.skipCount = skipCount;
@@ -1112,11 +1117,12 @@ void SoundSystem::loadScene(const u32* groups, int count, int keepMs, const u32*
 void SoundSystem::loadScene(const Scene& sc) {
  if (!impl_) return;
  auto& s = *impl_;
- ScenePlan plan = planScene(s.archive, sc);
+ ScenePlan plan = planSoundScene(s.archive, sc);
  LightLock_Lock(&s.fileLock);
  for (u32 f : s.sceneFiles) if (std::find(plan.files.begin(), plan.files.end(), f) == plan.files.end()) { s.files[f].wanted = false; s.dropFiles.push({f, f32(sc.keepMs)}); }
  for (size_t i = 0; i < plan.files.size(); ++i) {
   auto& f = s.files[plan.files[i]];
+  if (!f.wanted) { f.loadFailures = 0; f.retryAfter = 0; }
   f.wanted = true;
   // A file already resident keeps its waves; the cache serves any others.
   if (!f.data) f.mask = std::move(plan.masks[i]);
@@ -1135,7 +1141,7 @@ u32 SoundSystem::streamBytes(u32 soundId) const {
 u32 SoundSystem::residentBytes(const Scene& sc) const {
  if (!impl_) return 0;
  const Archive& a = impl_->archive;
- const ScenePlan plan = planScene(a, sc);
+ const ScenePlan plan = planSoundScene(a, sc);
  u32 total = 0;
  for (size_t i = 0; i < plan.files.size(); ++i) {
   const FileEntry* f = a.file(plan.files[i]);

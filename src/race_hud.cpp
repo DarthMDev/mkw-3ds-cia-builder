@@ -10,6 +10,7 @@
 #include <mkw/blooper.hpp>
 #include <mkw/thunder_cloud.hpp>
 #include <mkw/item_rules.hpp>
+#include <mkw/item_visual.hpp>
 #include <game/kart/KartMove.hh>
 #include <mkw/race_assets.hpp>
 #include <mkw/renderer.hpp>
@@ -256,7 +257,7 @@ bool RaceHud::load(){
             // Unlit and never environment-mapped, these meshes do not read
             // normals: skin positions only (the same position arithmetic).
             auto animation=std::make_unique<DriverAnimation>();
-            if(animation->load(path,*impl_->models[i])){animation->skinNormals(false);impl_->animations[i]=std::move(animation);}
+            if(animation->load(path,*impl_->models[i])){animation->skinNormals(true);impl_->animations[i]=std::move(animation);}
         }
     }
     if(impl_->models[3])bakeMaskUv(*impl_->models[3],FakeBoxMaterials);
@@ -385,8 +386,12 @@ void RaceHud::drawWorld(Renderer& renderer,const RaceItems& items,Vec3 viewer,un
             if(!quality.tooSmall({model->minimum,model->maximum},t,camera))drawBox(renderer,*model,FakeBoxMaterials,FakeBoxInnerSRT,t,tick);
             model->vertices=originalVertices;continue;
         }
-        Mtx_Identity(&t);Mtx_Translate(&t,position.x,position.y,position.z,true);Mtx_RotateY(&t,actor.yaw,true);
-        const Vec3 scale=actor.drawScale();Mtx_Scale(&t,scale.x,scale.y,scale.z);
+        const auto visual=releasedItemVisual(actor);
+        const auto x=visual.right*visual.scale.x,y=visual.up*visual.scale.y,z=visual.forward*visual.scale.z;
+        Mtx_Identity(&t);
+        t.r[0].x=x.x;t.r[0].y=y.x;t.r[0].z=z.x;t.r[0].w=position.x;
+        t.r[1].x=x.y;t.r[1].y=y.y;t.r[1].z=z.y;t.r[1].w=position.y;
+        t.r[2].x=x.z;t.r[2].y=y.z;t.r[2].z=z.z;t.r[2].w=position.z;
         if(!quality.tooSmall({model->minimum,model->maximum},t,camera)){
             if(blast&&impl_->blastMaterials)drawBlast(renderer,*model,t,actor.age,actor.kind==ItemKind::BlueShell);
             else renderer.draw(*model,t);
@@ -423,7 +428,13 @@ void RaceHud::drawWorld(Renderer& renderer,const RaceItems& items,Vec3 viewer,un
         unsigned orbitModel=effect.heldKind==ItemKind::TripleGreenShell?0:effect.heldKind==ItemKind::TripleRedShell?1:effect.heldKind==ItemKind::TripleBanana?2:unsigned(effect.heldKind);
         if(orbit&&impl_->models[orbitModel])for(unsigned n=0;n<3;++n)if(effect.heldMask&(1u<<n)){
             const Vec3 position=items.heldItemPosition(i,n);
-            const auto visual=items.heldItemVisual(i,n);
+            auto visual=items.heldItemVisual(i,n);
+            if(spinningShell(effect.heldKind)){
+                // Triples already carry their own source spin in heldItemVisual.
+                const float spin=shellVisualSpin(tick);
+                visual.forward=visual.forward*std::cos(spin)+visual.right*std::sin(spin);
+                visual.right=cross(visual.up,visual.forward);
+            }
             if(orbitModel==unsigned(ItemKind::FakeBox)){
                 C3D_Mtx t;fakeBoxTransform(t,position,visual.scale,tick);
                 drawBox(renderer,*impl_->models[orbitModel],FakeBoxMaterials,FakeBoxInnerSRT,t,tick);continue;

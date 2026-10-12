@@ -7,6 +7,7 @@ namespace mkw {
 namespace {
 using namespace snd;
 constexpr std::uint16_t BgmSlots[2] = {1, 2};
+constexpr std::uint16_t VoiceSlot = 3;
 // Retail page ids (Section::CreatePageById jump table, 805f24dc).
 int retailPage(UiPage page) {
  switch (page) {
@@ -77,31 +78,65 @@ void MenuSound::input(const MenuState& before, const MenuState& after, const UiI
  if (after.unavailable && !before.unavailable) {
   // A "Not available" message: MessageBox BeforeEntranceAnimations (SE_UI_CTRL_WIN_POPUP).
   ui(id::SE_UI_CTRL_WIN_POPUP);
+  volume_.set(0.55f,30); // MessageBoxTransparent805d8998: duck over30 frames.
   unavailable_ = true;
   return;
  }
- if (unavailable_ && !after.unavailable) { ui(id::SE_UI_CTRL_WIN_POPDOWN); unavailable_ = false; } // AfterExitAnimations
+ if (unavailable_ && !after.unavailable) {
+  ui(id::SE_UI_CTRL_WIN_POPDOWN);unavailable_ = false;
+  volume_.set(layerOf(after.page)==5?0.55f:1.f,30);
+ } // AfterExitAnimations restores the underlying page volume.
+ if(before.page==UiPage::EngineClass&&after.page==before.page&&
+    before.selection.mixedEngineTypes!=after.selection.mixedEngineTypes){
+  // GPClassSelect::OnStartPress (USA 80825200-24): toggle +0x6c4,
+  // then sound 0x14 + the new boolean (sheet left/right).
+  ui(after.selection.mixedEngineTypes?id::SE_UI_SHEET_RIGHT:id::SE_UI_SHEET_LEFT);
+  return;
+ }
  // Pages::RaceMenu::OnButtonClick (80838664): Continue has no button sound
- // (RaceRSARPlayer::Resume plays SE_RC_PAUSE_OFF); leaving the race (restart,
+ // (SE_RC_PAUSE_OFF at accepted input, before scenery restoration); leaving the race (restart,
  // quit, the end-of-race choices) plays SE_RC_PAUSE_EXIT_GAME
  // (PlayEndRaceMenuButtonClickSound, 8070e54c).
  if (before.page == UiPage::Pause || before.page == UiPage::QuitConfirm || before.page == UiPage::Results) {
-  if (after.page == UiPage::Race) return;
+  if (after.page == UiPage::Race) {
+   // Resume feedback belongs to the accepted button, before scenery reload.
+   ui(id::SE_RC_PAUSE_OFF);return;
+  }
   const bool leaving = action == UiAction::RestartRace || action == UiAction::StartRace ||
+                       (before.page==UiPage::Pause&&before.cursor==1&&key.accept&&!key.back) ||
                        (pageChanged && after.page != UiPage::Pause && after.page != UiPage::QuitConfirm && after.page != UiPage::Results && (key.accept || key.start));
   if (leaving) { ui(id::SE_RC_PAUSE_EXIT_GAME); return; }
  }
  if (pageChanged && key.back) {
   // Page::StartExit (805de224) back: transition sound 0x40, default SE_UI_PAGE_PREV.
-  if (before.page != UiPage::Title) ui(id::SE_UI_PAGE_PREV);
+  // Page defaults to {forward:0, back:6}. These page overrides explicitly
+  // set both to zero (CourseSelect 80825918, BattleStageSelect 80852580,
+  // YesNo 8061ea98, RaceMenu 80837f84, Title 8060999c).
+  if (before.page != UiPage::Title && before.page != UiPage::Intro &&
+      before.page != UiPage::Course && before.page != UiPage::BattleStage &&
+      before.page != UiPage::QuitConfirm && before.page != UiPage::Results)
+   ui(id::SE_UI_PAGE_PREV);
   return;
  }
- if (pageChanged && (key.accept || key.start)) {
+ const bool samePageOk=before.page==UiPage::Confirm&&key.accept&&!key.back&&
+                       !after.unavailable&&before.supportsRace();
+ if ((pageChanged||samePageOk) && (key.accept || key.start)) {
   // PushButton::HandleClick (805b66b4): the button's selection sound,
   // SE_UI_BTN_OK unless the page set another. MainMenu (80831af8): SE_UI_TITLE_OUT.
   // Title (80609c28) and its press-A pages: SE_UI_BTN_OK.
   if (before.page == UiPage::Strap || before.page == UiPage::Intro) return;
   ui(before.page == UiPage::MainMenu ? id::SE_UI_TITLE_OUT : id::SE_UI_BTN_OK);
+  const auto voice=voice_.input(before,after,key);
+  if(voice!=MenuVoice::None){
+   // Retail menu voice player (80864038): stop the preceding player voice
+   // over two frames, then start at 0.85 volume on its own handle.
+   auto& sound=SoundSystem::instance();
+   sound.stopSlot(VoiceSlot,2);sound.play(voice,VoiceSlot);
+   post(SoundCommand::Volume,VoiceSlot,0,0.85f);
+   // Kart confirmation sets local sequence variable 12, including voices
+   // that fall back to the character-selection range (80864154).
+   if(before.page==UiPage::Vehicle)post(SoundCommand::SeqVariable,VoiceSlot,12,1.f);
+  }
   return;
  }
  // PushButton::HandleSelect (805b6358): SE_UI_BTN_IN on the newly focused button.
@@ -113,7 +148,7 @@ void MenuSound::applyLayer(int layer, int frames) {
  // MenuRSARPlayer::OnNewPageLayer (8070c8d0): layers 0-3 restore BGM volume
  // (1.0) and change stems over 30 frames; layer 5 ducks to 0.55.
  if (layer == 6) return;
- volume_.set(layer == 5 ? 0.55f : 1.0f, frames);
+ volume_.set(layer == 5 || unavailable_ ? 0.55f : 1.0f, frames);
  if (bgm_ == id::SEQ_O_SELECT && layer <= 2) for (int t = 0; t < 4; ++t) stems_[t].set(SelectStems[layer][t], frames);
 }
 
@@ -132,7 +167,7 @@ void MenuSound::startBgm(UiPage page) {
  // OnLoad: SinglePlayerValuesMgr::SetVolume(1.0, 3, 10); the page layer then applies.
  volume_.value = 0; volume_.set(1.0f, 10); postedVolume_ = -1;
  layer_ = layer;
- if (layer == 5) volume_.set(0.55f, 30);
+ if (layer == 5 || unavailable_) volume_.set(0.55f, 30);
 }
 
 void MenuSound::enterSection(Section next, UiPage page) {

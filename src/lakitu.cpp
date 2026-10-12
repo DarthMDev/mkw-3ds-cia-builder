@@ -244,7 +244,7 @@ void Lakitu::step(const LakituInput& in){
         // Lakitu carries the kart down for the 110 InRespawn ticks, then rises.
         if(m.phase==Phase::Stay){
             m.pos=kartPos+forwardH*180.f+Vec3{0,100,0};
-            if(!respawning){m.phase=Phase::Ascend;m.phaseTimer=0;}
+            if(!respawning){m.phase=Phase::Ascend;m.phaseTimer=0;m.clips("wait","wait");}
         }else{
             m.pos=m.pos+Vec3{0,5,0}+Vec3{0,2,0}*float(m.phaseTimer);
             if(++m.phaseTimer>=60)m.mode=Mode::Away;
@@ -291,7 +291,10 @@ void Lakitu::draw(Renderer& renderer){
         const int clip=bank.find(name);if(clip<0)return std::pair<int,unsigned>{-1,0};
         const unsigned duration=std::max(1u,unsigned(bank.duration(clip)));
         const unsigned f=m.clipFrame>=0?unsigned(m.clipFrame):elapsed;
-        return std::pair<int,unsigned>{clip,bank.loop(clip)?f%duration:std::min(f,duration-1)};
+        // The rescue grab is flagged looping but runs once: the carry (110
+        // ticks) outlasts its 98 frames, and a loop re-grabbed the kart.
+        const bool loop=bank.loop(clip)&&std::strcmp(name,"pickup");
+        return std::pair<int,unsigned>{clip,loop?f%duration:std::min(f,duration-1)};
     };
     auto drawPart=[&](Impl::Part& p,const char* name,const C3D_Mtx& transform){
         auto [clip,frame]=frameOf(*p.bank,name);if(clip<0)return;

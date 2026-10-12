@@ -8,7 +8,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def main():
  p=argparse.ArgumentParser();p.add_argument('--jobs',type=int,default=6)
  # Release (the CIA builder): no test hooks, logs or engine assert text; no build paths.
- p.add_argument('--release',action='store_true');a=p.parse_args()
+ p.add_argument('--release',action='store_true');p.add_argument('--external-assets',action='store_true',help='3DSX test program using an existing compatible SD asset set');a=p.parse_args()
  dkp=devkitpro_root();out=ROOT/'build';out.mkdir(exist_ok=True)
  citro=build_citro3d(out,dkp)
  kin=ROOT/'vendor/kinoko';cxx=arm('arm-none-eabi-g++')
@@ -17,6 +17,15 @@ def main():
  # The content stamp the update CIA checks against the SD card's content.txt.
  sys.path.insert(0,str(ROOT/'tools/release'));from build_cia import content_fingerprint
  stamp='#pragma once\n// Converted game files this code expects (tools/release/build_cia.py).\n#define MKW_CONTENT "'+content_fingerprint()+'"\n'
+ # Shown on the lower screen at start-up, so a console shows which update it runs.
+ stamp+='#define MKW_VERSION "'+(ROOT/'tools/release/VERSION').read_text().strip()+'"\n'
+ # Shown once on the lower screen after an update (tools/release/WHATS_NEW.txt):
+ # at most 16 lines of 38 characters, the lower screen's 8x8 text grid.
+ news=[l.rstrip() for l in (ROOT/'tools/release/WHATS_NEW.txt').read_text(encoding='utf-8').splitlines() if l.strip()]
+ if len(news)>16 or any(len(l)>38 or not l.isascii() or '"' in l or '\\' in l for l in news):raise SystemExit('WHATS_NEW.txt: at most 16 ASCII lines of 38 characters, no quotes or backslashes')
+ stamp+='#define MKW_WHATS_NEW "'+'\\n'.join(news)+'"\n'
+ # The GitHub update build (MKW_QUICK_UPDATE=1, .github/workflows/update-cia.yml).
+ stamp+='#define MKW_QUICK_UPDATE '+('1' if os.environ.get('MKW_QUICK_UPDATE')=='1' else '0')+'\n'
  if not (out/'content_version.hpp').is_file() or (out/'content_version.hpp').read_text()!=stamp:(out/'content_version.hpp').write_text(stamp)
  (out/'shader_data.hpp').write_text('#pragma once\n#include <cstdint>\nalignas(4) static const uint8_t mkw_shader[]={'+','.join(map(str,(out/'mkw.shbin').read_bytes()))+'};\n')
  arch=['-march=armv6k','-mtune=mpcore','-mfloat-abi=hard','-mtp=soft']
@@ -25,6 +34,7 @@ def main():
  # KartObjectProxy accessors live in .cc files and inline only at link time.
  # Same IEEE semantics (-ffp-contract=off, no fast-math); the app keeps
  # ordinary objects, so the linker --wrap list below is unaffected.
+ if a.external_assets:flags+=['-DMKW_EXTERNAL_ASSETS']
  if a.release:flags+=['-DMKW_RELEASE','-DKINOKO_QUIET','-ffile-prefix-map='+str(ROOT)+'/=']
  lto=['-flto=auto']
  codegen=['-O2','-g','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fno-strict-aliasing','-ffp-contract=off']

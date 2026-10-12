@@ -15,6 +15,8 @@
 namespace mkw {
 class RaceSound {
 public:
+ bool prepareScene();
+ bool resourcesReady() const;
  struct Racer { std::uint8_t character = 0, vehicle = 0; bool local = false; };
  struct Setup {
   unsigned course = 0;        // retail course id (Kinoko::Course)
@@ -23,6 +25,7 @@ public:
   unsigned engineClass = 2;   // 0 50cc, 1 100cc, 2 150cc
   bool preview = false;       // the course preview plays first (retail intro section)
   unsigned racers = 0;
+  std::uint32_t graphicsReserve = 2048u * 1024;
   std::array<Racer, 12> racer{};
  };
  struct Frame {

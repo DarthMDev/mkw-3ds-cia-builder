@@ -1,7 +1,9 @@
 #include "mkw/renderer.hpp"
 #include "mkw/render_quality.hpp"
+#include "mkw/bloom_math.hpp"
 #include "mkw/race_effects.hpp"
 #include "mkw/nw4r_ef_draw.hpp"
+#include "mkw/retail_lighting.hpp"
 #include <array>
 #include <mkw/menu_ui.hpp>
 #include <mkw/render_metrics.hpp>
@@ -95,6 +97,7 @@ bool Texture::loadMemory(const void* data,size_t size,bool vram) {
     Tex3DS_TextureFree(t);
     C3D_TexFlush(&gpu); // Make decoded LINEAR pixels visible before first sampling.
     C3D_TexSetFilter(&gpu,GPU_LINEAR,GPU_LINEAR);
+    if(gpu.maxLevel)C3D_TexSetFilterMipmap(&gpu,GPU_LINEAR);
     C3D_TexSetWrap(&gpu,GPU_REPEAT,GPU_REPEAT);
     ready=true; return true;
 }
@@ -111,7 +114,7 @@ void Model::enableStaticCulling(){
     visibility.clear();visibility.reserve(submeshes.size());
     for(const auto& s:submeshes)visibility.push_back(buildVisibility(vertices,indices,s.first,s.count));
 }
-Model::~Model() { if(vertices)linearFree(vertices);if(indices)linearFree(indices); }
+Model::~Model() { if(vertices)linearFree(vertices);if(indices)linearFree(indices);if(skinBoneIndices)linearFree(skinBoneIndices); }
 bool Model::load(const char* path) {
     // Menu models come from the open menu.pak (one seek+read). Others stream
     // large payloads straight into LINEAR memory; a 32 KiB stdio buffer
@@ -145,12 +148,17 @@ std::printf("Missing model: %s\n",path);
 #endif
 return false;}
     uint32_t h[6];
-    if(!f.read(h,sizeof h)||std::memcmp(h,"GMDL",4)||(h[1]!=3&&h[1]!=4)||!h[2]||h[2]>65535||h[3]>3000000||h[4]>2048||h[5]>512) return false;
+    if(!f.read(h,sizeof h)||std::memcmp(h,"GMDL",4)||(h[1]!=3&&h[1]!=4&&h[1]!=5)||!h[2]||h[2]>65535||h[3]>3000000||h[4]>2048||h[5]>512) return false;
     vertexCount=h[2];indexCount=h[3]; submeshes.resize(h[4]);
     // v3 records end at animationFrames; v4 adds the retail lighting state.
-    const size_t record=h[1]==4?sizeof(Submesh):offsetof(Submesh,lighting);
+    const size_t record=h[1]==5?sizeof(Submesh):h[1]==4?offsetof(Submesh,menuReflection):offsetof(Submesh,lighting);
     for(auto& s:submeshes)if(!f.read(&s,record))return false;
     for(const auto& s:submeshes) if(s.first>indexCount||s.count>indexCount-s.first||s.count%3||s.texture< -1||s.texture>=static_cast<int32_t>(h[5])||s.secondary< -1||s.secondary>=static_cast<int32_t>(h[5]))return false;
+    for(const auto& s:submeshes){
+        if(s.menuReflection>6||s.menuReflection==5||(s.menuReflection&&!(s.lighting&retail::Menu)))return false;
+        if(s.menuReflection&&s.menuReflection!=3&&s.secondary<0)return false;
+        for(float x:s.reflectionUv)if(!std::isfinite(x))return false;
+    }
     for(uint32_t i=0;i<h[5];++i){
         char name[64]; if(!f.read(name,sizeof name)||!std::memchr(name,0,sizeof name)||std::strchr(name,'/')||std::strchr(name,'\\')||std::strstr(name,".."))return false;
         std::string texPath="textures/";texPath+=name;texPath+=".t3x";
@@ -246,7 +254,8 @@ bool Renderer::init(){
     if(!retailUniformLocations())return fail();
     bonesLoc_=shaderInstanceGetUniformLocation(program_.vertexShader,"bones");
     skinnedLoc_=shaderInstanceGetUniformLocation(program_.vertexShader,"skinned");
-    if(bonesLoc_<0||skinnedLoc_<0)return fail();
+    skinnedNormalsLoc_=shaderInstanceGetUniformLocation(program_.vertexShader,"skinnedNormals");
+    if(bonesLoc_<0||skinnedLoc_<0||skinnedNormalsLoc_<0)return fail();
     if(!C3D_TexInit(&white_,8,8,GPU_RGBA8))return fail();
     // Blackout, cinema bars and fades may all submit in one frame. Each draw
     // keeps distinct vertices until the next FrameBegin drains GPU use.
@@ -593,7 +602,9 @@ void Renderer::drawMenuIconNow(const Model& model,const Vertex* vertices,const C
 // (the rest is fixed for one draw): equal ones set identical GPU state.
 static bool sameMaterial(const Submesh& a,const Submesh& b){
     return a.flags==b.flags&&a.lighting==b.lighting&&a.constant==b.constant&&a.add==b.add&&a.ambient==b.ambient&&
-           (a.animationFrames>>16)==(b.animationFrames>>16)&&a.texture==b.texture&&a.secondary==b.secondary;
+           (a.animationFrames>>16)==(b.animationFrames>>16)&&a.texture==b.texture&&a.secondary==b.secondary&&
+           a.menuReflection==b.menuReflection&&a.reflectionConstant==b.reflectionConstant&&a.reflectionAdd==b.reflectionAdd&&
+           !std::memcmp(a.reflectionUv,b.reflectionUv,sizeof a.reflectionUv);
 }
 void Renderer::resetMaterialUniforms(){
     if(uvDirty_){
@@ -608,7 +619,12 @@ void Renderer::drawNow(const Model& model,const Vertex* vertices,const C3D_Mtx& 
     const uint32_t animationFrame=execFrame_,additiveColor=execAdditive_;
     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER,projectionLoc_,&projection_);
     C3D_Mtx mv;Mtx_Multiply(&mv,&view_,&transform);C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER,modelViewLoc_,&mv);
+    auto* attr=C3D_GetAttrInfo();AttrInfo_Init(attr);
+    AttrInfo_AddLoader(attr,0,GPU_FLOAT,3);AttrInfo_AddLoader(attr,1,GPU_FLOAT,3);AttrInfo_AddLoader(attr,2,GPU_FLOAT,4);AttrInfo_AddLoader(attr,3,GPU_UNSIGNED_BYTE,4);
     auto* buf=C3D_GetBufInfo();BufInfo_Init(buf);BufInfo_Add(buf,vertices,sizeof(Vertex),4,0x3210);
+    const bool litSkin=skinPalette_&&model.skinBoneIndices;
+    if(litSkin){AttrInfo_AddLoader(attr,4,GPU_FLOAT,1);BufInfo_Add(buf,model.skinBoneIndices,sizeof(float),1,4);}
+    C3D_BoolUnifSet(GPU_VERTEX_SHADER,skinnedNormalsLoc_,litSkin);
     if(skinPalette_){
         for(unsigned b=0;b<skinBones_;++b){const float* m=skinPalette_+b*skinStride_;
             for(unsigned r=0;r<3;++r)C3D_FVUnifSet(GPU_VERTEX_SHADER,bonesLoc_+int(b*3+r),m[r*4],m[r*4+1],m[r*4+2],m[r*4+3]);}
@@ -750,6 +766,45 @@ void Renderer::drawNow(const Model& model,const Vertex* vertices,const C3D_Mtx& 
                 C3D_TexEnvSrc(e1,C3D_Both,GPU_TEXTURE0,GPU_PREVIOUS);
                 C3D_TexEnvFunc(e1,C3D_Both,GPU_ADD);
             }
+            if(!(s.flags&1)&&((s.animationFrames>>16)&255)==1){
+                // Authored half-pipe border: T0.rgb + T1.rgb*T0.alpha.
+                C3D_TexEnvSrc(e0,C3D_RGB,GPU_TEXTURE0);C3D_TexEnvFunc(e0,C3D_RGB,GPU_REPLACE);
+                C3D_TexEnvSrc(e1,C3D_RGB,GPU_TEXTURE1,GPU_TEXTURE0,GPU_PREVIOUS);
+                C3D_TexEnvOpRgb(e1,GPU_TEVOP_RGB_SRC_COLOR,GPU_TEVOP_RGB_SRC_ALPHA);
+                C3D_TexEnvFunc(e1,C3D_RGB,GPU_MULTIPLY_ADD);
+            }
+            if(!(s.flags&1)&&((s.animationFrames>>16)&255)==2){
+                // GX sky: P + cloud*(1-P), not an additive cloud layer.
+                C3D_TexEnvSrc(e1,C3D_RGB,GPU_TEXTURE1,GPU_PREVIOUS,GPU_PREVIOUS);
+                C3D_TexEnvOpRgb(e1,GPU_TEVOP_RGB_SRC_COLOR,GPU_TEVOP_RGB_ONE_MINUS_SRC_COLOR,GPU_TEVOP_RGB_SRC_COLOR);
+                C3D_TexEnvFunc(e1,C3D_RGB,GPU_MULTIPLY_ADD);
+            }
+            if(s.menuReflection){
+                // GX: clamp(albedo*rasC + C1), then + reflection*APREV
+                // (APREV = albedo alpha * authored konst) or * konst RGB.
+                // Keep the intermediate alpha until stage 3 applies the
+                // source's final alpha; it is a reflection mask, not opacity.
+                C3D_TexEnvColor(e0,s.reflectionAdd);
+                C3D_TexEnvSrc(e0,C3D_RGB,GPU_TEXTURE0,GPU_PRIMARY_COLOR,GPU_CONSTANT);
+                C3D_TexEnvFunc(e0,C3D_RGB,GPU_MULTIPLY_ADD);
+                C3D_TexEnvSrc(e0,C3D_Alpha,GPU_TEXTURE0,GPU_CONSTANT);
+                C3D_TexEnvFunc(e0,C3D_Alpha,GPU_MODULATE);
+                if(s.menuReflection==4){
+                    // Banana: lerp(C0, albedo, raster), then its masked highlight.
+                    C3D_TexEnvSrc(e0,C3D_RGB,GPU_TEXTURE0,GPU_CONSTANT,GPU_PRIMARY_COLOR);
+                    C3D_TexEnvFunc(e0,C3D_RGB,GPU_INTERPOLATE);
+                }else if(s.menuReflection==6){
+                    // Shell: APREV = albedo alpha * lit raster alpha.
+                    C3D_TexEnvSrc(e0,C3D_Alpha,GPU_TEXTURE0,GPU_PRIMARY_COLOR);
+                }
+                if(s.menuReflection!=3){
+                    const bool mask=s.menuReflection==1||s.menuReflection==4||s.menuReflection==6;
+                    C3D_TexEnvColor(e1,s.reflectionConstant);
+                    C3D_TexEnvSrc(e1,C3D_RGB,GPU_TEXTURE1,mask?GPU_PREVIOUS:GPU_CONSTANT,GPU_PREVIOUS);
+                    C3D_TexEnvOpRgb(e1,GPU_TEVOP_RGB_SRC_COLOR,mask?GPU_TEVOP_RGB_SRC_ALPHA:GPU_TEVOP_RGB_SRC_COLOR);
+                    C3D_TexEnvFunc(e1,C3D_RGB,GPU_MULTIPLY_ADD);
+                }
+            }
             // Alpha is a separate GX equation: lighting's secondary texture
             // must not replace the road decal's actual alpha mask.
             const unsigned alphaMode=(s.flags>>20)&7;
@@ -767,7 +822,9 @@ void Renderer::drawNow(const Model& model,const Vertex* vertices,const C3D_Mtx& 
                 C3D_TexEnvColor(alpha,uint32_t(std::lround(std::clamp(o->tint[3],0.f,1.f)*255.f))<<24);
                 C3D_TexEnvSrc(alpha,C3D_Alpha,GPU_CONSTANT);C3D_TexEnvFunc(alpha,C3D_Alpha,GPU_REPLACE);
             }else if(alphaMode==4){
-                C3D_TexEnvSrc(alpha,C3D_Alpha,GPU_PRIMARY_COLOR);C3D_TexEnvFunc(alpha,C3D_Alpha,GPU_REPLACE);
+                const bool menu=s.lighting&mkw::retail::Menu;
+                if(menu)C3D_TexEnvColor(alpha,constant);
+                C3D_TexEnvSrc(alpha,C3D_Alpha,menu?GPU_CONSTANT:GPU_PRIMARY_COLOR);C3D_TexEnvFunc(alpha,C3D_Alpha,GPU_REPLACE);
             }else if(alphaMode==5){
                 C3D_TexEnvColor(alpha,constant);
                 C3D_TexEnvSrc(alpha,C3D_Alpha,GPU_TEXTURE0,GPU_TEXTURE1,GPU_CONSTANT);C3D_TexEnvFunc(alpha,C3D_Alpha,GPU_INTERPOLATE);
@@ -779,7 +836,7 @@ void Renderer::drawNow(const Model& model,const Vertex* vertices,const C3D_Mtx& 
             // Course-object CLR0 glows use the same stage (already 0xAABBGGRR).
             const uint32_t c=additiveColor;
             auto* star=C3D_GetTexEnv(5);C3D_TexEnvInit(star);
-            C3D_TexEnvColor(star,o&&(o->flags&SubmeshOverride::Add)?o->add&0xffffff:(c>>24)|((c>>8)&0xff00)|((c<<8)&0xff0000));
+            C3D_TexEnvColor(star,c?(c>>24)|((c>>8)&0xff00)|((c<<8)&0xff0000):o->add&0xffffff);
             C3D_TexEnvSrc(star,C3D_RGB,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(star,C3D_RGB,GPU_ADD);
         }
         if(menuIconLayer_){
@@ -796,7 +853,7 @@ void Renderer::drawNow(const Model& model,const Vertex* vertices,const C3D_Mtx& 
             C3D_TexEnvSrc(remap,C3D_RGB,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(remap,C3D_RGB,GPU_ADD);
             C3D_TexEnvSrc(remap,C3D_Alpha,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(remap,C3D_Alpha,GPU_MODULATE);
         }
-        retail=courseLighting_&&retailLight(s);
+        retail=(courseLighting_||(s.lighting&mkw::retail::Menu))&&retailLight(s);
         if(!retail){
             // Legacy grade: vertex colour * max(ambient floor, 0.35) * grade.
             const float ambient=std::max((s.flags&8)||backdrop?1.f:(courseLighting_?0.86f:0.f),0.35f)*modelBrightness_;
@@ -835,11 +892,13 @@ void Renderer::drawNow(const Model& model,const Vertex* vertices,const C3D_Mtx& 
         C3D_TexBind(1,secondary);
         // Retail course lighting: fog stage, light textures (after the generic setup).
         retailEnvironment=retail&&retailCombiners(s,mv,backdrop,additiveColor||(o&&(o->flags&SubmeshOverride::Add)),
-            o&&(o->flags&SubmeshOverride::Add)?o->add&0xffffff:(additiveColor>>24)|((additiveColor>>8)&0xff00)|((additiveColor<<8)&0xff0000));
+            additiveColor?(additiveColor>>24)|((additiveColor>>8)&0xff00)|((additiveColor<<8)&0xff0000):o&&(o->flags&SubmeshOverride::Add)?o->add&0xffffff:0);
         // A material binder owns the combiners and may replace any state above.
         if(material)material(context,i);
         last=o?nullptr:&s;lastRetail=retail;lastEnvironment=retailEnvironment;
         } // !repeat
+        const bool menuEnvironment=s.menuReflection&&s.menuReflection!=3;
+        if(menuEnvironment)environmentUvNow(transform,s.reflectionUv);
         if(parts){
             const bool environment=(s.flags&(1u<<25))&&((s.flags>>12)&3)==3&&rigid_->stride>=21;
             for(size_t n=0;n<parts->size();++n){
@@ -871,15 +930,21 @@ void Renderer::drawNow(const Model& model,const Vertex* vertices,const C3D_Mtx& 
             C3D_DrawElements(GPU_TRIANGLES,range.count,C3D_UNSIGNED_SHORT,model.indices+range.first);
             stats_.triangles+=range.count/3;++stats_.drawCalls;
         }
+        if(menuEnvironment)clearEnvironmentUvNow();
         pendingEnd=retail;
     }
     if(pendingEnd)retailEndSubmesh();
     // Later draws (sprites, sparks, other models) expect identity UV rows/tint.
     resetMaterialUniforms();
     if(skinPalette_)C3D_BoolUnifSet(GPU_VERTEX_SHADER,skinnedLoc_,false);
+    if(litSkin){
+        AttrInfo_Init(attr);AttrInfo_AddLoader(attr,0,GPU_FLOAT,3);AttrInfo_AddLoader(attr,1,GPU_FLOAT,3);AttrInfo_AddLoader(attr,2,GPU_FLOAT,4);AttrInfo_AddLoader(attr,3,GPU_UNSIGNED_BYTE,4);
+        C3D_BoolUnifSet(GPU_VERTEX_SHADER,skinnedNormalsLoc_,false);
+    }
 }
 void Renderer::shadowVolumesNow(const ShadowVolume* volumes,unsigned count,float darkness){
     flushSprites();
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER,projectionLoc_,&projection_);
     resetMaterialUniforms();
     for(int stage=0;stage<6;++stage)C3D_TexEnvInit(C3D_GetTexEnv(stage));
     const uint32_t shade=uint32_t(std::round(std::clamp(darkness,0.f,1.f)*255.f));
@@ -900,16 +965,23 @@ void Renderer::shadowVolumesNow(const ShadowVolume* volumes,unsigned count,float
     // GX winds outward faces clockwise: culling CCW fronts keeps them.
     C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITEMASK(0));
     C3D_StencilTest(true,GPU_ALWAYS,0,0xff,0xff);
-    C3D_StencilOp(GPU_STENCIL_KEEP,GPU_STENCIL_KEEP,GPU_STENCIL_INCR_WRAP);
+    // Count occluded faces (z-fail). Original closed shadow meshes can
+    // intersect the near plane, so z-pass leaves an unbalanced silhouette.
+    C3D_StencilOp(GPU_STENCIL_KEEP,GPU_STENCIL_DECR_WRAP,GPU_STENCIL_KEEP);
     drawAll(GPU_CULL_FRONT_CCW);
-    C3D_StencilOp(GPU_STENCIL_KEEP,GPU_STENCIL_KEEP,GPU_STENCIL_DECR_WRAP);
+    C3D_StencilOp(GPU_STENCIL_KEEP,GPU_STENCIL_INCR_WRAP,GPU_STENCIL_KEEP);
     drawAll(GPU_CULL_BACK_CCW);
     // Shade each marked pixel once and clear its count for later volumes.
     C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
     C3D_StencilTest(true,GPU_NOTEQUAL,0,0xff,0xff);
     C3D_StencilOp(GPU_STENCIL_KEEP,GPU_STENCIL_KEEP,GPU_STENCIL_ZERO);
-    C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_ZERO,GPU_SRC_COLOR,GPU_ZERO,GPU_ONE);
-    drawAll(GPU_CULL_FRONT_CCW);
+    // A screen quad also shades/clears the stencil when the camera is
+    // inside a volume. Drawing a volume face here depends on near clipping
+    // again, and can leave stray counts for later objects/particles.
+    screenFadeNow(1.f-float(shade)/255.f,false);
+    // The fullscreen shade temporarily binds an orthographic projection.
+    // Consecutive volume groups must return to this eye's perspective.
+    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER,projectionLoc_,&projection_);
     C3D_StencilTest(false,GPU_ALWAYS,0,0xff,0);
     C3D_StencilOp(GPU_STENCIL_KEEP,GPU_STENCIL_KEEP,GPU_STENCIL_KEEP);
     C3D_DepthTest(true,GPU_GEQUAL,GPU_WRITE_ALL);
@@ -1420,8 +1492,8 @@ void Renderer::textNow(const char* text,float x,float y,float size,uint32_t rgba
 }
 // Every modified vertex/texture range is explicitly flushed by its writer.
 // Citro3D may flush the command list without redundantly flushing the LINEAR heap.
-void Renderer::requestBloomNow(float threshold,uint32_t tint,float intensity){
-    bloomRequested_=intensity>0;bloomThreshold_=threshold;bloomTint_=tint;bloomIntensity_=intensity;
+void Renderer::requestBloomNow(const CourseBloom& settings){
+    bloomRequested_=settings.enabled();bloomSettings_=&settings;
 }
 bool Renderer::initBloomTargets(){
     if(sceneTarget_)return true;
@@ -1429,10 +1501,10 @@ bool Renderer::initBloomTargets(){
     // 240x400 scene in a 256x512 VRAM texture; 60x100 bright/blur buffers.
     bool ok=C3D_TexInitVRAM(&sceneTex_,256,512,GPU_RGBA8)&&
         (sceneTarget_=C3D_RenderTargetCreateFromTex(&sceneTex_,GPU_TEXFACE_2D,0,GPU_RB_DEPTH24_STENCIL8))!=nullptr;
-    for(unsigned i=0;ok&&i<2;++i)
+    for(unsigned i=0;ok&&i<3;++i)
         ok=C3D_TexInitVRAM(&bloomTex_[i],64,128,GPU_RGBA8)&&(bloomTarget_[i]=C3D_RenderTargetCreateFromTex(&bloomTex_[i],GPU_TEXFACE_2D,0,-1))!=nullptr;
     if(!ok){freeBloom();bloomFailed_=true;return false;}
-    for(auto* t:{&sceneTex_,&bloomTex_[0],&bloomTex_[1]}){C3D_TexSetFilter(t,GPU_LINEAR,GPU_LINEAR);C3D_TexSetWrap(t,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);}
+    for(auto* t:{&sceneTex_,&bloomTex_[0],&bloomTex_[1],&bloomTex_[2]}){C3D_TexSetFilter(t,GPU_LINEAR,GPU_LINEAR);C3D_TexSetWrap(t,GPU_CLAMP_TO_EDGE,GPU_CLAMP_TO_EDGE);}
     return true;
 }
 bool Renderer::initBloom(){
@@ -1463,7 +1535,7 @@ void Renderer::bloomPass(C3D_RenderTarget* target,unsigned width,unsigned height
     C3D_FVUnifSet(GPU_VERTEX_SHADER,uvScrollLoc_,0,0,0,0);
     C3D_CullFace(GPU_CULL_NONE);C3D_AlphaTest(false,GPU_ALWAYS,0);C3D_DepthTest(false,GPU_ALWAYS,GPU_WRITE_COLOR);
 }
-void Renderer::bloomQuad(const C3D_Tex& source,unsigned sourceWidth,unsigned sourceHeight,float width,float height,float du,float dv){
+void Renderer::bloomQuad(const C3D_Tex& source,unsigned sourceWidth,unsigned sourceHeight,float width,float height,float du,float dv,unsigned secondWidth,unsigned secondHeight){
     // A landscape point (X,Y) of a WxH region lies at window (H-Y, W-X) of its
     // portrait target; texture-backed targets store window (x,y) at texel (x,y).
     if(bloomCount_+6>kBloomVertices)return;
@@ -1475,6 +1547,10 @@ void Renderer::bloomQuad(const C3D_Tex& source,unsigned sourceWidth,unsigned sou
     for(int i=0;i<6;++i){
         quad[i]={{corners[i][0],corners[i][1],0},{0,0,1},{0,0},{0,0},{255,255,255,255}};
         uv(corners[i][0],corners[i][1],quad[i].uv);
+        if(secondWidth){
+            quad[i].uv1[0]=(float(secondHeight)-corners[i][1]*float(secondHeight)/height)/tw;
+            quad[i].uv1[1]=(float(secondWidth)-corners[i][0]*float(secondWidth)/width)/th;
+        }
     }
     // Each frame repeats the same quads in the same slots: rewrite (and flush)
     // only a slot whose vertices differ. The GPU finished the last frame.
@@ -1485,43 +1561,64 @@ void Renderer::bloomQuad(const C3D_Tex& source,unsigned sourceWidth,unsigned sou
 }
 void Renderer::applyBloomNow(){
     flushSprites();bloomFrame_=false;
-    auto pica=[](uint32_t rgba,float scale){
-        auto c=[&](unsigned shift){return uint32_t(std::clamp(float((rgba>>shift)&255)*scale,0.f,255.f));};
-        return c(24)|(c(16)<<8)|(c(8)<<16)|0xff000000u;
-    };
-    auto env=[](){for(int i=0;i<6;++i)C3D_TexEnvInit(C3D_GetTexEnv(i));return C3D_GetTexEnv(0);};
+    const auto& settings=*bloomSettings_;
+    auto pica=[](uint32_t rgba){return ((rgba>>24)&255)|((rgba>>8)&0xff00)|((rgba<<8)&0xff0000)|((rgba<<24)&0xff000000);};
+    auto env=[](){C3D_TexEnvBufUpdate(C3D_Both,0);for(int i=0;i<6;++i)C3D_TexEnvInit(C3D_GetTexEnv(i));return C3D_GetTexEnv(0);};
     auto blend=[](bool add){C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_ONE,add?GPU_ONE:GPU_ZERO,GPU_ONE,add?GPU_ONE:GPU_ZERO);};
-    // Bright pass: four bilinear taps average each 4x4 block of max(scene-threshold,0)*tint.
+    // USA EGG threshold filter: subtract the threshold constant, double with
+    // scene alpha, then modulate by the original scene. Tint belongs to the
+    // final composite, so coloured light can spread before being tinted.
     bloomPass(bloomTarget_[0],100,60);
-    auto* e0=env();auto* e1=C3D_GetTexEnv(1);
-    const uint32_t threshold=uint32_t(std::clamp(bloomThreshold_,0.f,1.f)*255.f+.5f);
-    C3D_TexEnvColor(e0,threshold*0x010101u|0xff000000u);
-    C3D_TexEnvSrc(e0,C3D_RGB,GPU_TEXTURE0,GPU_CONSTANT);C3D_TexEnvFunc(e0,C3D_RGB,GPU_SUBTRACT);
-    C3D_TexEnvSrc(e0,C3D_Alpha,GPU_CONSTANT);C3D_TexEnvFunc(e0,C3D_Alpha,GPU_REPLACE);
-    C3D_TexEnvColor(e1,pica(bloomTint_,.25f));
-    C3D_TexEnvSrc(e1,C3D_RGB,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(e1,C3D_RGB,GPU_MODULATE);
+    auto* e0=env();C3D_TexEnvColor(e0,pica(bloomThresholdColor(settings)));
+    C3D_TexEnvSrc(e0,C3D_Both,GPU_TEXTURE0,GPU_CONSTANT);C3D_TexEnvFunc(e0,C3D_Both,GPU_SUBTRACT);
+    auto* e1=C3D_GetTexEnv(1);
+    C3D_TexEnvSrc(e1,C3D_Both,GPU_PREVIOUS,GPU_TEXTURE0);C3D_TexEnvFunc(e1,C3D_Both,GPU_MODULATE);
+    C3D_TexEnvOpRgb(e1,GPU_TEVOP_RGB_SRC_COLOR,GPU_TEVOP_RGB_SRC_ALPHA);C3D_TexEnvScale(e1,C3D_Both,GPU_TEVSCALE_2);
+    auto* e2=C3D_GetTexEnv(2);C3D_TexEnvSrc(e2,C3D_Both,GPU_PREVIOUS,GPU_TEXTURE0);C3D_TexEnvFunc(e2,C3D_Both,GPU_MODULATE);
+    auto* e3=C3D_GetTexEnv(3);C3D_TexEnvColor(e3,0x40404040u);
+    C3D_TexEnvSrc(e3,C3D_Both,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(e3,C3D_Both,GPU_MODULATE);
     constexpr float taps[4][2]={{-1,-1},{1,-1},{-1,1},{1,1}};
     for(unsigned i=0;i<4;++i){blend(i>0);bloomQuad(sceneTex_,400,240,100,60,taps[i][0],taps[i][1]);}
-    // Separable blur: 4 bilinear taps (weights 1,2,2,2,1)/8 per axis, twice.
-    auto blur=[&](unsigned from,unsigned to,bool horizontal){
-        bloomPass(bloomTarget_[to],100,60);
-        auto* e=env();C3D_TexEnvColor(e,0xff404040u);
-        C3D_TexEnvSrc(e,C3D_RGB,GPU_TEXTURE0,GPU_CONSTANT);C3D_TexEnvFunc(e,C3D_RGB,GPU_MODULATE);
-        C3D_TexEnvSrc(e,C3D_Alpha,GPU_CONSTANT);C3D_TexEnvFunc(e,C3D_Alpha,GPU_REPLACE);
-        constexpr float offsets[4]={-1.5f,-.5f,.5f,1.5f};
-        for(unsigned i=0;i<4;++i){blend(i>0);bloomQuad(bloomTex_[from],100,60,100,60,horizontal?offsets[i]:0,horizontal?0:offsets[i]);}
+    // EGG keeps a near band (8 taps) and a far band (8 + 16 taps). Reduced
+    // quality halves spatial samples, doubling their weights to keep energy.
+    // Radii are original low-resolution texels, converted to the 3DS canvas.
+    const unsigned reduction=renderQuality().bloomBlurRounds<2?2:1;
+    auto ring=[&](unsigned source,unsigned sourceWidth,unsigned sourceHeight,unsigned dest,unsigned width,unsigned height,
+                  unsigned band,unsigned stage,bool preserve){
+        bloomPass(bloomTarget_[dest],width,height);
+        auto* e=env();const unsigned coefficient=unsigned(bloomTapIntensity(settings,band,stage)*255.f+.5f);
+        C3D_TexEnvColor(e,coefficient*0x01010101u);
+        C3D_TexEnvSrc(e,C3D_Both,GPU_TEXTURE0,GPU_CONSTANT);C3D_TexEnvFunc(e,C3D_Both,GPU_MODULATE);
+        if(reduction==2)C3D_TexEnvScale(e,C3D_Both,GPU_TEVSCALE_2);
+        const unsigned nativeTaps=stage?16:8,count=nativeTaps/reduction;
+        // The far source is downsampled by two; sampling its parent texture
+        // directly with bilinear filtering saves an extra copy and target.
+        const float radius=settings.strength[band]*(band?2.f:1.f);
+        for(unsigned i=0;i<count;++i){
+            const auto& tap=BloomRing[i*(16/count)];blend(preserve||i>0);
+            bloomQuad(bloomTex_[source],sourceWidth,sourceHeight,float(width),float(height),
+                tap[0]*radius*(400.f/608.f),tap[1]*radius*(240.f/456.f));
+        }
     };
-    // Reduced detail keeps bloom with one blur round (a tighter glow).
-    for(unsigned round=0;round<renderQuality().bloomBlurRounds;++round){blur(0,1,true);blur(1,0,false);}
-    // Composite on the top screen: the scene, then the bloom added.
+    ring(0,100,60,1,100,60,0,0,false);
+    ring(1,100,60,2,50,30,1,0,false);
+    ring(1,100,60,2,50,30,1,1,true);
     bloomPass(topTarget(),400,240);
     e0=env();C3D_TexEnvSrc(e0,C3D_Both,GPU_TEXTURE0);C3D_TexEnvFunc(e0,C3D_Both,GPU_REPLACE);
     blend(false);bloomQuad(sceneTex_,400,240,400,240,0,0);
-    e0=env();C3D_TexEnvColor(e0,pica(0xffffffffu,std::clamp(bloomIntensity_,0.f,4.f)*.25f));
-    C3D_TexEnvSrc(e0,C3D_RGB,GPU_TEXTURE0,GPU_CONSTANT);C3D_TexEnvFunc(e0,C3D_RGB,GPU_MODULATE);C3D_TexEnvScale(e0,C3D_RGB,GPU_TEVSCALE_4);
-    C3D_TexEnvSrc(e0,C3D_Alpha,GPU_CONSTANT);C3D_TexEnvFunc(e0,C3D_Alpha,GPU_REPLACE);
-    blend(true);bloomQuad(bloomTex_[0],100,60,400,240,0,0);
-    // Leave the usual 2D state for the HUD.
+    // Preserve the two authored composite weights and their alpha. Retail
+    // output mode 1 selects blend preset 5: inverse-source-colour / one.
+    e0=env();unsigned w0=unsigned(std::clamp(settings.weight[0],0.f,1.f)*255.f),w1=unsigned(std::clamp(settings.weight[1],0.f,1.f)*255.f);
+    C3D_TexEnvColor(e0,w0*0x01010101u);C3D_TexEnvSrc(e0,C3D_Both,GPU_TEXTURE0,GPU_CONSTANT);C3D_TexEnvFunc(e0,C3D_Both,GPU_MODULATE);
+    C3D_TexEnvBufUpdate(C3D_Both,1);
+    e1=C3D_GetTexEnv(1);C3D_TexEnvColor(e1,w1*0x01010101u);
+    C3D_TexEnvSrc(e1,C3D_Both,GPU_TEXTURE1,GPU_CONSTANT);C3D_TexEnvFunc(e1,C3D_Both,GPU_MODULATE);
+    e2=C3D_GetTexEnv(2);C3D_TexEnvSrc(e2,C3D_Both,GPU_PREVIOUS,GPU_PREVIOUS_BUFFER);C3D_TexEnvFunc(e2,C3D_Both,GPU_ADD);
+    e3=C3D_GetTexEnv(3);C3D_TexEnvColor(e3,pica(bloomDisplayTint(settings)));
+    C3D_TexEnvSrc(e3,C3D_Both,GPU_PREVIOUS,GPU_CONSTANT);C3D_TexEnvFunc(e3,C3D_Both,GPU_MODULATE);
+    C3D_TexBind(1,&bloomTex_[2]);
+    C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_ONE_MINUS_SRC_COLOR,GPU_ONE,GPU_ONE_MINUS_SRC_ALPHA,GPU_ONE);
+    bloomQuad(bloomTex_[1],100,60,400,240,0,0,50,30);
     for(int unit=0;unit<3;++unit)C3D_TexBind(unit,nullptr);
     auto* env0=env();C3D_TexEnvSrc(env0,C3D_Both,GPU_TEXTURE0,GPU_PRIMARY_COLOR);C3D_TexEnvFunc(env0,C3D_Both,GPU_MODULATE);
     C3D_AlphaBlend(GPU_BLEND_ADD,GPU_BLEND_ADD,GPU_SRC_ALPHA,GPU_ONE_MINUS_SRC_ALPHA,GPU_ONE,GPU_ONE_MINUS_SRC_ALPHA);

@@ -25,15 +25,16 @@ public:
     bool loop(unsigned clip) const {return clip<count_&&clips_[clip].loop;}
     // A rejected current-pose bound skips only skinning/upload; palette transitions still advance.
     bool apply(Model& model,int clip,float frame,unsigned tick=0,int expression=-1,float expressionFrame=0,const ClipFrustum* frustum=nullptr);
-    // Race racers never environment-map (the shader's lighting term ignores
-    // normals), so their skinned normals cannot reach a pixel: skip them, and
-    // skin each shared (position, matrix) pair once (call after load).
+    // Choose whether CPU fallback skins normals. Unlit course objects can
+    // share each (position, matrix) pair instead (call after load).
     void skinNormals(bool on);
     // Load-only setup for the same unlit race model passed to load(). Try GPU
     // skinning before allocating CPU position-sharing maps; a rejected GPU
     // setup retains the skinNormals(false) CPU fallback. Returns GPU mode.
     // Repeated GPU setup preserves the current pose and model contents.
     bool prepareUnlitSkinning(Model& model);
+    // GPU positions and inverse-transpose normals; CPU fallback for large banks.
+    bool prepareLitSkinning(Model& model);
     // Rigid skinning on the GPU: when every triangle follows a single palette
     // matrix (no secondary hair, constant shape visibility), rewrites the model
     // to matrix-local vertices, groups each submesh's triangles by matrix and
@@ -44,10 +45,10 @@ public:
     const std::vector<std::vector<RigidPart>>& rigidParts() const {return rigidParts_;}
     // Evaluates the palette for clip/frame, including transition blends.
     const float* pose(int clip,float frame,unsigned tick=0);
-    // GPU skinning (with normal skinning disabled): rewrites the model to
-    // bone-local positions with 3 * bone index in normal.x. apply() then only
-    // writes hidden shapes, facial UVs and textures; draw with palette(). Only
-    // each bone's first 12 floats (affine rows) remain current in this mode.
+    // GPU skinning rewrites positions to bone-local space. Lit models keep
+    // source normals and a separate bone-index attribute; unlit models store
+    // the index in normal.x. apply() only writes visibility, UVs and textures;
+    // draw with palette(). The GPU needs just the first 12 affine floats.
     bool gpuSkin(Model& model);
     bool gpuSkinned() const {return gpu_;}
     const float* palette() const {return palette_.data();}
@@ -81,7 +82,7 @@ private:
     void evaluate(const Clip& c,unsigned a,unsigned b,float t,unsigned tick,float blend);
     std::vector<std::vector<RigidPart>> rigidParts_;
     std::array<int,64> baseTextures_{};
-    uint8_t* data_=nullptr;const SourceVertex* source_=nullptr;const Range* ranges_=nullptr;
+    uint8_t* data_=nullptr;bool dataLinear_=false;const SourceVertex* source_=nullptr;const Range* ranges_=nullptr;
     unsigned vertices_=0,matrices_=0,shapes_=0,count_=0,faceCount_=0,transitionTick_=0;
     int lastClip_=-1;
     int handleDrive_=-1,dash_=-1,shake_=-1;

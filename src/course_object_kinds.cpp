@@ -478,10 +478,20 @@ void drawTruckWagon(ObjectDraw& d,Visual& v){
         if(v.shadow.model)d.shadow(v.shadow.model,m);
     }
 }
-// GCN Peach Beach tide: five layered sea models at Kinoko's water height.
+// Psea's logical position includes the authored Psea5spc mesh height.
+// Mesh vertices already contain that height: only the parent displacement
+// belongs in their transform. Retail places sand 48 units above the wave
+// layers, and the specular layer one unit above Psea4tex (USA 80818720).
 void drawTide(ObjectDraw& d,Visual& v){
-    const C3D_Mtx m=liveMatrix(*v.object);
-    for(const auto& t:v.extra)if(t.model)d.submit(t.model,m,animAt(t,float(d.tick)));
+    C3D_Mtx m=liveMatrix(*v.object);
+    m.r[1].w-=9590.399f+1.f;
+    for(unsigned i=0;i<v.extra.size();++i){
+        const auto& t=v.extra[i];if(!t.model)continue;
+        C3D_Mtx layer=m;
+        if(i==0)layer.r[1].w+=48.f;
+        else if(i==4)layer.r[1].w+=1.f;
+        d.submit(t.model,layer,animAt(t,float(d.tick)));
+    }
 }
 constexpr float Pi=3.14159265f;
 // Retail's deforming roads run on the race timer once the race starts.
@@ -834,6 +844,7 @@ bool classifyObject(Visual& v,const ObjectAssets& assets,int course){
 }
 void drawObject(ObjectDraw& d,Visual& v){if(v.present)v.present(d,v);}
 bool skyObject(const Visual& v){return v.present==drawSun;}
+bool waterObject(const Visual& v){return v.present==drawTide;}
 const K::Field::ObjectBase* reviewFocus(const Visual& v){
     if(v.present==drawTruckWagon){
         for(size_t i=0;i+1<v.parts.size();++i)if(static_cast<const K::Field::ObjectTruckWagonCart*>(v.parts[i])->isActive())return v.parts[i];
