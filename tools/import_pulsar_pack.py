@@ -92,15 +92,34 @@ RETRO_REWIND_CUP_NAMES = [
 ]
 
 def determine_track_laps(name: str, default_laps: int = 3) -> int:
-    """Calculate authentic lap counts for smaller courses and sprint tracks."""
-    nl = name.lower()
-    if 'baby park' in nl:
-        return 7
-    if nl.startswith('snes ') or nl.startswith('rmx '):
-        return 5
-    if 'wuhu loop' in nl or 'maka wuhu' in nl or '3ds rainbow road' in nl or 'mount wario' in nl or 'big blue' in nl:
-        return 1
-    return default_laps
+    """Calculate authentic lap counts directly matching course.kmp STGI headers."""
+    kmp_non_3 = {
+        '3ds maka wuhu': 1,
+        '3ds rainbow road': 1,
+        '3ds wuhu loop': 1,
+        'gba bowser castle 4': 2,
+        'gcn baby park': 7,
+        'gcn bowser\'s castle': 2,
+        'gcn rainbow road': 2,
+        'gcn wario colosseum': 2,
+        'gp diamond city': 4,
+        'n64 rainbow road': 2,
+        'n64 wario stadium': 2,
+        'snes choco island 1': 5,
+        'snes ghost valley 1': 5,
+        'snes koopa beach 1': 5,
+        'snes mario circuit 1': 5,
+        'snes vanilla lake 1': 5,
+        'snes vanilla lake 2': 5,
+        'sw2 dk spaceport': 1,
+        'sw2 ghost valley': 2,
+        'sw2 mario circuit': 1,
+        'sw2 peach resort': 2,
+        'sw2 rainbow road': 1,
+        'tour athens dash': 1,
+        'wii u big blue': 2,
+    }
+    return kmp_non_3.get(name.lower().strip(), default_laps)
 
 def generate_cup_name(cup_idx: int, total_cups: int, first_track_name: str = ""):
     """Generate meaningful cup name based on Retro Rewind definitions or index."""
