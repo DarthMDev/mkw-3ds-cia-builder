@@ -156,6 +156,36 @@ def parse_config_pul(data: bytes, crc_names: dict = None):
                 'has_mega_tc': bool(has_mega_tc),
             }
 
+    messages = {}
+    if off_bmg > 0 and off_bmg < len(data):
+        bmg_data = data[off_bmg:]
+        if len(bmg_data) > 32 and bmg_data[:8] == b'MESGbmg1':
+            pos = 32
+            inf1 = mid1 = dat1 = None
+            while pos < len(bmg_data):
+                sec, size = struct.unpack_from('>4sI', bmg_data, pos)
+                if sec == b'INF1': inf1 = bmg_data[pos:pos+size]
+                elif sec == b'MID1': mid1 = bmg_data[pos:pos+size]
+                elif sec == b'DAT1': dat1 = bmg_data[pos:pos+size]
+                pos += size
+            if inf1 and dat1:
+                num_entries, entry_size = struct.unpack_from('>HH', inf1, 8)
+                mids = []
+                if mid1:
+                    num_mids = struct.unpack_from('>H', mid1, 8)[0]
+                    for i in range(num_mids):
+                        mids.append(struct.unpack_from('>I', mid1, 16 + i * 4)[0])
+                for i in range(num_entries):
+                    offset = struct.unpack_from('>I', inf1, 16 + i * entry_size)[0]
+                    str_start = 8 + offset
+                    end = str_start
+                    while end + 1 < len(dat1):
+                        if dat1[end:end+2] == b'\x00\x00': break
+                        end += 2
+                    raw = dat1[str_start:end]
+                    mid = mids[i] if i < len(mids) else i
+                    messages[mid] = raw.decode('utf-16-be', errors='replace').strip()
+
     cups_list = []
     if off_cups > 0 and off_cups < len(data):
         cups_magic, cups_ver, cups_sz = struct.unpack_from('>4sII', data, off_cups)
@@ -180,7 +210,9 @@ def parse_config_pul(data: bytes, crc_names: dict = None):
                             'slot': slot,
                             'music_slot': music_slot,
                             'crc32': crc,
-                            'index': global_track_idx
+                            'index': global_track_idx,
+                            'author': messages.get(0x30000 + global_track_idx, ''),
+                            'music_credit': messages.get(0x170000 + global_track_idx, '')
                         })
                         global_track_idx += 1
                         offset += track_stride
@@ -324,13 +356,13 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
         print(f"[*] Parsing Config binary at {config_pul_path}")
         parsed = parse_config_pul(config_pul_path.read_bytes(), crc_names)
         mod_name = parsed.get('mod_name', mod_name)
-        has_200cc = parsed.get('info', {}).get('has_200cc', True)
+        has_200cc = parsed.get('info', {}).get('has_200cc', False)
         cups = parsed.get('cups', [])
     elif manifest_json_path.exists():
         print(f"[*] Loading existing manifest {manifest_json_path}")
         data = json.loads(manifest_json_path.read_text())
         mod_name = data.get('mod_name', mod_name)
-        has_200cc = data.get('settings', {}).get('enable_200cc', True)
+        has_200cc = data.get('settings', {}).get('enable_200cc', False)
         cups = data.get('cups', [])
     else:
         print(f"[*] Auto-discovering SZS tracks in {tracks_dir}")

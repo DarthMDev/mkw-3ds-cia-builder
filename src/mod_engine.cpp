@@ -399,6 +399,8 @@ bool ModEngine::loadManifest(const char* manifestPath) {
     // Check for boolean settings
     if (strstr(p, "\"enable_200cc\": true") || strstr(p, "\"enable_200cc\":true")) {
         settings_.enable200cc = true;
+    } else if (strstr(p, "\"enable_200cc\": false") || strstr(p, "\"enable_200cc\":false")) {
+        settings_.enable200cc = false;
     }
     if (strstr(p, "\"brake_drift\": true") || strstr(p, "\"brake_drift\":true")) {
         settings_.brakeDrifting = true;
@@ -465,6 +467,12 @@ bool ModEngine::loadManifest(const char* manifestPath) {
 
                             const char* tMusic = findKey(trackObjStart, "music_stream_id", trackObjEnd);
                             trackDef.musicStreamId = tMusic ? static_cast<uint16_t>(parseInt(tMusic)) : 0;
+
+                            const char* tCredit = findKey(trackObjStart, "music_credit", trackObjEnd);
+                            if (tCredit) parseString(tCredit, trackDef.musicCredit, sizeof(trackDef.musicCredit));
+
+                            const char* tAuthor = findKey(trackObjStart, "author", trackObjEnd);
+                            if (tAuthor) parseString(tAuthor, trackDef.author, sizeof(trackDef.author));
 
                             const char* tModels = findKey(trackObjStart, "models", trackObjEnd);
                             if (tModels) parseString(tModels, trackDef.models, sizeof(trackDef.models));
@@ -789,6 +797,32 @@ const char* ModEngine::activeTrackVariantArchive(unsigned courseIndex) const {
         }
     }
     return "";
+}
+
+const char* ModEngine::trackAuthor(unsigned courseIndex) const {
+    if (const auto* track = findTrackByIndex(courseIndex)) {
+        if (track->author[0]) {
+            return track->author;
+        }
+    }
+    return "";
+}
+
+const char* ModEngine::activeTrackAuthor() const {
+    return trackAuthor(activeCourse_);
+}
+
+const char* ModEngine::trackMusicCredit(unsigned courseIndex) const {
+    if (const auto* track = findTrackByIndex(courseIndex)) {
+        if (track->musicCredit[0]) {
+            return track->musicCredit;
+        }
+    }
+    return "";
+}
+
+const char* ModEngine::activeMusicCredit() const {
+    return trackMusicCredit(activeCourse_);
 }
 
 } // namespace mkw

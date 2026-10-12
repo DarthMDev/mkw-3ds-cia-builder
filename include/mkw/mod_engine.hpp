@@ -24,6 +24,8 @@ struct ModTrackDef {
     char sky[64]{};
     uint8_t lapCount = 3;
     uint16_t musicStreamId = 0;
+    char musicCredit[64]{};
+    char author[64]{};
     char mapTexture[64]{};
     char mapOverview[64]{};
     float mapX0 = 0.f, mapZ0 = 0.f, mapX1 = 0.f, mapZ1 = 0.f;
@@ -168,6 +170,14 @@ public:
     unsigned activeTrackVariant(unsigned courseIndex) const;
     const char* activeTrackVariantArchive(unsigned courseIndex) const;
 
+    // Track Authors & Music Credits
+    const char* trackAuthor(unsigned courseIndex) const;
+    const char* activeTrackAuthor() const;
+    const char* trackMusicCredit(unsigned courseIndex) const;
+    const char* activeMusicCredit() const;
+    void setActiveCourse(unsigned courseIndex) { activeCourse_ = courseIndex; }
+    unsigned activeCourse() const { return activeCourse_; }
+
 private:
     ModEngine();
     ~ModEngine();
@@ -184,6 +194,7 @@ private:
     std::array<std::vector<std::string>, 26> characterSkinNames_{};
     std::array<std::vector<std::string>, 26> characterSkinAuthors_{};
     std::array<unsigned, 256> activeTrackVariants_{};
+    unsigned activeCourse_ = 0;
 };
 
 inline ModEngine& modEngine() {

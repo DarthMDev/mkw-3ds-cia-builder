@@ -712,6 +712,7 @@ int main() {
         vehicleChoice=menu.selection.vehicle;
         automaticDrift=menu.selection.automatic;
         engineClass=menu.selection.mode==mkw::UiMode::GrandPrix&&menu.selection.engineClass==mkw::UiEngineClass::CC50?0:menu.selection.mode==mkw::UiMode::GrandPrix&&menu.selection.engineClass==mkw::UiEngineClass::CC100?1:2;
+        mkw::modEngine().setActiveCourse(courseChoice);
         const char* varArch=mkw::modEngine().activeTrackVariantArchive(courseChoice);
         if(varArch&&varArch[0])mkw::modEngine().setActiveTrackArchive(varArch);
         else mkw::modEngine().setActiveTrackArchive(mkw::course(courseChoice).archive);
@@ -1048,6 +1049,7 @@ int main() {
         const char* varArch=mkw::modEngine().activeTrackVariantArchive(courseChoice);
         if(varArch&&varArch[0])mkw::modEngine().setActiveTrackArchive(varArch);
         else mkw::modEngine().setActiveTrackArchive(curCourse.archive);
+        mkw::modEngine().setActiveCourse(courseChoice);
         if(linearSpaceFree()<2u*1024*1024){
             LOGF("WARNING: Low LINEAR heap space before track load: %lu bytes", (unsigned long)linearSpaceFree());
         }
@@ -2059,6 +2061,52 @@ int main() {
                     char best[32];if(bestTimes[courseChoice]){char t[16];formatTime(t,sizeof t,bestTimes[courseChoice]);snprintf(best,sizeof best,"BEST %s",t);}else snprintf(best,sizeof best,"BEST -:--.---");
                     renderer.drawScreenText(best,392-6*float(std::strlen(best)),62,1.f,0xffffffffu);
                     if(newRecord)renderer.drawScreenText("NEW RECORD!",200-33*2,84,2.f,0xffe040ffu);
+                }
+                const auto stage=race->stage();
+                const auto raceTime=race->timer();
+                if((stage==K::System::RaceManager::Stage::Countdown||(stage==K::System::RaceManager::Stage::Race&&raceTime<180))&&!results.hudGone()){
+                    const char* author=mkw::modEngine().trackAuthor(courseChoice);
+                    const char* credit=mkw::modEngine().trackMusicCredit(courseChoice);
+                    const bool hasAuthor=author&&*author;
+                    const bool hasMusic=credit&&*credit;
+                    if(hasAuthor||hasMusic){
+                        float alpha=1.f;
+                        if(stage==K::System::RaceManager::Stage::Race&&raceTime>=120){
+                            alpha=std::clamp(1.f-float(raceTime-120)/60.f,0.f,1.f);
+                        }
+                        const uint32_t aByte=uint32_t(alpha*255.f);
+                        if(aByte>0){
+                            const uint32_t shadowCol=(aByte&0xffu);
+                            const uint32_t textCol=0xffffff00u|(aByte&0xffu);
+                            if(hasAuthor&&hasMusic){
+                                char authBuf[96], musBuf[96];
+                                std::snprintf(authBuf,sizeof authBuf,"Author: %s",author);
+                                std::snprintf(musBuf,sizeof musBuf,"Music: %s",credit);
+                                const float authW=float(std::strlen(authBuf))*6.f;
+                                const float musW=float(std::strlen(musBuf))*6.f;
+                                const float authX=std::max(8.f,200.f-(authW*0.5f));
+                                const float musX=std::max(8.f,200.f-(musW*0.5f));
+                                renderer.drawScreenText(authBuf,authX+1.f,14.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(authBuf,authX,14.f,1.f,textCol);
+                                renderer.drawScreenText(musBuf,musX+1.f,25.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(musBuf,musX,25.f,1.f,textCol);
+                            } else if(hasAuthor){
+                                char authBuf[96];
+                                std::snprintf(authBuf,sizeof authBuf,"Author: %s",author);
+                                const float authW=float(std::strlen(authBuf))*6.f;
+                                const float authX=std::max(8.f,200.f-(authW*0.5f));
+                                renderer.drawScreenText(authBuf,authX+1.f,16.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(authBuf,authX,16.f,1.f,textCol);
+                            } else {
+                                char musBuf[96];
+                                std::snprintf(musBuf,sizeof musBuf,"Music: %s",credit);
+                                const float musW=float(std::strlen(musBuf))*6.f;
+                                const float musX=std::max(8.f,200.f-(musW*0.5f));
+                                renderer.drawScreenText(musBuf,musX+1.f,16.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(musBuf,musX,16.f,1.f,textCol);
+                            }
+                        }
+                    }
                 }}
             renderer.setScreenDepth(renderer.stereoLayer(mkw::stereo::HudLayer));
             if(fullRace)flowUi.drawResults(renderer,results);

@@ -939,8 +939,19 @@ struct SoundSystem::Impl {
   auto* self = static_cast<Impl*>(ctx);
   char full[256]; std::snprintf(full, sizeof full, "%saudio/%s", self->root.c_str(), path);
 
-  // If a custom track is active and race BGM is requested, check for custom BRSTM stream
-  if (path && std::strncmp(path, "strm/", 5) == 0) {
+  // If a custom track is active and race BGM is requested, check for custom BRSTM stream.
+  // Fanfares (STRM_O_* / *_FAN) and UI streams must NOT be replaced with the race BGM.
+  const bool isFanfareOrUI = path && (std::strstr(path, "STRM_O_") ||
+                                      std::strstr(path, "_FAN") ||
+                                      std::strstr(path, "_fan") ||
+                                      std::strstr(path, "o_Fanfare") ||
+                                      std::strstr(path, "TITLE") ||
+                                      std::strstr(path, "MENU") ||
+                                      std::strstr(path, "GOAL") ||
+                                      std::strstr(path, "WIN") ||
+                                      std::strstr(path, "LOSE") ||
+                                      std::strstr(path, "RESULT"));
+  if (path && std::strncmp(path, "strm/", 5) == 0 && !isFanfareOrUI) {
       const char* activeArch = mkw::modEngine().activeTrackArchive();
       if (activeArch && *activeArch) {
           const char* slash = std::strrchr(activeArch, '/');
