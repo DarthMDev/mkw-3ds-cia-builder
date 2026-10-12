@@ -6,6 +6,7 @@
 #include <mkw/sound_system.hpp>
 #include <mkw/menu_movie_audio.hpp>
 #include <mkw/snd_layout.hpp>
+#include <mkw/mod_engine.hpp>
 #include <3ds.h>
 #include <algorithm>
 #include <array>
@@ -899,6 +900,58 @@ struct SoundSystem::Impl {
  static std::unique_ptr<StreamFeed> openStream(void* ctx, const char* path, u32 startSample) {
   auto* self = static_cast<Impl*>(ctx);
   char full[256]; std::snprintf(full, sizeof full, "%saudio/%s", self->root.c_str(), path);
+
+  // If a custom track is active and race BGM is requested, check for custom BRSTM stream
+  if (path && std::strncmp(path, "strm/", 5) == 0) {
+      const char* activeArch = mkw::modEngine().activeTrackArchive();
+      if (activeArch && *activeArch) {
+          const char* slash = std::strrchr(activeArch, '/');
+          const char* base = slash ? slash + 1 : activeArch;
+          char stem[64] = {};
+          const char* dot = std::strrchr(base, '.');
+          size_t stemLen = dot ? size_t(dot - base) : std::strlen(base);
+          if (stemLen > 0 && stemLen < sizeof(stem)) {
+              std::memcpy(stem, base, stemLen);
+              stem[stemLen] = '\0';
+
+              const bool isFinal = (std::strstr(path, "_f.brstm") || std::strstr(path, "_F.brstm"));
+              char custom[256] = {};
+              bool found = false;
+
+              if (isFinal) {
+                  std::snprintf(custom, sizeof custom, "%saudio/strm/%s_Final.brstm", self->root.c_str(), stem);
+                  if (access(custom, F_OK) == 0) found = true;
+                  if (!found) {
+                      std::snprintf(custom, sizeof custom, "%saudio/strm/%s_F.brstm", self->root.c_str(), stem);
+                      if (access(custom, F_OK) == 0) found = true;
+                  }
+                  if (!found) {
+                      std::snprintf(custom, sizeof custom, "%saudio/strm/%s_f.brstm", self->root.c_str(), stem);
+                      if (access(custom, F_OK) == 0) found = true;
+                  }
+              }
+
+              if (!found) {
+                  std::snprintf(custom, sizeof custom, "%saudio/strm/%s_N.brstm", self->root.c_str(), stem);
+                  if (access(custom, F_OK) == 0) found = true;
+                  if (!found) {
+                      std::snprintf(custom, sizeof custom, "%saudio/strm/%s_n.brstm", self->root.c_str(), stem);
+                      if (access(custom, F_OK) == 0) found = true;
+                  }
+                  if (!found) {
+                      std::snprintf(custom, sizeof custom, "%saudio/strm/%s.brstm", self->root.c_str(), stem);
+                      if (access(custom, F_OK) == 0) found = true;
+                  }
+              }
+
+              if (found) {
+                  std::strncpy(full, custom, sizeof(full) - 1);
+                  full[sizeof(full) - 1] = '\0';
+              }
+          }
+      }
+  }
+
   auto* feed = new BrstmFeed();
   feed->path = full; feed->startAt = startSample;
   LightLock_Lock(&self->streamLock); self->feeds.push_back(feed); LightLock_Unlock(&self->streamLock);

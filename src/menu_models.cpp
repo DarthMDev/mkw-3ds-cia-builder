@@ -2,6 +2,7 @@
 #include "mkw/menu_model_params.hpp"
 #include "mkw/menu_model_motion.hpp"
 #include "mkw/render_metrics.hpp"
+#include "mkw/mod_engine.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -45,11 +46,17 @@ const char* seatedClip(unsigned driver,unsigned choice) {
 struct Wanted {int driver=-1,machine=-1,background=-1;};
 Wanted wanted(const MenuState& state){
     Wanted w;
-    w.driver=state.page==UiPage::Character?int(state.characterDriver(state.cursor)):
-             machinePage(state.page)?int(state.selection.driver):-1;
+    int drv=state.page==UiPage::Character?int(state.characterDriver(state.cursor)):
+            machinePage(state.page)?int(state.selection.driver):-1;
+    if(drv>=0&&drv<24){
+        unsigned retailId=unsigned(drv)<UiCharacters.size()?UiCharacters[drv].retailId:unsigned(drv);
+        unsigned skinSlot=mkw::modEngine().characterSkin(retailId);
+        w.driver=drv|(skinSlot<<8);
+    }else{
+        w.driver=-1;
+    }
     const unsigned choice=state.page==UiPage::Vehicle?state.vehicleChoice(state.cursor):state.selection.vehicle;
-    w.machine=machinePage(state.page)&&w.driver>=0&&w.driver<24&&choice<12?w.driver*12+int(choice):-1;
-    if(w.driver>=24)w.driver=-1;
+    w.machine=machinePage(state.page)&&drv>=0&&drv<24&&choice<12?drv*12+int(choice):-1;
     w.background=backgroundFor(state);
     return w;
 }
@@ -79,9 +86,35 @@ struct ModelJob final:AssetJob {
     ModelJob(int k,int i):kind(k),id(i){
         label=k==Driver?"driver model":k==Background?"background model":"machine model";
         char path[96];
-        if(k==Driver){std::snprintf(path,sizeof path,"models/ui_driver_%d_000.gmdl",i);modelPath=path;std::snprintf(path,sizeof path,"models/ui_driver_%d.dskm",i);animationPath=path;}
+        if(k==Driver){
+            unsigned driverIdx=unsigned(i)&0xffu;
+            unsigned skinSlot=(unsigned(i)>>8)&0xffu;
+            char skinModel[128];
+            std::snprintf(skinModel,sizeof skinModel,"models/ui_driver_%u_skin_%u_000.gmdl",driverIdx,skinSlot);
+            char sdSkinModel[128];
+            std::snprintf(sdSkinModel,sizeof sdSkinModel,"sdmc:/3ds/mkw-3ds/%s",skinModel);
+            FILE* f=fopen(skinModel,"rb");
+            if(!f) f=fopen(sdSkinModel,"rb");
+            if(skinSlot>0&&f){
+                fclose(f);
+                modelPath=skinModel;
+                std::snprintf(path,sizeof path,"models/ui_driver_%u_skin_%u.dskm",driverIdx,skinSlot);
+                char sdPath[128];
+                std::snprintf(sdPath,sizeof sdPath,"sdmc:/3ds/mkw-3ds/%s",path);
+                FILE* af=fopen(path,"rb");
+                if(!af) af=fopen(sdPath,"rb");
+                if(af){fclose(af);animationPath=path;}
+                else{std::snprintf(path,sizeof path,"models/ui_driver_%u.dskm",driverIdx);animationPath=path;}
+            }else{
+                if(f)fclose(f);
+                std::snprintf(path,sizeof path,"models/ui_driver_%u_000.gmdl",driverIdx);
+                modelPath=path;
+                std::snprintf(path,sizeof path,"models/ui_driver_%u.dskm",driverIdx);
+                animationPath=path;
+            }
+        }
         if(k==Background){std::snprintf(path,sizeof path,"models/ui_back_%d_000.gmdl",i);modelPath=path;std::snprintf(path,sizeof path,"models/ui_back_%d.dskm",i);animationPath=path;}
-        if(k==Machine){std::snprintf(path,sizeof path,"models/ui_machine_%d_%u_000.gmdl",i/12,unsigned(i%12));modelPath=path;}
+        if(k==Machine){std::snprintf(path,sizeof path,"models/ui_machine_%d_%u_000.gmdl",(i/12)&0xff,unsigned(i%12));modelPath=path;}
     }
     void run()override{
         auto loaded=std::make_unique<Model>();if(!loaded->load(modelPath.c_str()))return;
@@ -166,9 +199,11 @@ void MenuModels::update(Renderer& renderer,const MenuState& visual){
     choose(Background,w.background,shownBackground_);
     choose(Machine,w.machine,shownMachine_);
     // The seated driver must be the one on the displayed machine.
-    choose(Driver,shownMachine_>=0?shownMachine_/12:w.driver,shownDriver_);
+    choose(Driver,shownMachine_>=0?(shownMachine_/12)|(w.driver&~0xff):w.driver,shownDriver_);
     if(auto* driver=shownDriver_>=0?find(Driver,shownDriver_):nullptr;driver&&driver->animation){
-        const int clip=driver->animation->find(shownMachine_>=0?seatedClip(unsigned(shownMachine_/12),unsigned(shownMachine_%12)):"sel_wait");
+        int clip=driver->animation->find(shownMachine_>=0?seatedClip(unsigned(shownMachine_/12),unsigned(shownMachine_%12)):"sel_wait");
+        if(clip<0)clip=driver->animation->find("sel_wait");
+        if(clip<0)clip=driver->animation->find("drive");
         if(clip!=driverClip_){driver->animation->clearPoseTransition();driverFrame_=0;}
         driverClip_=clip;
     }

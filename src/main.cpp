@@ -95,7 +95,18 @@ extern "C" u32 __stacksize__=64u<<10;
 namespace K = Kinoko;
 static constexpr const char* DATA = "sdmc:/3ds/mkw-3ds";
 namespace mkw {extern std::atomic<unsigned> fileOpens;extern std::atomic<unsigned long long> fileOpenTicks;}
-static bool exists(const char* p) { FILE* f=fopen(p,"rb"); if(!f)return false; fclose(f);return true; }
+static bool exists(const char* p) {
+    if (!p || !*p) return false;
+    FILE* f = fopen(p, "rb");
+    if (f) { fclose(f); return true; }
+    if (p[0] != '/') {
+        char sd[256];
+        snprintf(sd, sizeof sd, "sdmc:/3ds/mkw-3ds/%s", p);
+        f = fopen(sd, "rb");
+        if (f) { fclose(f); return true; }
+    }
+    return false;
+}
 static K::u8* replayData=nullptr;
 using mkw::Courses;
 using mkw::CourseCount;
@@ -318,11 +329,21 @@ int main() {
     struct ResidencyKey {
         mkw::UiPage page=mkw::UiPage::Strap;unsigned cursor=0;mkw::UiSelection selection{};bool unavailable=false;
         bool modal=false;mkw::UiPage underlayPage=mkw::UiPage::Strap;unsigned underlayCursor=0;
+        unsigned skin=0;
         bool operator==(const ResidencyKey&)const=default;
     };
     auto residencyKey=[](const mkw::MenuState& state,const mkw::MenuState* underlay){
         ResidencyKey key;key.page=state.page;key.cursor=state.cursor;key.selection=state.selection;key.unavailable=state.unavailable;
         if(underlay){key.modal=true;key.underlayPage=underlay->page;key.underlayCursor=underlay->cursor;}
+        if(state.page==mkw::UiPage::Character){
+            const unsigned drv=state.characterDriver(state.cursor);
+            const unsigned rid=drv<mkw::UiCharacters.size()?mkw::UiCharacters[drv].retailId:drv;
+            key.skin=mkw::modEngine().characterSkin(rid);
+        }else if(state.page==mkw::UiPage::Vehicle){
+            const unsigned drv=state.selection.driver;
+            const unsigned rid=drv<mkw::UiCharacters.size()?mkw::UiCharacters[drv].retailId:drv;
+            key.skin=mkw::modEngine().characterSkin(rid);
+        }
         return key;
     };
     auto residentQuads=[&](const mkw::MenuState& state,const mkw::UiTransitionView* motion,std::vector<mkw::UiQuad>& out){
@@ -382,16 +403,16 @@ int main() {
             menuProfile->begin(unsigned(menu.page),transition.active());
             hidScanInput();unsigned down=hidKeysDown();
             unsigned navigation=down|hidKeysDownRepeat();
-            mkw::UiInput input{bool(navigation&(KEY_DUP|KEY_CPAD_UP)),bool(navigation&(KEY_DDOWN|KEY_CPAD_DOWN)),bool(navigation&(KEY_DLEFT|KEY_CPAD_LEFT)),bool(navigation&(KEY_DRIGHT|KEY_CPAD_RIGHT)),bool(down&KEY_A),bool(down&KEY_B),bool(down&KEY_START),bool(down&KEY_Y),bool(down&(KEY_L|KEY_ZL)),bool(down&(KEY_R|KEY_ZR))};
+            mkw::UiInput input{bool(navigation&(KEY_DUP|KEY_CPAD_UP)),bool(navigation&(KEY_DDOWN|KEY_CPAD_DOWN)),bool(navigation&(KEY_DLEFT|KEY_CPAD_LEFT)),bool(navigation&(KEY_DRIGHT|KEY_CPAD_RIGHT)),bool(down&KEY_A),bool(down&KEY_B),bool(down&KEY_START),bool(down&KEY_Y),bool(down&(KEY_L|KEY_ZL)),bool(down&(KEY_R|KEY_ZR|(menu.page==mkw::UiPage::Character?KEY_X:0)))};
             touchPosition touch;hidTouchRead(&touch);
             if(down&KEY_TOUCH){
                 if(menu.page==mkw::UiPage::Cup){
                     if(touch.px<80)input.pageLeft=true;
                     else if(touch.px>240)input.pageRight=true;
                 }else if(menu.page==mkw::UiPage::Character){
-                    if(touch.py>140&&touch.px<160){
-                        if(touch.px<70)input.pageLeft=true;
-                        else if(touch.px>90)input.pageRight=true;
+                    if(touch.py>100&&touch.px<160){
+                        if(touch.px<60)input.pageLeft=true;
+                        else if(touch.px>70)input.pageRight=true;
                     }
                 }else if(menu.page==mkw::UiPage::Settings){
                     if(touch.py<90)menu.cursor=0;
@@ -576,7 +597,9 @@ int main() {
         driverChoice=menu.selection.driver;
         vehicleChoice=menu.selection.vehicle;
         automaticDrift=menu.selection.automatic;
-        mkw::modEngine().setActiveTrackArchive(mkw::course(courseChoice).archive);
+        const char* varArch=mkw::modEngine().activeTrackVariantArchive(courseChoice);
+        if(varArch&&varArch[0])mkw::modEngine().setActiveTrackArchive(varArch);
+        else mkw::modEngine().setActiveTrackArchive(mkw::course(courseChoice).archive);
     };
     if(fullRace){if(runMenu()!=mkw::UiAction::StartRace){finishAutoplay();renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();mkw::SoundSystem::instance().stop();mkw::MenuMovieAudio::shutdown();mkw::modEngine().shutdown();renderer.shutdown();gfxExit();return 0;}applySelection();menu.raceStarted();raceLoadStart=svcGetSystemTick();}
     bool dataReady=exists("Race/Common.szs")&&courseAvailable(courseChoice);
@@ -798,22 +821,38 @@ int main() {
         bodyClock={};accessoryClocks={};
         driverAnimation.reset();bodyAnimation.reset();vehicle.reset();driver.reset();for(auto& w:wheels)w.reset();for(auto& a:accessoryAnimations)a.reset();for(auto& a:accessories)a.reset();
         const char* prefix=replay?"replay_":selectedVehicle().prefix;
-        auto part=[&](const char* name){auto model=std::make_unique<mkw::Model>();char path[128];snprintf(path,sizeof path,"models/%s%s.gmdl",prefix,name);if(!model->load(path))model.reset();return model;};
-        vehicle=part("body");driver=part("driver");
+        const unsigned drv = driverChoice;
+        const unsigned rid = drv < mkw::UiCharacters.size() ? mkw::UiCharacters[drv].retailId : drv;
+        const unsigned skin = mkw::modEngine().characterSkin(rid);
+        char skinPrefix[128];
+        bool hasSkin = false;
+        if (!replay && skin > 0) {
+            std::snprintf(skinPrefix, sizeof skinPrefix, "%sskin_%u_", prefix, skin);
+            char testGmdl[160];
+            std::snprintf(testGmdl, sizeof testGmdl, "models/%sdriver.gmdl", skinPrefix);
+            char sdTestGmdl[160];
+            std::snprintf(sdTestGmdl, sizeof sdTestGmdl, "sdmc:/3ds/mkw-3ds/%s", testGmdl);
+            FILE* tf = std::fopen(testGmdl, "rb");
+            if (!tf) tf = std::fopen(sdTestGmdl, "rb");
+            if (tf) { std::fclose(tf); hasSkin = true; }
+        }
+        const char* drvPrefix = hasSkin ? skinPrefix : prefix;
+        auto part=[&](const char* name, const char* pfx){auto model=std::make_unique<mkw::Model>();char path[128];snprintf(path,sizeof path,"models/%s%s.gmdl",pfx,name);if(!model->load(path))model.reset();return model;};
+        vehicle=part("body", prefix);driver=part("driver", drvPrefix);
         static const char* wheelNames[]={"tire_fl","tire_fr","tire_rl","tire_rr"};
         bool bike=replay||selectedVehicle().bike;
-        for(unsigned i=0;i<(bike?2u:4u);++i)wheels[i]=part(wheelNames[i]);
+        for(unsigned i=0;i<(bike?2u:4u);++i)wheels[i]=part(wheelNames[i], prefix);
         auto animation=[&](const char* name,mkw::Model& model){auto bank=std::make_unique<mkw::DriverAnimation>();char path[128];snprintf(path,sizeof path,"models/%s%s.dskm",prefix,name);if(!bank->load(path,model))bank.reset();else bank->prepareUnlitSkinning(model);return bank;};
         if(!replay){const auto& entry=selectedVehicle();
             if(vehicle&&entry.bodyAnimation)bodyAnimation=animation("body",*vehicle);
             for(unsigned i=0;i<accessories.size();++i)if(entry.extrasMask&(1u<<i)){
-                accessories[i]=part(mkw::GarageExtraNames[i]);
+                accessories[i]=part(mkw::GarageExtraNames[i], prefix);
                 if(accessories[i]&&(entry.extraAnimationMask&(1u<<i)))accessoryAnimations[i]=animation(mkw::GarageExtraNames[i],*accessories[i]);
             }
         }
         driftEffects.load(bike?"textures/drift-effects-bike.bin":"textures/drift-effects.bin");
         vehicleAnimation.reset();vehicleAnimation.step(*K::Kart::KartObjectManager::Instance()->object(0));
-        char path[128];snprintf(path,sizeof path,"models/%sdriver.dskm",prefix);
+        char path[128];snprintf(path,sizeof path,"models/%sdriver.dskm",drvPrefix);
         bool ok=driver&&driverAnimation.load(path,*driver);driverController.reset();driverPose={};
         if(driver)driverAnimation.prepareUnlitSkinning(*driver);else driverAnimation.skinNormals(false);
         for(unsigned i=0;i<driverAnimation.count();++i)driverController.setDuration(driverAnimation.name(i),driverAnimation.duration(i));
@@ -869,7 +908,9 @@ int main() {
         trackLoadFailed=false;
         courseObjects.reset();track.clear();sky.clear();
         const auto& curCourse=mkw::course(courseChoice);
-        mkw::modEngine().setActiveTrackArchive(curCourse.archive);
+        const char* varArch=mkw::modEngine().activeTrackVariantArchive(courseChoice);
+        if(varArch&&varArch[0])mkw::modEngine().setActiveTrackArchive(varArch);
+        else mkw::modEngine().setActiveTrackArchive(curCourse.archive);
         if(linearSpaceFree()<2u*1024*1024){
             LOGF("WARNING: Low LINEAR heap space before track load: %lu bytes", (unsigned long)linearSpaceFree());
         }
@@ -882,7 +923,7 @@ int main() {
                 auto model=std::make_unique<mkw::Model>();char path[128];snprintf(path,sizeof path,"models/%s.gmdl",name);
                 if(model->load(path))parts.push_back(std::move(model));else {trackLoadFailed=true;report(path);report("FAIL course part load");}
             }fclose(f);
-            if(parts.empty())trackLoadFailed=true;
+            if(&parts!=&sky&&parts.empty())trackLoadFailed=true;
         };
         loadList(curCourse.models,track);
         loadList(curCourse.sky,sky);
@@ -1153,7 +1194,7 @@ int main() {
             // QA autoplay owns every input: a stray host controller (Azahar's UDP
             // input server) must not steer the scripted race.
             if(autoplay)pad={0,0};
-            unsigned buttons=(held&KEY_A?1:0)|(held&KEY_B?2:0)|(held&KEY_L?4:0)|(held&KEY_R?(held&KEY_A?10:2):0);
+            unsigned buttons=(held&KEY_A?1u:0u)|(held&KEY_B?2u:0u)|(held&KEY_L?4u:0u)|(held&KEY_R?8u:0u);
             if(fullRace)buttons&=~4u; // Inventory owns L in races; retain stock mushrooms in trace/QA.
             auto trick=K::System::Trick::None;
             if(held&KEY_DUP)trick=K::System::Trick::Up;else if(held&KEY_DDOWN)trick=K::System::Trick::Down;
@@ -1176,7 +1217,7 @@ int main() {
             const bool rampTrick=fullRace&&rampTrickFrames&&(held&KEY_R)&&
                 K::Kart::KartObjectManager::Instance()->object(0)->status().onBit(K::Kart::eStatus::Trickable);
             if(trick==K::System::Trick::None){
-                if(rampTrick){trick=padTrick();buttons=(buttons&~10u)|(held&KEY_B?2u:0u);}
+                if(rampTrick){trick=padTrick();buttons&=~8u;}
                 else if(!qaMode&&(held&(KEY_X|KEY_Y)))trick=padTrick();
             }
             // Preserve the Wii input lattice used by ghost records.

@@ -427,6 +427,7 @@ def main():
  mod_engine_src=(ROOT/'src/mod_engine.cpp').read_text()
  skin_matches=re.findall(r'\"([^\"]+)\"',mod_engine_src.split('RETRO_SKIN_TABLE[24] = {',1)[1].split('};',1)[0]) if 'RETRO_SKIN_TABLE[24] = {' in mod_engine_src else []
  skin_names=['Default']+[s for s in dict.fromkeys(skin_matches) if s and not s.startswith('Race/')]
+ author_labels=[f'By {s}' for s in skin_names]+[f'Author: {s}' for s in skin_names]
  skin_footers=[f'Skin: < {s} > (L / R)' for s in skin_names]+[f'Skin: {s}' for s in skin_names]+[f'Skin: < {s} >' for s in skin_names]
  cup_pages=[f'Page {p}/6 (L / R to flip)' for p in range(1,7)]+[f'Page {p}/6' for p in range(1,7)]
  nav_buttons=['< Prev','Next >','< Prev [L]','[R] Next >','[L]','[R]','<','>','L','R','(L / R)']
@@ -434,7 +435,7 @@ def main():
  labels=['Single Player','Multiplayer','Nintendo WFC','Main Menu','Grand Prix','Time Trials','VS','Battle','Not available','Character','Character Select','Vehicle','Machine Select','Drift','Drift Type','Automatic','Manual','Cup','Select Cup','Course','Start Race','Pause','Continue','Restart','Quit','Quit this race?','Yes','No','Results','Race Again','Change Course','Change Character','Main Menu','Press A','A: Select    B: Back','A: Select    B: Cancel','A: Start    B: Back','START: Pause','A: Next    B: Back','Loading...','Race unavailable','Choose another course','Finish','Racing','12 racers','No teams','150cc','A: Accelerate   B: Brake','R: Drift   L: Item','Circle Pad: Steer','D-pad: Trick / Wheelie','Hold down + L: Throw back','A: Confirm    B: Cancel','Manual drift','Automatic drift','VS Race','Course Select','Single race','Mushroom Cup','Flower Cup','Star Cup','Special Cup','Shell Cup','Banana Cup','Leaf Cup','Lightning Cup']
  labels+=['Mario','Luigi','Peach','Yoshi','Baby Mario','Baby Peach','Toad','Koopa Troopa','Wario','Waluigi','Donkey Kong','Bowser']
  labels+=course_names+[c['name'] for c in garage['choices']]+list('0123456789:.-/')
- labels+=manifest_cups+manifest_tracks+skin_names+skin_footers+cup_pages+nav_buttons+settings_strings
+ labels+=manifest_cups+manifest_tracks+skin_names+author_labels+skin_footers+cup_pages+nav_buttons+settings_strings
  labels+=[text for values in help_text.values() for text in values]
  labels+=re.findall(r'\"([^\"]+)\"',(ROOT/'include/mkw/menu_ui.hpp').read_text())
  labels+=['Characters','Vehicles','Engine Classes','Cups','Courses','Select License','New','License','License 1','License 2','License 3','License 4','50cc','100cc','150cc','Mirror','Solo Race','Team Race','Balloon Battle','Coin Runners','Wii Stages','Retro Stages','Select Stage','Speed','Weight','Acceleration','Handling','Drift','Off-Road','Mini-Turbo','Karts Only','Bikes Only','Karts and Bikes','Press the A Button','OK','Back','Options','Mario Kart Channel','Grand Prix Race','Time Trial','VS Settings','Battle Settings','Unsupported race configuration','Create a license','Attach the Wii Remote wrist strap.','Press A to continue.','Please use the wrist strap.','A: Select','1 Player','2 Players','3 Players','4 Players','Race This Ghost','Watch the Replay','Solo Time Trials','Player','Players','Booster Seat','Flame Runner','Jet Bubble']
@@ -457,7 +458,7 @@ def main():
   'option':['Settings']+settings_strings,'license_edit':['License Settings'],
   'drift_help':['Help'],
   'license_top_empty':['NEW'],'license_bottom_empty':['NEW'],
-  'character_name':character_labels+skin_names,'vehicle_name':vehicle_labels,
+  'character_name':character_labels+skin_names+author_labels,'vehicle_name':vehicle_labels,
   'vehicle_ability':['Speed','Weight','Acceleration','Handling','Drift','Off-Road','Mini-Turbo'],
   'drift':['Automatic','Manual'],'cup':['Mushroom Cup','Flower Cup','Star Cup','Special Cup','Shell Cup','Banana Cup','Leaf Cup','Lightning Cup','Wii Stages','Retro Stages']+manifest_cups, 'character':[], 'vehicle':[],
   'cup_course':course_names+manifest_tracks,
@@ -467,7 +468,7 @@ def main():
   'course':course_names+battle_labels+manifest_tracks,'vs':['Solo Race','Team Race'],'battle':['Balloon Battle','Coin Runners'],
   'confirm':['OK','Start Race','Race This Ghost','Watch the Replay','Solo Time Trials'],
   'back':['←Back','Back'],
-  'button':['Race This Ghost','Watch the Replay','Solo Time Trials','Yes','No','Continue','Restart','Quit','Race Again','Change Course','Change Character','Main Menu','Not available']+nav_buttons+settings_strings+skin_names+['< Prev','Next >','[L]','[R]']}
+  'button':['Race This Ghost','Watch the Replay','Solo Time Trials','Yes','No','Continue','Restart','Quit','Race Again','Change Course','Change Character','Main Menu','Not available']+nav_buttons+settings_strings+skin_names+author_labels+['< Prev','Next >','[L]','[R]']}
  for required in roles.values():
   for label in required:
    if label not in labels:labels.append(label)

@@ -4,7 +4,7 @@
 #include <vector>
 #include <cstdint>
 namespace mkw {
-enum class UiPage {Title,MainMenu,Mode,Character,Vehicle,Drift,Cup,Course,Confirm,Race,Pause,QuitConfirm,Results,Error,Strap,License,EngineClass,VSMode,BattleMode,BattleCup,BattleStage,Ghost,Intro,Settings};
+enum class UiPage {Title,MainMenu,Mode,Character,Vehicle,Drift,Cup,Course,TrackVariant,Confirm,Race,Pause,QuitConfirm,Results,Error,Strap,License,EngineClass,VSMode,BattleMode,BattleCup,BattleStage,Ghost,Intro,Settings};
 enum class UiAction {None,StartRace,RestartRace,ResumeRace,Exit};
 enum class UiMode {GrandPrix,TimeTrials,VS,Battle};
 enum class UiEngineClass {CC50,CC100,CC150,Mirror};

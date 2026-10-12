@@ -125,6 +125,7 @@ unsigned MenuState::count()const{
  case UiPage::VSMode:case UiPage::BattleMode:case UiPage::BattleCup:case UiPage::Drift:case UiPage::QuitConfirm:return 2;
  case UiPage::Cup:return mkw::cupCount();
  case UiPage::Course:return 4;
+ case UiPage::TrackVariant:return mkw::modEngine().trackVariantCount(selection.course);
  case UiPage::BattleStage:return 5;
  case UiPage::Ghost:case UiPage::Pause:return 3;
  default:return 1;
@@ -137,6 +138,7 @@ unsigned MenuState::columns()const{
  case UiPage::Character:case UiPage::Cup:return 4;
  case UiPage::Vehicle:return kartsOnly(selection)||bikesOnly(selection)?1:2;
  case UiPage::BattleCup:return 2;
+ case UiPage::TrackVariant:return 1;
  default:return 1;
  }
 }
@@ -212,6 +214,7 @@ UiAction MenuState::input(UiInput key){
   case UiPage::Drift:enter(UiPage::Vehicle);break;
   case UiPage::Cup:case UiPage::BattleCup:enter(UiPage::Drift);break;
   case UiPage::Course:enter(UiPage::Cup);break;
+  case UiPage::TrackVariant:enter(UiPage::Course);break;
   case UiPage::BattleStage:enter(UiPage::BattleCup);break;
   case UiPage::Ghost:enter(UiPage::Course);break;
   case UiPage::Confirm:case UiPage::Error:
@@ -328,7 +331,15 @@ UiAction MenuState::input(UiInput key){
   // A Grand Prix selects the whole cup. VS and Time Trials select a course.
   if(selection.course/4!=cursor||selection.mode==UiMode::GrandPrix)selection.course=cursor*4;
   enter(selection.mode==UiMode::GrandPrix?UiPage::Confirm:UiPage::Course);break;
- case UiPage::Course:selection.course=selection.course/4*4+cursor;enter(selection.mode==UiMode::TimeTrials?UiPage::Ghost:UiPage::Confirm);break;
+ case UiPage::Course:
+  selection.course=selection.course/4*4+cursor;
+  if(mkw::modEngine().trackVariantCount(selection.course)>1){cursor=0;enter(UiPage::TrackVariant);}
+  else enter(selection.mode==UiMode::TimeTrials?UiPage::Ghost:UiPage::Confirm);
+  break;
+ case UiPage::TrackVariant:
+  mkw::modEngine().setActiveTrackVariant(selection.course,cursor);
+  enter(selection.mode==UiMode::TimeTrials?UiPage::Ghost:UiPage::Confirm);
+  break;
  case UiPage::Ghost:if(cursor==2)enter(UiPage::Confirm);else unavailable=true;break;
  case UiPage::BattleCup:
   if(selection.battleStage/5!=cursor)selection.battleStage=cursor*5;

@@ -317,21 +317,34 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
  case UiPage::Character:{
   Pose parent=control("CharacterSelectNULL","CharacterSelectNULL");constexpr unsigned within[]={0,1,4,6,2,3,5,7};
   for(unsigned i=0;i<s.count();++i){char group[48];std::snprintf(group,sizeof group,"CharacterSelect4_%u",i<24?i/8:3);Pose p=child(parent,numbered(group,i<24?within[i%8]:i-24));c.button("character",i,p);c.icon("driver_",s.characterDriver(i),c.buttonState("character",i).c_str(),"chara",p);if(s.cursor==i)c.glow("character",p,nullptr,s.characterDriver(i));}
-  Pose name=control("CharacterSelectName","CharacterSelectName");c.panel("character_name",name);c.text(UiCharacters[s.characterDriver(s.cursor)].name,"character_name",name,0xffffffff,"mii_name");
-  const unsigned selDriver=s.characterDriver(s.cursor);
-  const unsigned retailId=selDriver<UiCharacters.size()?UiCharacters[selDriver].retailId:selDriver;
-  if(mkw::modEngine().isModLoaded()&&mkw::modEngine().characterSkinCount(retailId)>0){
-   const char* skinName=mkw::modEngine().characterSkinName(retailId,mkw::modEngine().characterSkin(retailId));
-   char skinDesc[64];
-   std::snprintf(skinDesc,sizeof skinDesc,"Skin: < %s > (L / R)",skinName);
-   c.chrome("Characters",skinDesc);
-   c.panel("ghost_arrow_left_free",{-245.f,-88.f,0.45f,0.45f});
-   c.label(skinName,-190.f,88.f,95.f,15.f,0xffffffff,0);
-   c.panel("ghost_arrow_right_free",{-135.f,-88.f,0.45f,0.45f});
-  }else{
+   Pose name=control("CharacterSelectName","CharacterSelectName");
+   const unsigned selDriver=s.characterDriver(s.cursor);
+   const unsigned retailId=selDriver<UiCharacters.size()?UiCharacters[selDriver].retailId:selDriver;
    c.chrome("Characters");
-  }
-  break;
+   const unsigned skinSlot=mkw::modEngine().isModLoaded()?mkw::modEngine().characterSkin(retailId):0;
+   const unsigned skinCount=mkw::modEngine().isModLoaded()?mkw::modEngine().characterSkinCount(retailId):0;
+   const char* skinName=mkw::modEngine().characterSkinName(retailId,skinSlot);
+   const char* author=mkw::modEngine().characterSkinAuthor(retailId,skinSlot);
+   const char* displayName=(skinSlot>0&&skinName&&skinName[0])?skinName:UiCharacters[selDriver].name;
+
+   c.panel("character_name",name);
+   c.text(displayName,"character_name",name,0xffffffff,"mii_name");
+
+   if(skinCount>0){
+    Pose lPose=name;lPose.x=-268.f;lPose.sx=0.32f;lPose.sy=0.32f;
+    c.panel("ghost_arrow_left_free",lPose);
+
+    Pose rPose=name;rPose.x=-112.f;rPose.sx=0.32f;rPose.sy=0.32f;
+    c.panel("ghost_arrow_right_free",rPose);
+
+    if(skinSlot>0&&author&&author[0]){
+     char authorLabel[96];
+     std::snprintf(authorLabel,sizeof authorLabel,"By %s",author);
+     const char* toDraw=lookup().find(authorLabel,true)<std::size(UiSprites)?authorLabel:lookup().find(author,true)<std::size(UiSprites)?author:nullptr;
+     if(toDraw)c.label(toDraw,-190.f,142.f,140.f,14.f,0xb8c0ccff,0);
+    }
+   }
+   break;
  }
  case UiPage::Vehicle:{
   Pose parent=control("MachineSelectNULL6","MachineSelectNULL");
@@ -424,6 +437,23 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
    }
    c.chrome("Courses");
   }
+  break;
+ }
+ case UiPage::TrackVariant:{
+  Pose courses=control("CupSelectNULL","CupSelectCourseNULL");
+  const unsigned ci=s.selection.course;
+  const unsigned varCount=mkw::modEngine().trackVariantCount(ci);
+  for(unsigned i=0;i<varCount && i<4;++i){
+   Pose p=child(courses,numbered("CourseSelectCourse",i));
+   const char* name=mkw::modEngine().trackVariantName(ci,i);
+   const char* base=s.cursor==i?"course_select":"course_free";
+   c.movieButton(base,p);
+   c.movie("course_preview_",ci<32?ci:(ci%32),base,"black_base",p);
+   c.movieOverlay(base,p);
+   c.text(name,base,p);
+   if(s.cursor==i)c.glow("course",p,name);
+  }
+  c.chrome("Courses");
   break;
  }
  case UiPage::BattleCup:case UiPage::BattleStage:{

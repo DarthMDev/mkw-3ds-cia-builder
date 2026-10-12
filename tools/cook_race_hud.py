@@ -9,9 +9,66 @@ import struct
 from pathlib import Path
 
 from PIL import Image
-from gclib.gx_enums import ImageFormat, PaletteFormat
-from gclib.texture_utils import decode_image
+try:
+    from gclib.gx_enums import ImageFormat, PaletteFormat
+    from gclib.texture_utils import decode_image
+except ImportError:
+    ImageFormat = PaletteFormat = decode_image = None
 from cook_effects import entries, effect
+
+def decode_image_builtin(raw_bytes, fmt, w, h):
+    img = Image.new('RGBA', (w, h))
+    pix = img.load()
+    pos = 0
+    if fmt == 0:
+        for by in range(0, h, 8):
+            for bx in range(0, w, 8):
+                for py in range(8):
+                    for px in range(0, 8, 2):
+                        b = raw_bytes[pos]; pos += 1
+                        i0 = ((b >> 4) & 0xf) * 17
+                        i1 = (b & 0xf) * 17
+                        if bx + px < w and by + py < h:
+                            pix[bx + px, by + py] = (i0, i0, i0, 255)
+                        if bx + px + 1 < w and by + py < h:
+                            pix[bx + px + 1, by + py] = (i1, i1, i1, 255)
+    elif fmt == 2:
+        for by in range(0, h, 4):
+            for bx in range(0, w, 8):
+                for py in range(4):
+                    for px in range(8):
+                        b = raw_bytes[pos]; pos += 1
+                        a = ((b >> 4) & 0xf) * 17
+                        i = (b & 0xf) * 17
+                        if bx + px < w and by + py < h:
+                            pix[bx + px, by + py] = (i, i, i, a)
+    elif fmt == 5:
+        for by in range(0, h, 4):
+            for bx in range(0, w, 4):
+                for py in range(4):
+                    for px in range(4):
+                        val = (raw_bytes[pos] << 8) | raw_bytes[pos+1]; pos += 2
+                        if val & 0x8000:
+                            r = ((val >> 10) & 0x1f) * 255 // 31
+                            g = ((val >> 5) & 0x1f) * 255 // 31
+                            b = (val & 0x1f) * 255 // 31
+                            a = 255
+                        else:
+                            a = ((val >> 12) & 0x7) * 255 // 7
+                            r = ((val >> 8) & 0xf) * 17
+                            g = ((val >> 4) & 0xf) * 17
+                            b = (val & 0xf) * 17
+                        if bx + px < w and by + py < h:
+                            pix[bx + px, by + py] = (r, g, b, a)
+    return img
+
+def decode_gx(raw_bytes, fmt, w, h):
+    if decode_image is not None:
+        try:
+            return decode_image(io.BytesIO(raw_bytes), io.BytesIO(), ImageFormat(fmt), PaletteFormat(0), 0, w, h).convert("RGBA")
+        except Exception:
+            pass
+    return decode_image_builtin(raw_bytes, fmt, w, h)
 
 
 def sections(data):
@@ -99,8 +156,7 @@ def font_strings(path, labels):
         if tag == b"TGLP":
             cw, ch, _, _, size, count, fmt, nx, ny, w, h, pixels = struct.unpack_from(">4BI6HI", data, start)
             for i in range(count):
-                sheet = decode_image(io.BytesIO(data[pixels+i*size:pixels+(i+1)*size]),
-                                     io.BytesIO(), ImageFormat(fmt), PaletteFormat(0), 0, w, h).convert("RGBA")
+                sheet = decode_gx(data[pixels+i*size:pixels+(i+1)*size], fmt, w, h)
                 for y in range(ny):
                     for x in range(nx):
                         glyphs.append(sheet.crop((x*(cw+1), y*(ch+1), x*(cw+1)+cw, y*(ch+1)+ch)))

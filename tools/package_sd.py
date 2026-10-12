@@ -236,7 +236,25 @@ if pulsar_manifest_path.is_file():
         for i in range(nt):
          tex=b[24+ns*stride+i*64:24+ns*stride+(i+1)*64].split(b'\0')[0].decode();t3x=assets/'textures'/f'{tex}.t3x'
          if t3x.is_file():files[t3x]=Path('textures')/t3x.name
+     if arch:
+      stem=Path(arch).stem
+      for suffix in ('_N','_n','_Final','_F','_f',''):
+       strm_rel=f'audio/strm/{stem}{suffix}.brstm'
+       if (assets/strm_rel).is_file():files[assets/strm_rel]=Path(strm_rel)
+   for var_name in ('rMC1','rDP1','rGV1','rBC1','rCI1','rCI2','rVL1','rVL2','rRR1','rRR2'):
+    for suffix in ('_N','_n','_Final','_F','_f',''):
+     strm_rel=f'audio/strm/{var_name}{suffix}.brstm'
+     if (assets/strm_rel).is_file():files[assets/strm_rel]=Path(strm_rel)
  except Exception as e:pass
+for skin_gmdl in sorted((assets/'models').glob('ui_driver_*_skin_*_000.gmdl')):
+ files[skin_gmdl]=Path('models')/skin_gmdl.name
+ skin_dskm=skin_gmdl.with_name(skin_gmdl.name.replace('_000.gmdl','.dskm'))
+ if skin_dskm.is_file():files[skin_dskm]=Path('models')/skin_dskm.name
+ prefix=skin_gmdl.name.removesuffix('_000.gmdl')
+ for t3x in sorted((assets/'textures').glob(f'{prefix}_*.t3x')):
+  files[t3x]=Path('textures')/t3x.name
+for map_t3x in sorted((assets/'textures').glob('race_map_retro_*.t3x')):
+ files[map_t3x]=Path('textures')/map_t3x.name
 if '--list' in sys.argv:
  print(json.dumps({rel.as_posix():str(src) for src,rel in files.items()}))
  raise SystemExit(0)

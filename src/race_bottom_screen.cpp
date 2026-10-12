@@ -3,6 +3,7 @@
 #include <mkw/race_map_assets.hpp>
 #include <mkw/race_grid.hpp>
 #include <mkw/race_items.hpp>
+#include <mkw/mod_engine.hpp>
 #include <mkw/renderer.hpp>
 #include <game/kart/KartMove.hh>
 #include <game/kart/KartObjectManager.hh>
@@ -51,6 +52,9 @@ static_assert(RaceBottomScreen::QuadCapacity==220&&RaceBottomScreen::QuadCapacit
 struct RaceBottomScreen::Impl {
     Texture map,overview,atlas;
     unsigned course=~0u;
+    RaceMapCourse courseInfo{};
+    char retroTexture[64]{};
+    char retroOverview[64]{};
     bool target=false;
     std::unique_ptr<Renderer::MaterialQuad[]> quads; // 2 x QuadCapacity, alternating per frame
     // Animation state (60 Hz ticks).
@@ -138,7 +142,39 @@ bool RaceBottomScreen::active() const {return impl_->target;}
 
 bool RaceBottomScreen::load(Renderer& renderer,unsigned course){
     auto& m=*impl_;
-    if(course>=RaceMapCourses.size()){unload(renderer);return false;}
+    const RaceMapCourse* c = nullptr;
+    if (mkw::modEngine().isModLoaded()) {
+        const auto* track = mkw::modEngine().findTrackByIndex(course);
+        if (track && track->mapTexture[0] != '\0') {
+            std::snprintf(m.retroTexture, sizeof(m.retroTexture), "%s", track->mapTexture);
+            std::snprintf(m.retroOverview, sizeof(m.retroOverview), "%s", track->mapOverview);
+            m.courseInfo.texture = m.retroTexture;
+            m.courseInfo.overview = m.retroOverview;
+            m.courseInfo.x0 = track->mapX0;
+            m.courseInfo.z0 = track->mapZ0;
+            m.courseInfo.x1 = track->mapX1;
+            m.courseInfo.z1 = track->mapZ1;
+            m.courseInfo.width = track->mapWidth;
+            m.courseInfo.height = track->mapHeight;
+            m.courseInfo.overviewWidth = track->mapOverviewWidth;
+            m.courseInfo.overviewHeight = track->mapOverviewHeight;
+            m.courseInfo.unitsPerPixel = track->mapUnitsPerPixel;
+            m.courseInfo.startLeft[0] = track->mapStartLeft[0];
+            m.courseInfo.startLeft[1] = track->mapStartLeft[1];
+            m.courseInfo.startRight[0] = track->mapStartRight[0];
+            m.courseInfo.startRight[1] = track->mapStartRight[1];
+            c = &m.courseInfo;
+        }
+    }
+    if (!c && course < RaceMapCourses.size()) {
+        m.courseInfo = RaceMapCourses[course];
+        c = &m.courseInfo;
+    }
+    if (!c) {
+        unload(renderer);
+        return false;
+    }
+
     if(m.target&&m.course==course){
         // A restart of the same race: reset the presentation, keep the textures.
         m.started=false;m.blend=0;m.overviewWanted=false;m.standings=0;m.rowsSet=false;
@@ -149,10 +185,9 @@ bool RaceBottomScreen::load(Renderer& renderer,unsigned course){
     m.target=true;m.course=course;
     m.quads.reset(new(std::nothrow) Renderer::MaterialQuad[2*QuadCapacity]);
     if(!m.quads){unload(renderer);return false;}
-    const auto& c=RaceMapCourses[course];
     renderer.loadVramTexture(m.atlas,RaceMapAtlasTexture);
-    renderer.loadVramTexture(m.map,c.texture);
-    renderer.loadVramTexture(m.overview,c.overview);
+    renderer.loadVramTexture(m.map,c->texture);
+    renderer.loadVramTexture(m.overview,c->overview);
     m.started=false;m.blend=0;m.overviewWanted=false;m.standings=0;m.rowsSet=false;
     return true;
 }
@@ -180,7 +215,7 @@ void RaceBottomScreen::describe(char* text,unsigned size) const {
 void RaceBottomScreen::draw(Renderer& renderer,const BottomView& view){
     auto& m=*impl_;
     if(!m.target||!m.quads)return;
-    const auto& course=RaceMapCourses[m.course];
+    const auto& course=m.courseInfo;
     // Animations advance by simulation ticks (presentation runs at 30 or 60 Hz).
     const unsigned elapsed=m.started?std::min<unsigned>(view.tick-m.lastTick,30u):0u;
     m.lastTick=view.tick;m.started=true;

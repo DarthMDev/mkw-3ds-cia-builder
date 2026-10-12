@@ -424,9 +424,18 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
         })
 
     print(f"[*] Processing {len(conversion_tasks)} track model conversions across {jobs} workers...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
-        futures = [pool.submit(convert_track, *task) for task in conversion_tasks]
-        concurrent.futures.wait(futures)
+    # Copy custom music streams from pack's strm/ directory if present
+    pack_strm = pack_path / 'strm'
+    if pack_strm.is_dir():
+        out_strm = out_dir / 'audio/strm'
+        out_strm.mkdir(parents=True, exist_ok=True)
+        strm_copied = 0
+        for bf in pack_strm.glob('*.brstm'):
+            dest_bf = out_strm / bf.name
+            if not dest_bf.is_file() or force:
+                shutil.copy2(bf, dest_bf)
+                strm_copied += 1
+        print(f"[*] Copied {strm_copied} custom track music streams into {out_strm}")
 
     # Generate output manifest
     manifest_data = {

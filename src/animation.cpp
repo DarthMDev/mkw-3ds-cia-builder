@@ -53,7 +53,13 @@ bool DriverAnimation::load(const char* path,const Model& model){
         data_=static_cast<uint8_t*>(linearAlloc(size));if(!data_)return false;
         ok=pack::readInto(path,data_,size);
     }else{
-        FILE* f=std::fopen(path,"rb");if(!f)return false;std::fseek(f,0,SEEK_END);long length=std::ftell(f);std::rewind(f);
+        FILE* f=std::fopen(path,"rb");
+        if(!f && path && path[0]!='/'){
+            char alt[256];
+            std::snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",path);
+            f=std::fopen(alt,"rb");
+        }
+        if(!f)return false;std::fseek(f,0,SEEK_END);long length=std::ftell(f);std::rewind(f);
         if(length<0){std::fclose(f);return false;}size=size_t(length);
         if(size<28||size>12*1024*1024){std::fclose(f);return false;}
         data_=static_cast<uint8_t*>(linearAlloc(size));if(!data_){std::fclose(f);return false;}

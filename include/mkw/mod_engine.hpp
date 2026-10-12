@@ -24,6 +24,14 @@ struct ModTrackDef {
     char sky[64]{};
     uint8_t lapCount = 3;
     uint16_t musicStreamId = 0;
+    char mapTexture[64]{};
+    char mapOverview[64]{};
+    float mapX0 = 0.f, mapZ0 = 0.f, mapX1 = 0.f, mapZ1 = 0.f;
+    uint16_t mapWidth = 0, mapHeight = 0;
+    uint16_t mapOverviewWidth = 0, mapOverviewHeight = 0;
+    float mapUnitsPerPixel = 64.f;
+    float mapStartLeft[2]{};
+    float mapStartRight[2]{};
 };
 
 // Definition for a custom cup containing up to 4 tracks
@@ -133,6 +141,7 @@ public:
     bool loadManifest(const char* manifestPath);
     const std::vector<ModCupDef>& cups() const { return cups_; }
     const ModTrackDef* findTrack(Kinoko::Course course) const;
+    const ModTrackDef* findTrackByIndex(unsigned index) const;
 
     const char* activeTrackArchive() const { return activeTrackArchive_; }
     void setActiveTrackArchive(const char* archive) {
@@ -150,6 +159,14 @@ public:
     void cycleCharacterSkin(unsigned driverId, int dir);
     unsigned characterSkinCount(unsigned driverId) const;
     const char* characterSkinName(unsigned driverId, unsigned slot) const;
+    const char* characterSkinAuthor(unsigned driverId, unsigned slot) const;
+
+    // Track Variations
+    unsigned trackVariantCount(unsigned courseIndex) const;
+    const char* trackVariantName(unsigned courseIndex, unsigned variantIndex) const;
+    void setActiveTrackVariant(unsigned courseIndex, unsigned variantIndex);
+    unsigned activeTrackVariant(unsigned courseIndex) const;
+    const char* activeTrackVariantArchive(unsigned courseIndex) const;
 
 private:
     ModEngine();
@@ -165,6 +182,8 @@ private:
     std::vector<CourseChoice> dynamicTracks_;
     std::array<unsigned, 26> characterSkins_{};
     std::array<std::vector<std::string>, 26> characterSkinNames_{};
+    std::array<std::vector<std::string>, 26> characterSkinAuthors_{};
+    std::array<unsigned, 256> activeTrackVariants_{};
 };
 
 inline ModEngine& modEngine() {

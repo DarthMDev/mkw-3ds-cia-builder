@@ -106,6 +106,7 @@ void MenuSound::input(const MenuState& before, const MenuState& after, const UiI
  }
  // PushButton::HandleSelect (805b6358): SE_UI_BTN_IN on the newly focused button.
  if (!pageChanged && before.cursor != after.cursor && sectionOf(after.page) != Section::None && after.page != UiPage::Title) ui(id::SE_UI_BTN_IN);
+ if (!pageChanged && after.page == UiPage::Character && (key.pageLeft || key.pageRight)) ui(id::SE_UI_BTN_IN);
 }
 
 void MenuSound::applyLayer(int layer, int frames) {

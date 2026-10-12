@@ -41,7 +41,13 @@ TextureCache& textureCache() {
 // One FS request per file. Buffered stdio would issue a request per 1 KiB,
 // each with the SD card's fixed command latency.
 bool readFile(const char* path,std::vector<uint8_t>& out) {
-    FILE* f=std::fopen(path,"rb"); if(!f) return false;
+    FILE* f=std::fopen(path,"rb");
+    if(!f && path && path[0]!='/'){
+        char alt[256];
+        std::snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",path);
+        f=std::fopen(alt,"rb");
+    }
+    if(!f) return false;
     std::setvbuf(f,nullptr,_IONBF,0);
     bool ok=std::fseek(f,0,SEEK_END)==0;const long size=ok?std::ftell(f):-1;
     ok=ok&&size>=0&&std::fseek(f,0,SEEK_SET)==0;
@@ -115,7 +121,13 @@ bool Model::load(const char* path) {
         std::vector<uint8_t> packed;size_t offset=0;
         explicit File(const char* path){
             if(pack::read(path,packed))return;
-            f=std::fopen(path,"rb");if(f)std::setvbuf(f,buffer,_IOFBF,sizeof buffer);
+            f=std::fopen(path,"rb");
+            if(!f && path && path[0]!='/'){
+                char alt[256];
+                std::snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",path);
+                f=std::fopen(alt,"rb");
+            }
+            if(f)std::setvbuf(f,buffer,_IOFBF,sizeof buffer);
         }
         ~File(){if(f)std::fclose(f);}
         bool open()const{return f||!packed.empty();}
