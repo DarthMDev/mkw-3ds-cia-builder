@@ -437,7 +437,7 @@ void RaceHud::drawWorld(Renderer& renderer,const RaceItems& items,Vec3 viewer,un
         }
     }
 }
-void RaceHud::drawOverlay(Renderer& renderer,const RaceItems& items,unsigned stage,unsigned timer,unsigned rank,unsigned lap,bool finished,unsigned tick,int finishFrame,float exitSlide){
+void RaceHud::drawOverlay(Renderer& renderer,const RaceItems& items,unsigned stage,unsigned timer,unsigned rank,unsigned lap,bool finished,unsigned tick,int finishFrame,float exitSlide,unsigned totalLaps){
     const auto& held=items.hud(0);
     auto sprite=[&](const Texture& texture,const RaceSprite& art,HudRect rect,float alpha=1.f,uint32_t tint=0xffffffffu){
         renderer.drawScreenSprite(texture,rect.x,rect.y,rect.w,rect.h,art.u,art.v,alpha,tint);
@@ -591,9 +591,9 @@ void RaceHud::drawOverlay(Renderer& renderer,const RaceItems& items,unsigned sta
     const float lapLift=exitLift(.8f);
     auto lifted=[&](HudRect r,float dy){r.y+=dy;return r;};
     gold(impl_->extras[HudLap],HudExtras[HudLap],lifted(HudLapLabel,-lapLift));gold(impl_->extras[HudSlash],HudExtras[HudSlash],lifted(HudLapSlash,-lapLift));
-    lap=std::clamp(lap,1u,3u);
-    gold(impl_->digits[lap],HudDigits[lap],lifted(HudLapCurrent,-lapLift));
-    gold(impl_->digits[3],HudDigits[3],lifted(HudLapTotal,-lapLift));
+    lap=std::clamp(lap,1u,totalLaps);
+    gold(impl_->digits[std::min(lap,9u)],HudDigits[std::min(lap,9u)],lifted(HudLapCurrent,-lapLift));
+    gold(impl_->digits[std::min(totalLaps,9u)],HudDigits[std::min(totalLaps,9u)],lifted(HudLapTotal,-lapLift));
     // Speedometer (not in the original): the player's speed in the game's own
     // units, which Wii speedometer mods label km/h. Bottom right, the one free
     // corner, in the lap counter's gold digits; leaves downward with the HUD.

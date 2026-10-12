@@ -710,6 +710,7 @@ int main() {
         if(!fullRace)return;
         const auto& scenario=K::System::RaceConfig::Instance()->raceScenario();
         mkw::RaceSound::Setup setup;setup.course=mkw::modEngine().onAudioResolve(mkw::course(courseChoice).id,unsigned(mkw::course(courseChoice).id));setup.engineClass=std::min(unsigned(menu.selection.engineClass),2u);
+        setup.lapCount=mkw::courseLaps(courseChoice);
         setup.mode=setup.course>=0x20&&setup.course<0x2a?3:1;setup.preview=intro.active();
         setup.racers=std::min<unsigned>(scenario.playerCount,12);
         for(unsigned i=0;i<setup.racers;++i){const auto& p=scenario.players[i];setup.racer[i]={uint8_t(p.character),uint8_t(p.vehicle),p.type==K::System::RaceConfig::Player::Type::Local};}
@@ -837,6 +838,7 @@ int main() {
     int trackCourse=-1; // Course whose scenery is completely resident, or -1.
     auto resetRaceSystems=[&](bool reload){
         if(!fullRace)return;
+        if(auto* rm=K::System::RaceManager::Instance())rm->setLapCount(mkw::courseLaps(courseChoice));
         if(!raceGrid.reset()){trackLoadFailed=true;report("FAIL course CPU route: race suspended; choose another map");}
         raceItems->resetFromCourse(raceGrid.count());
         if(!raceItems->oddsReady()){trackLoadFailed=true;report("FAIL original item odds load");}
@@ -1326,7 +1328,7 @@ int main() {
                     // QA heartbeat: a freeze shows as the last line written.
                     if(kQa&&physicsSteps%300==0){const auto& hi=raceItems->hud(0);LOGF("hb step=%u stage=%u lap=%u rank=%u finished=%d item=%d",physicsSteps,stage,raceGrid.lap(),raceGrid.rank(),int(raceGrid.finished()),int(hi.item));}
                     mkw::LakituInput jugem;
-                    jugem.kart=kart;jugem.stage=stage;jugem.timer=race->timer();jugem.lap=raceGrid.lap();jugem.lapCount=3;
+                    jugem.kart=kart;jugem.stage=stage;jugem.timer=race->timer();jugem.lap=raceGrid.lap();jugem.lapCount=mkw::courseLaps(courseChoice);
                     jugem.introHeld=intro.active();jugem.finished=raceGrid.finished();jugem.cameraForward=view.target-view.eye;
                     lakitu.step(jugem);
                     {
@@ -1758,7 +1760,7 @@ int main() {
             // Stereo layers (Mario Kart 7's): the HUD and result boards 4 px
             // behind the screen; the full-screen wipe and the pause menu on the
             // screen plane.
-            if(fullRace&&!intro.active()){auto* race=K::System::RaceManager::Instance();raceHud.drawOverlay(renderer,*raceItems,unsigned(race->stage()),race->timer(),raceGrid.rank(),raceGrid.lap(),raceGrid.finished(),physicsSteps,results.finishFrame(),results.hudSlide());
+            if(fullRace&&!intro.active()){auto* race=K::System::RaceManager::Instance();raceHud.drawOverlay(renderer,*raceItems,unsigned(race->stage()),race->timer(),raceGrid.rank(),raceGrid.lap(),raceGrid.finished(),physicsSteps,results.finishFrame(),results.hudSlide(),mkw::courseLaps(courseChoice));
                 if(timeTrial&&courseChoice<bestTimes.size()&&!results.hudGone()){
                     // Best time under the lap counter; NEW RECORD! once beaten.
                     char best[32];if(bestTimes[courseChoice]){char t[16];formatTime(t,sizeof t,bestTimes[courseChoice]);snprintf(best,sizeof best,"BEST %s",t);}else snprintf(best,sizeof best,"BEST -:--.---");

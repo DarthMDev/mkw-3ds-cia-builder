@@ -223,7 +223,9 @@ UiAction MenuState::input(UiInput key){
   return UiAction::None;
  }
  if(page==UiPage::Character&&(key.pageLeft||key.pageRight)){
-  mkw::modEngine().cycleCharacterSkin(characterDriver(cursor),key.pageRight?1:-1);
+  const unsigned driverIdx=characterDriver(cursor);
+  const unsigned retailId=driverIdx<UiCharacters.size()?UiCharacters[driverIdx].retailId:driverIdx;
+  mkw::modEngine().cycleCharacterSkin(retailId,key.pageRight?1:-1);
   focusAge=0;unavailable=false;
   return UiAction::None;
  }
@@ -267,6 +269,14 @@ UiAction MenuState::input(UiInput key){
   const unsigned previousCursor=cursor;
   if(page==UiPage::Cup)cursor=moveCupGrid(cursor,count(),key);
   else if(page==UiPage::MainMenu)cursor=moveMainMenu(cursor,key);
+  else if(page==UiPage::Mode&&mkw::modEngine().isModLoaded()){
+   if(key.right&&cursor<4)cursor=4;
+   else if((key.left||key.down||key.up)&&cursor==4)cursor=std::min(unsigned(selection.mode),3u);
+   else if(cursor<4){
+    const int step=key.up?-1:key.down?1:0;
+    cursor=step!=0?(cursor+4+step)%4:cursor;
+   }
+  }
   else if(columns()==1){
    // Horizontal input also traverses a one-column control group, as it does
    // when navigating the same controls with the Wii controller sideways.

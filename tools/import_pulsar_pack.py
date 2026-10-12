@@ -85,11 +85,22 @@ RETRO_REWIND_CUP_NAMES = [
     "RMX Mushroom Cup",
     "RMX Flower Cup",
     "Arcade GP Cup",
-    "SuperWii 2 Mushroom Cup",
-    "SuperWii 2 Flower Cup",
-    "SuperWii 2 Star Cup",
+    "Switch 2 Mushroom Cup",
+    "Switch 2 Flower Cup",
+    "Switch 2 Star Cup",
     "Bonus & Beta Cup",
 ]
+
+def determine_track_laps(name: str, default_laps: int = 3) -> int:
+    """Calculate authentic lap counts for smaller courses and sprint tracks."""
+    nl = name.lower()
+    if 'baby park' in nl:
+        return 7
+    if nl.startswith('snes ') or nl.startswith('rmx '):
+        return 5
+    if 'wuhu loop' in nl or 'maka wuhu' in nl or '3ds rainbow road' in nl or 'mount wario' in nl or 'big blue' in nl:
+        return 1
+    return default_laps
 
 def generate_cup_name(cup_idx: int, total_cups: int, first_track_name: str = ""):
     """Generate meaningful cup name based on Retro Rewind definitions or index."""
@@ -278,18 +289,30 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
     has_200cc = True
     cups = []
 
-    if manifest_json_path.exists():
-        print(f"[*] Loading existing manifest {manifest_json_path}")
-        data = json.loads(manifest_json_path.read_text())
-        mod_name = data.get('mod_name', mod_name)
-        has_200cc = data.get('settings', {}).get('enable_200cc', True)
-        cups = data.get('cups', [])
-    elif config_pul_path and config_pul_path.exists():
+    # Pre-index all SZS files in tracks directory by CRC32
+    file_crcs = {}
+    if tracks_dir.exists():
+        print(f"[*] Pre-indexing SZS files in {tracks_dir} by CRC32...")
+        for szs in tracks_dir.glob('*.szs'):
+            try:
+                c = zlib.crc32(szs.read_bytes()) & 0xffffffff
+                file_crcs[c] = szs
+            except Exception:
+                pass
+        print(f"[*] Indexed {len(file_crcs)} SZS files by CRC32")
+
+    if config_pul_path and config_pul_path.exists():
         print(f"[*] Parsing Config binary at {config_pul_path}")
         parsed = parse_config_pul(config_pul_path.read_bytes(), crc_names)
         mod_name = parsed.get('mod_name', mod_name)
         has_200cc = parsed.get('info', {}).get('has_200cc', True)
         cups = parsed.get('cups', [])
+    elif manifest_json_path.exists():
+        print(f"[*] Loading existing manifest {manifest_json_path}")
+        data = json.loads(manifest_json_path.read_text())
+        mod_name = data.get('mod_name', mod_name)
+        has_200cc = data.get('settings', {}).get('enable_200cc', True)
+        cups = data.get('cups', [])
     else:
         print(f"[*] Auto-discovering SZS tracks in {tracks_dir}")
         all_szs = sorted(list(tracks_dir.glob('*.szs')))
@@ -331,9 +354,11 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
             t_idx = track.get('index', track_counter - 1)
             t_crc = track.get('crc32', 0)
 
-            # Resolve local SZS file
+            # Resolve local SZS file via CRC32, known mappings, or filenames
             szs_file = None
-            if 'szs_file' in track and Path(track['szs_file']).exists():
+            if t_crc and t_crc in file_crcs:
+                szs_file = file_crcs[t_crc]
+            elif 'szs_file' in track and Path(track['szs_file']).exists():
                 szs_file = Path(track['szs_file'])
             elif (tracks_dir / f"{t_idx}.szs").exists():
                 szs_file = tracks_dir / f"{t_idx}.szs"
@@ -342,11 +367,13 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
                 candidate = tracks_dir / arch_name
                 if candidate.exists():
                     szs_file = candidate
+            elif 'sunshine airport' in t_name.lower() and (tracks_dir / 'uSSA.szs').exists():
+                szs_file = tracks_dir / 'uSSA.szs'
             if not szs_file:
-                # Search by CRC or clean stem
+                # Search by clean stem without loose substring matching
                 clean_name = t_name.lower().replace(' ', '_').replace("'", '')
                 for candidate in tracks_dir.glob('*.szs'):
-                    if clean_name in candidate.stem.lower() or candidate.stem.lower() in clean_name:
+                    if clean_name == candidate.stem.lower():
                         szs_file = candidate
                         break
 
@@ -359,7 +386,7 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
                 'archive': target_archive_rel,
                 'models': f"models/{prefix}.list",
                 'sky': f"models/{prefix}_sky.list",
-                'laps': track.get('laps', 3),
+                'laps': determine_track_laps(t_name, track.get('laps', 3)),
                 'music_stream_id': track.get('music_stream_id', track.get('music_slot', slot))
             }
             new_tracks.append(entry)

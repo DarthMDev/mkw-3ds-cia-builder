@@ -297,7 +297,11 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
    c.movieOverlay(base.c_str(),p);
    c.text(modes[i],base.c_str(),p,0xffffffff);if(s.cursor==i)c.glow("mode",p,modes[i]);}
   if(mkw::modEngine().isModLoaded()){
-   c.button("button",4,{0.f,-155.f,0.7f,0.7f},"Settings");
+   Pose option=control("LicenseSelectS","Option");
+   auto base=c.buttonState("option",4);
+   c.panel(base.c_str(),option);
+   c.text("Settings",base.c_str(),option);
+   if(s.cursor==4)c.glow("option",option,"Settings");
   }
   c.chrome("Single Player",s.cursor==4?"Pulsar & Retro Rewind Settings":UiHelpMode[std::min(s.cursor,3u)]);break;
  }
@@ -315,19 +319,15 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
   for(unsigned i=0;i<s.count();++i){char group[48];std::snprintf(group,sizeof group,"CharacterSelect4_%u",i<24?i/8:3);Pose p=child(parent,numbered(group,i<24?within[i%8]:i-24));c.button("character",i,p);c.icon("driver_",s.characterDriver(i),c.buttonState("character",i).c_str(),"chara",p);if(s.cursor==i)c.glow("character",p,nullptr,s.characterDriver(i));}
   Pose name=control("CharacterSelectName","CharacterSelectName");c.panel("character_name",name);c.text(UiCharacters[s.characterDriver(s.cursor)].name,"character_name",name,0xffffffff,"mii_name");
   const unsigned selDriver=s.characterDriver(s.cursor);
-  if(mkw::modEngine().isModLoaded()&&mkw::modEngine().characterSkinCount(selDriver)>0){
-   const char* skinName=mkw::modEngine().characterSkinName(selDriver,mkw::modEngine().characterSkin(selDriver));
+  const unsigned retailId=selDriver<UiCharacters.size()?UiCharacters[selDriver].retailId:selDriver;
+  if(mkw::modEngine().isModLoaded()&&mkw::modEngine().characterSkinCount(retailId)>0){
+   const char* skinName=mkw::modEngine().characterSkinName(retailId,mkw::modEngine().characterSkin(retailId));
    char skinDesc[64];
    std::snprintf(skinDesc,sizeof skinDesc,"Skin: < %s > (L / R)",skinName);
    c.chrome("Characters",skinDesc);
-   char skinLabel[64];
-   std::snprintf(skinLabel,sizeof skinLabel,"Skin: %s",skinName);
-   c.panel("button_free",{-110.f,75.f,0.65f,0.55f});
-   c.label(skinLabel,-110.f,75.f,100.f,18.f,0xffffffff,0);
-   c.panel("button_free",{-165.f,75.f,0.25f,0.55f});
-   c.label("[L]",-165.f,75.f,35.f,18.f,0xffe066ff,0);
-   c.panel("button_free",{-55.f,75.f,0.25f,0.55f});
-   c.label("[R]",-55.f,75.f,35.f,18.f,0xffe066ff,0);
+   c.panel("ghost_arrow_left_free",{-245.f,-88.f,0.45f,0.45f});
+   c.label(skinName,-190.f,88.f,95.f,15.f,0xffffffff,0);
+   c.panel("ghost_arrow_right_free",{-135.f,-88.f,0.45f,0.45f});
   }else{
    c.chrome("Characters");
   }
@@ -408,10 +408,8 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
     char desc[48];
     std::snprintf(desc,sizeof desc,"Page %u/%u (L / R to flip)",cupPage+1,(totalCups+7)/8);
     c.chrome("Cups",desc);
-    c.panel("button_free",{-150.f,95.f,0.5f,0.55f});
-    c.label("< Prev",-150.f,95.f,75.f,20.f,0xffffffff,0);
-    c.panel("button_free",{150.f,95.f,0.5f,0.55f});
-    c.label("Next >",150.f,95.f,75.f,20.f,0xffffffff,0);
+    c.panel("ghost_arrow_left_free",{-70.f,110.f,0.7f,0.7f});
+    c.panel("ghost_arrow_right_free",{270.f,110.f,0.7f,0.7f});
    }else c.chrome("Cups");
   }else{
    for(unsigned i=0;i<4;++i){Pose p=child(courses,numbered("CourseSelectCourse",i));

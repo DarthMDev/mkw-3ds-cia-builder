@@ -170,7 +170,7 @@ void RaceGrid::beforeStep(uint16_t bulletPlayers){
         // CPUs run the retail stuck handler inside CpuAi; the QA autopilot keeps
         // the adapted recovery below.
         ai_.setRecovering(0,drivers_[0].reverse>0);
-        ai_.step(aiMask,ranks_,laps_,finished_,3);
+        ai_.step(aiMask,ranks_,laps_,finished_,manager?manager->lapCount():3);
     }
     for(unsigned i=0;i<count_;++i){
         const bool bullet=(bulletPlayers&(1u<<i))!=0;
@@ -322,7 +322,8 @@ void RaceGrid::afterStep(){
         return a<b;
     });
     for(unsigned rank=0;rank<count_;++rank)ranks_[order[rank]]=rank+1;
-    for(unsigned i=0;i<count_;++i){const auto& p=manager->player(i);finished_[i]=p.finished();laps_[i]=unsigned(std::clamp<int>(p.currentLap(),1,3));}
+    const int totalLaps=manager?int(manager->lapCount()):3;
+    for(unsigned i=0;i<count_;++i){const auto& p=manager->player(i);finished_[i]=p.finished();laps_[i]=unsigned(std::clamp<int>(p.currentLap(),1,totalLaps));}
 }
 void RaceGrid::forwardBumps(){
     using namespace Kinoko;

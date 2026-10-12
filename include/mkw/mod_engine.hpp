@@ -127,6 +127,7 @@ public:
     const CourseChoice& courseChoice(unsigned index) const;
     const char* courseName(unsigned index) const;
     const char* cupName(unsigned cupIndex) const;
+    uint8_t courseLaps(unsigned index) const;
 
     // Manifest management (loads pulsar_manifest.json)
     bool loadManifest(const char* manifestPath);

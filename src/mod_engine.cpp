@@ -525,6 +525,22 @@ const char* cupName(unsigned cupIndex) {
     return modEngine().cupName(cupIndex);
 }
 
+uint8_t ModEngine::courseLaps(unsigned index) const {
+    if (modLoaded_ && !cups_.empty()) {
+        unsigned cupIdx = index / 4;
+        unsigned trackIdx = index % 4;
+        if (cupIdx < cups_.size() && trackIdx < cups_[cupIdx].trackCount) {
+            uint8_t l = cups_[cupIdx].tracks[trackIdx].lapCount;
+            if (l > 0) return l;
+        }
+    }
+    return 3;
+}
+
+unsigned courseLaps(unsigned index) {
+    return modEngine().courseLaps(index);
+}
+
 unsigned ModEngine::characterSkin(unsigned driverId) const {
     if (driverId < 26) return characterSkins_[driverId];
     return 0;

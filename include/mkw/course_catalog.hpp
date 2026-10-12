@@ -85,5 +85,6 @@ unsigned cupCount();
 const CourseChoice& course(unsigned index);
 const char* courseName(unsigned index);
 const char* cupName(unsigned cupIndex);
+unsigned courseLaps(unsigned index);
 
 } // namespace mkw

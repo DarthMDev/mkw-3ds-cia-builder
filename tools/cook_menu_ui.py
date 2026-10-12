@@ -430,7 +430,7 @@ def main():
  skin_footers=[f'Skin: < {s} > (L / R)' for s in skin_names]+[f'Skin: {s}' for s in skin_names]+[f'Skin: < {s} >' for s in skin_names]
  cup_pages=[f'Page {p}/6 (L / R to flip)' for p in range(1,7)]+[f'Page {p}/6' for p in range(1,7)]
  nav_buttons=['< Prev','Next >','< Prev [L]','[R] Next >','[L]','[R]','<','>','L','R','(L / R)']
- settings_strings=['Settings','Pulsar & Retro Rewind Settings','Speed: 150cc','Speed: 200cc','Brake Drift: ON','Brake Drift: OFF','Back to Mode Selection','200cc']
+ settings_strings=['Settings','Pulsar & Retro Rewind Settings','Retro Rewind Settings','Press A or Left / Right to toggle','Speed: 150cc','Speed: 200cc','Brake Drift: ON','Brake Drift: OFF','Back','Back to Mode Selection','200cc']
  labels=['Single Player','Multiplayer','Nintendo WFC','Main Menu','Grand Prix','Time Trials','VS','Battle','Not available','Character','Character Select','Vehicle','Machine Select','Drift','Drift Type','Automatic','Manual','Cup','Select Cup','Course','Start Race','Pause','Continue','Restart','Quit','Quit this race?','Yes','No','Results','Race Again','Change Course','Change Character','Main Menu','Press A','A: Select    B: Back','A: Select    B: Cancel','A: Start    B: Back','START: Pause','A: Next    B: Back','Loading...','Race unavailable','Choose another course','Finish','Racing','12 racers','No teams','150cc','A: Accelerate   B: Brake','R: Drift   L: Item','Circle Pad: Steer','D-pad: Trick / Wheelie','Hold down + L: Throw back','A: Confirm    B: Cancel','Manual drift','Automatic drift','VS Race','Course Select','Single race','Mushroom Cup','Flower Cup','Star Cup','Special Cup','Shell Cup','Banana Cup','Leaf Cup','Lightning Cup']
  labels+=['Mario','Luigi','Peach','Yoshi','Baby Mario','Baby Peach','Toad','Koopa Troopa','Wario','Waluigi','Donkey Kong','Bowser']
  labels+=course_names+[c['name'] for c in garage['choices']]+list('0123456789:.-/')
@@ -447,7 +447,7 @@ def main():
  vehicle_labels=header_strings('UiVehicleNames[3][12]=','};')
  battle_labels=header_strings('UiBattleStageNames[]=',';')
  roles={
-  'header_text':['Main Menu','Select License','Characters','Vehicles','Engine Classes','Cups','Courses','Drift','Grand Prix','Time Trials','Single Player','VS','Battle','Stages','Ghosts','Wii Stages','Retro Stages','Select Stage','Start Race'],
+  'header_text':['Main Menu','Select License','Characters','Vehicles','Engine Classes','Cups','Courses','Drift','Grand Prix','Time Trials','Single Player','VS','Battle','Stages','Ghosts','Wii Stages','Retro Stages','Select Stage','Start Race','Retro Rewind Settings'],
   'footer_help':[v for vv in help_text.values() for v in vv]+skin_footers+cup_pages+settings_strings,
   'main':['Single Player','Multiplayer','Nintendo WFC','Mario Kart Channel'],
   'main_button':['1','Player','1\nPlayer'],'main_multi':['2','3','4','Players','2\nPlayers','3\nPlayers','4\nPlayers'],'main_wifi':['1','2','Player','Players','1\nPlayer','2\nPlayers'],

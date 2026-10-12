@@ -34,7 +34,7 @@ public:
     void drawWorld(Renderer&,const RaceItems&,Vec3 viewer,unsigned tick);
     // finishFrame: frames since the player finished (FINISH animation), or -1.
     // exitSlide: the race-end CtrlRaceBase hide slide 0..1, or -1.
-    void drawOverlay(Renderer&,const RaceItems&,unsigned stage,unsigned timer,unsigned rank,unsigned lap,bool finished,unsigned tick,int finishFrame=-1,float exitSlide=-1.f);
+    void drawOverlay(Renderer&,const RaceItems&,unsigned stage,unsigned timer,unsigned rank,unsigned lap,bool finished,unsigned tick,int finishFrame=-1,float exitSlide=-1.f,unsigned totalLaps=3);
     bool speedometer=true; // SELECT toggles it during a race
 private:
     struct Impl;std::unique_ptr<Impl> impl_;
