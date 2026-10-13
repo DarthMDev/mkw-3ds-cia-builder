@@ -108,7 +108,10 @@ for(const clip of archive.pat0){
   const material=model.materials[op.matId];const track=clip.matAnimations.find(m=>m.materialName===material.name)?.texAnimations[0];
   let tex=-1;
   if(track?.texIndexValid){let key=track.animationTrack[0];for(const next of track.animationTrack){if(next.frame>frame)break;key=next;}
-   tex=archive.tex0.findIndex(t=>t.name===clip.texNames[key.texIndex]);if(tex<0)throw new Error('Missing facial texture');
+   tex=archive.tex0.findIndex(t=>t.name===clip.texNames[key.texIndex]);
+   // Some custom drivers retain PAT0 entries for a replaced retail face.
+   // A missing replacement keeps the skin material's base texture (-1).
+   if(tex<0&&process.env.MKW_ALLOW_MISSING_FACE_TEXTURES!=='1')throw new Error('Missing facial texture');
   }
   const b=Buffer.alloc(4);b.writeInt32LE(tex);chunks.push(b);
  }

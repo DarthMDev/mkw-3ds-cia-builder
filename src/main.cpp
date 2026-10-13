@@ -102,12 +102,16 @@ static constexpr const char* DATA = "sdmc:/3ds/mkw-3ds";
 namespace mkw {extern std::atomic<unsigned> fileOpens;extern std::atomic<unsigned long long> fileOpenTicks;}
 static bool exists(const char* p) {
     if (!p || !*p) return false;
+    if (mkw::pack::contains(p)) return true;
     FILE* f = fopen(p, "rb");
     if (f) { fclose(f); return true; }
-    if (p[0] != '/') {
-        char sd[256];
-        snprintf(sd, sizeof sd, "sdmc:/3ds/mkw-3ds/%s", p);
-        f = fopen(sd, "rb");
+    if (p[0] != '/' && !strchr(p, ':')) {
+        char path[256];
+        snprintf(path, sizeof path, "sdmc:/3ds/mkw-3ds/%s", p);
+        f = fopen(path, "rb");
+        if (f) { fclose(f); return true; }
+        snprintf(path, sizeof path, "romfs:/%s", p);
+        f = fopen(path, "rb");
         if (f) { fclose(f); return true; }
     }
     return false;
@@ -544,7 +548,7 @@ int main() {
         auto leave=[&](mkw::UiAction action){
             loader.stop();renderer.waitForGpu();menuAudio.close();
             menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release(renderer);
-            renderer.setRetailLighting(raceResident?mkw::courseLighting(Courses[courseChoice].archive):nullptr);
+            renderer.setRetailLighting(raceResident?mkw::courseLighting(mkw::course(courseChoice).archive):nullptr);
             renderer.waitForGpu();return action;
         };
         static bool loopFirst=false;
@@ -614,9 +618,10 @@ int main() {
                 loader.cancelPrefetch();prefetched=false;stable=0;
             }
             menuRenderer.request(visualResident,mkw::AssetPriority::Urgent);
+            menuRenderer.request(quads,mkw::AssetPriority::Urgent);
             menuModels.request(visual,mkw::AssetPriority::Urgent);menuIcons.request(mkw::MenuVehicleIcons::driverFor(visual),mkw::AssetPriority::Urgent);
             // Once a page is settled, warm the pages and selections one input away.
-            if(!transition.active()&&revealed&&++stable>=2){
+            if(!transition.active()&&revealed&&++stable>=2&&linearSpaceFree()>4u*1024*1024){
                 if(!prefetched){
                     prefetched=true;prefetchStates.clear();prefetchResident.clear();
                     const mkw::UiInput moves[]={{false,false,false,false,true},{false,false,false,false,false,true},{true},{false,true},{false,false,true},{false,false,false,true}};
@@ -756,11 +761,8 @@ int main() {
         newRecord=false;
         if(timeTrial)loadBestTimes();
         courseChoice=menu.selection.course;
-        const auto resolvedCourse=mkw::modEngine().onCourseResolve(int(courseChoice/4),int(courseChoice%4),mkw::course(courseChoice).id);
-        if(resolvedCourse!=mkw::course(courseChoice).id){
-            for(unsigned i=0;i<mkw::courseCount();++i){if(mkw::course(i).id==resolvedCourse){courseChoice=i;break;}}
-        }
         driverChoice=menu.selection.driver;
+        mkw::modEngine().setActiveDriverId(mkw::UiCharacters[driverChoice].retailId);
         vehicleChoice=menu.selection.vehicle;
         automaticDrift=menu.selection.automatic;
         engineClass=menu.selection.mode==mkw::UiMode::GrandPrix&&menu.selection.engineClass==mkw::UiEngineClass::CC50?0:menu.selection.mode==mkw::UiMode::GrandPrix&&menu.selection.engineClass==mkw::UiEngineClass::CC100?1:2;
@@ -1021,24 +1023,38 @@ int main() {
             std::snprintf(skinPrefix, sizeof skinPrefix, "%sskin_%u_", prefix, skin);
             char testGmdl[160];
             std::snprintf(testGmdl, sizeof testGmdl, "models/%sdriver.gmdl", skinPrefix);
-            char sdTestGmdl[160];
-            std::snprintf(sdTestGmdl, sizeof sdTestGmdl, "sdmc:/3ds/mkw-3ds/%s", testGmdl);
-            FILE* tf = std::fopen(testGmdl, "rb");
-            if (!tf) tf = std::fopen(sdTestGmdl, "rb");
-            if (tf) { std::fclose(tf); hasSkin = true; }
+            if (exists(testGmdl)) hasSkin = true;
         }
         const char* drvPrefix = hasSkin ? skinPrefix : prefix;
+        bool staticSkinBody=false;std::array<bool,9> staticSkinExtras{};
         auto part=[&](const char* name, const char* pfx){auto model=std::make_unique<mkw::Model>();char path[128];snprintf(path,sizeof path,"models/%s%s.gmdl",pfx,name);if(!model->load(path))model.reset();return model;};
-        vehicle=part("body", prefix);driver=part("driver", drvPrefix);if(!replay)vehicleShadow=part("shadow", prefix);
+        auto skinPart=[&](const char* name){auto custom=hasSkin?part(name,drvPrefix):nullptr;return custom?std::move(custom):part(name,prefix);};
+        vehicle=skinPart("body");driver=part("driver", drvPrefix);if(!replay)vehicleShadow=part("shadow", prefix);
         static const char* wheelNames[]={"tire_fl","tire_fr","tire_rl","tire_rr"};
         bool bike=replay||selectedVehicle().bike;
-        for(unsigned i=0;i<(bike?2u:4u);++i)wheels[i]=part(wheelNames[i], prefix);
-        auto animation=[&](const char* name,mkw::Model& model){auto bank=std::make_unique<mkw::DriverAnimation>();char path[128];snprintf(path,sizeof path,"models/%s%s.dskm",prefix,name);if(!bank->load(path,model))bank.reset();else bank->prepareLitSkinning(model);return bank;};
+        for(unsigned i=0;i<(bike?2u:4u);++i)wheels[i]=skinPart(wheelNames[i]);
+        auto animation=[&](const char* name,mkw::Model& model,bool& staticSkin){
+            auto bank=std::make_unique<mkw::DriverAnimation>();char path[160];
+            snprintf(path,sizeof path,"models/%s%s.dskm",drvPrefix,name);
+            // A replacement may supply a static mesh for an animated retail part.
+            uint32_t header[7]{};bool read=false;
+            if(hasSkin){
+                read=mkw::pack::readRange(path,0,header,sizeof header);
+                if(!read)if(FILE* file=fopen(path,"rb")){read=fread(header,1,sizeof header,file)==sizeof header;fclose(file);}
+                staticSkin=read&&!memcmp(header,"DSKM",4)&&header[2]==model.vertexCount&&header[4]==0;
+                if(staticSkin)return std::unique_ptr<mkw::DriverAnimation>{};
+            }
+            if(!hasSkin||!bank->load(path,model)){
+                snprintf(path,sizeof path,"models/%s%s.dskm",prefix,name);
+                if(!bank->load(path,model))bank.reset();
+            }
+            if(bank)bank->prepareLitSkinning(model);return bank;
+        };
         if(!replay){const auto& entry=selectedVehicle();
-            if(vehicle&&entry.bodyAnimation)bodyAnimation=animation("body",*vehicle);
+            if(vehicle&&entry.bodyAnimation)bodyAnimation=animation("body",*vehicle,staticSkinBody);
             for(unsigned i=0;i<accessories.size();++i)if(entry.extrasMask&(1u<<i)){
-                accessories[i]=part(mkw::GarageExtraNames[i], prefix);
-                if(accessories[i]&&(entry.extraAnimationMask&(1u<<i)))accessoryAnimations[i]=animation(mkw::GarageExtraNames[i],*accessories[i]);
+                accessories[i]=skinPart(mkw::GarageExtraNames[i]);
+                if(accessories[i]&&(entry.extraAnimationMask&(1u<<i)))accessoryAnimations[i]=animation(mkw::GarageExtraNames[i],*accessories[i],staticSkinExtras[i]);
             }
         }
         driftEffects.load(bike?"textures/drift-effects-bike.bin":"textures/drift-effects.bin");
@@ -1054,10 +1070,10 @@ int main() {
         bool complete=ok&&vehicle&&(replay||vehicleShadow);
         for(unsigned i=0;i<(bike?2u:4u);++i)complete&=bool(wheels[i]);
         if(!replay){const auto& entry=selectedVehicle();
-            complete&=!entry.bodyAnimation||bool(bodyAnimation);
+            complete&=!entry.bodyAnimation||bool(bodyAnimation)||staticSkinBody;
             for(unsigned i=0;i<accessories.size();++i){
                 if(entry.extrasMask&(1u<<i))complete&=bool(accessories[i])&&vehicleAnimation.accessorySupported(mkw::GarageExtraNames[i]);
-                if(entry.extraAnimationMask&(1u<<i))complete&=bool(accessoryAnimations[i]);
+                if(entry.extraAnimationMask&(1u<<i))complete&=bool(accessoryAnimations[i])||staticSkinExtras[i];
             }
         }
         if(!complete)report("FAIL selected vehicle asset or animation load");
@@ -1109,6 +1125,15 @@ int main() {
         auto loadList=[&](const char* list,auto& parts){
             if(!*list)return;
             FILE* f=fopen(list,"r");
+            if(!f && list[0]!='/' && !strchr(list,':')){
+                char alt[256];
+                snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",list);
+                f=fopen(alt,"r");
+                if(!f){
+                    snprintf(alt,sizeof alt,"romfs:/%s",list);
+                    f=fopen(alt,"r");
+                }
+            }
             if(!f){trackLoadFailed=true;report(list);return;}
             char name[64];while(fscanf(f,"%63s",name)==1){
                 if(strchr(name,'/')||strstr(name,"..")){trackLoadFailed=true;break;}
@@ -1171,18 +1196,28 @@ int main() {
             track.clear();sky.clear();bool complete=true;
             auto loadList=[&](const char* list,auto& parts){
                 if(!*list)return;
-                FILE* f=fopen(list,"r");if(!f){complete=false;return;}
+                FILE* f=fopen(list,"r");
+                if(!f && list[0]!='/' && !strchr(list,':')){
+                    char alt[256];
+                    snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",list);
+                    f=fopen(alt,"r");
+                    if(!f){
+                        snprintf(alt,sizeof alt,"romfs:/%s",list);
+                        f=fopen(alt,"r");
+                    }
+                }
+                if(!f){complete=false;return;}
                 char name[64];while(fscanf(f,"%63s",name)==1){
                     if(strchr(name,'/')||strstr(name,"..")){complete=false;break;}
                     auto model=std::make_unique<mkw::Model>();char path[128];snprintf(path,sizeof path,"models/%s.gmdl",name);
                     if(!model->load(path)){complete=false;break;}model->enableStaticCulling();parts.push_back(std::move(model));
                 }fclose(f);
             };
-            loadList(Courses[courseChoice].models,track);loadList(Courses[courseChoice].sky,sky);
+            loadList(mkw::course(courseChoice).models,track);loadList(mkw::course(courseChoice).sky,sky);
             if(!complete||track.empty()||!loadDriver()||!opponents.load()||!courseObjects.resumeGraphics())return false;
             driverController=pausedDriverController;driverPose=pausedDriverPose;
             bodyClock=pausedBodyClock;accessoryClocks=pausedAccessoryClocks;
-            renderer.setRetailLighting(mkw::courseLighting(Courses[courseChoice].archive));
+            renderer.setRetailLighting(mkw::courseLighting(mkw::course(courseChoice).archive));
             moveCourseTexturesToVram();raceGraphicsSuspended=false;trackCourse=int(courseChoice);return true;
         };
         if(attempt())return true;

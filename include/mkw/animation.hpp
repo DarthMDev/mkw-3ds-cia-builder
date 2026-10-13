@@ -63,11 +63,14 @@ private:
     std::array<Clip,64> clips_{},faces_{},uvClips_{};
     unsigned uvClipCount_=0;
     std::vector<std::array<float,2>> baseUV_;
-    std::array<Bounds,128> sourceBounds_{};
-    std::array<bool,128> usedMatrices_{};
+    // Weighted custom drivers can exceed the retail skeleton's palette size.
+    // GPU skinning retains Renderer::MaxSkinBones; larger banks use the CPU.
+    static constexpr unsigned MatrixCapacity=256;
+    std::array<Bounds,MatrixCapacity> sourceBounds_{};
+    std::array<bool,MatrixCapacity> usedMatrices_{};
     Bounds poseBounds_{};bool poseBoundsValid_=false;
-    std::array<float,128*21> palette_{};
-    std::array<float,128*21> previousPalette_{};
+    std::array<float,MatrixCapacity*21> palette_{};
+    std::array<float,MatrixCapacity*21> previousPalette_{};
     bool hasPreviousPose_=false;
     std::array<HairNode,8> hairNodes_{};
     std::array<HairClip,2> hairClips_{};

@@ -38,9 +38,9 @@ DRIVERS = [
     ('ka', 'dry_bones'),
     ('bk', 'dry_bowser'),
     ('fk', 'funky_kong'),
-    ('kt', 'toadette'),
+    ('kt', 'king_boo'),
     ('rs', 'rosalina'),
-    ('kk', 'king_boo'),
+    ('kk', 'toadette'),
     ('jr', 'bowser_jr')
 ]
 
@@ -91,7 +91,8 @@ def cook_task(task):
                 shutil.copyfile(cooked_gmdl, target_gmdl)
 
         cmd_dskm = ['node', str(ROOT / 'build/export_driver.mjs'), str(tmp_brres), str(target_dskm), 'model']
-        res_dskm = subprocess.run(cmd_dskm, capture_output=True, text=True)
+        res_dskm = subprocess.run(cmd_dskm, capture_output=True, text=True,
+                                  env={**os.environ, 'MKW_ALLOW_MISSING_FACE_TEXTURES': '1'})
         return prefix, (target_gmdl.is_file() and target_dskm.is_file())
     except Exception as e:
         return prefix, False

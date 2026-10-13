@@ -144,7 +144,7 @@ bool RaceBottomScreen::load(Renderer& renderer,unsigned course){
     auto& m=*impl_;
     const RaceMapCourse* c = nullptr;
     if (mkw::modEngine().isModLoaded()) {
-        const auto* track = mkw::modEngine().findTrackByIndex(course);
+        const auto* track = mkw::modEngine().findTrackByIndex(mkw::modEngine().resolvedCourseIndex(course));
         if (track && track->mapTexture[0] != '\0') {
             std::snprintf(m.retroTexture, sizeof(m.retroTexture), "%s", track->mapTexture);
             std::snprintf(m.retroOverview, sizeof(m.retroOverview), "%s", track->mapOverview);

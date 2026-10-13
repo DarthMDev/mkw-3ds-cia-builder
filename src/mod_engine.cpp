@@ -656,7 +656,7 @@ unsigned cupCount() {
 }
 
 const CourseChoice& course(unsigned index) {
-    return modEngine().courseChoice(index);
+    return modEngine().courseChoice(modEngine().resolvedCourseIndex(index));
 }
 
 const char* courseName(unsigned index) {
@@ -680,7 +680,7 @@ uint8_t ModEngine::courseLaps(unsigned index) const {
 }
 
 unsigned courseLaps(unsigned index) {
-    return modEngine().courseLaps(index);
+    return modEngine().courseLaps(modEngine().resolvedCourseIndex(index));
 }
 
 unsigned ModEngine::characterSkin(unsigned driverId) const {
@@ -799,6 +799,16 @@ const char* ModEngine::activeTrackVariantArchive(unsigned courseIndex) const {
     return "";
 }
 
+unsigned ModEngine::resolvedCourseIndex(unsigned courseIndex) const {
+    const char* archive = activeTrackVariantArchive(courseIndex);
+    if (archive && *archive) {
+        for (unsigned i = 0; i < trackCount(); ++i) {
+            if (!std::strcmp(courseChoice(i).archive, archive)) return i;
+        }
+    }
+    return courseIndex;
+}
+
 const char* ModEngine::trackAuthor(unsigned courseIndex) const {
     if (const auto* track = findTrackByIndex(courseIndex)) {
         if (track->author[0]) {
@@ -809,7 +819,7 @@ const char* ModEngine::trackAuthor(unsigned courseIndex) const {
 }
 
 const char* ModEngine::activeTrackAuthor() const {
-    return trackAuthor(activeCourse_);
+    return trackAuthor(resolvedCourseIndex(activeCourse_));
 }
 
 const char* ModEngine::trackMusicCredit(unsigned courseIndex) const {
@@ -822,7 +832,7 @@ const char* ModEngine::trackMusicCredit(unsigned courseIndex) const {
 }
 
 const char* ModEngine::activeMusicCredit() const {
-    return trackMusicCredit(activeCourse_);
+    return trackMusicCredit(resolvedCourseIndex(activeCourse_));
 }
 
 } // namespace mkw

@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -155,6 +156,9 @@ public:
         }
     }
 
+    unsigned activeDriverId() const { return activeDriverId_; }
+    void setActiveDriverId(unsigned id) { activeDriverId_ = id; }
+
     // Character Skins
     unsigned characterSkin(unsigned driverId) const;
     void setCharacterSkin(unsigned driverId, unsigned slot);
@@ -169,6 +173,7 @@ public:
     void setActiveTrackVariant(unsigned courseIndex, unsigned variantIndex);
     unsigned activeTrackVariant(unsigned courseIndex) const;
     const char* activeTrackVariantArchive(unsigned courseIndex) const;
+    unsigned resolvedCourseIndex(unsigned courseIndex) const;
 
     // Track Authors & Music Credits
     const char* trackAuthor(unsigned courseIndex) const;
@@ -186,9 +191,11 @@ private:
     bool modLoaded_ = false;
     ModSettings settings_{};
     char activeTrackArchive_[128]{};
+    unsigned activeDriverId_ = 0;
     std::vector<IModHook*> hooks_;
     std::vector<ModCupDef> cups_;
-    std::vector<std::string> stringStorage_;
+    // CourseChoice holds c_str pointers; adding tracks must not move strings.
+    std::deque<std::string> stringStorage_;
     std::vector<CourseChoice> dynamicTracks_;
     std::array<unsigned, 26> characterSkins_{};
     std::array<std::vector<std::string>, 26> characterSkinNames_{};

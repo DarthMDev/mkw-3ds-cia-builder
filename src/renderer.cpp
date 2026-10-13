@@ -44,10 +44,14 @@ TextureCache& textureCache() {
 // each with the SD card's fixed command latency.
 bool readFile(const char* path,std::vector<uint8_t>& out) {
     FILE* f=std::fopen(path,"rb");
-    if(!f && path && path[0]!='/'){
+    if(!f && path && path[0]!='/' && !std::strchr(path,':')){
         char alt[256];
         std::snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",path);
         f=std::fopen(alt,"rb");
+        if(!f){
+            std::snprintf(alt,sizeof alt,"romfs:/%s",path);
+            f=std::fopen(alt,"rb");
+        }
     }
     if(!f) return false;
     std::setvbuf(f,nullptr,_IONBF,0);
@@ -125,10 +129,14 @@ bool Model::load(const char* path) {
         explicit File(const char* path){
             if(pack::read(path,packed))return;
             f=std::fopen(path,"rb");
-            if(!f && path && path[0]!='/'){
+            if(!f && path && path[0]!='/' && !std::strchr(path,':')){
                 char alt[256];
                 std::snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",path);
                 f=std::fopen(alt,"rb");
+                if(!f){
+                    std::snprintf(alt,sizeof alt,"romfs:/%s",path);
+                    f=std::fopen(alt,"rb");
+                }
             }
             if(f)std::setvbuf(f,buffer,_IOFBF,sizeof buffer);
         }

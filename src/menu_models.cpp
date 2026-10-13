@@ -5,6 +5,8 @@
 #include "mkw/menu_lighting.hpp"
 #include "mkw/render_metrics.hpp"
 #include "mkw/mod_engine.hpp"
+#include "mkw/garage.hpp"
+#include <mkw/asset_pack.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -48,17 +50,19 @@ const char* seatedClip(unsigned driver,unsigned choice) {
 struct Wanted {int driver=-1,machine=-1,background=-1;};
 Wanted wanted(const MenuState& state){
     Wanted w;
+    const unsigned choice=state.page==UiPage::Vehicle?state.vehicleChoice(state.cursor):state.selection.vehicle;
     int drv=state.page==UiPage::Character?int(state.characterDriver(state.cursor)):
             machinePage(state.page)?int(state.selection.driver):-1;
     if(drv>=0&&drv<24){
         unsigned retailId=unsigned(drv)<UiCharacters.size()?UiCharacters[drv].retailId:unsigned(drv);
         unsigned skinSlot=mkw::modEngine().characterSkin(retailId);
         w.driver=drv|(skinSlot<<8);
+        if(skinSlot&&machinePage(state.page)&&choice<12)w.driver|=(choice+1)<<16;
     }else{
         w.driver=-1;
     }
-    const unsigned choice=state.page==UiPage::Vehicle?state.vehicleChoice(state.cursor):state.selection.vehicle;
     w.machine=machinePage(state.page)&&drv>=0&&drv<24&&choice<12?drv*12+int(choice):-1;
+    if(w.machine>=0)w.machine|=(unsigned(w.driver)>>8&0xffu)<<16;
     w.background=backgroundFor(state);
     return w;
 }
@@ -82,6 +86,14 @@ std::vector<uint16_t> environmentVertices(const Model& model) {
     }
     return result;
 }
+bool menuAssetExists(const char* path) {
+    if (pack::contains(path)) return true;
+    for (const char* root : {"", "sdmc:/3ds/mkw-3ds/", "romfs:/"}) {
+        char full[256];std::snprintf(full,sizeof full,"%s%s",root,path);
+        if(FILE* file=std::fopen(full,"rb")){std::fclose(file);return true;}
+    }
+    return false;
+}
 struct ModelJob final:AssetJob {
     int kind,id;std::string modelPath,animationPath;
     std::unique_ptr<Model> model;std::unique_ptr<DriverAnimation> animation;std::vector<uint16_t> environment;
@@ -91,32 +103,35 @@ struct ModelJob final:AssetJob {
         if(k==Driver){
             unsigned driverIdx=unsigned(i)&0xffu;
             unsigned skinSlot=(unsigned(i)>>8)&0xffu;
+            unsigned seatedChoice=(unsigned(i)>>16)&0xffu;
+            if(skinSlot&&seatedChoice&&driverIdx<24&&seatedChoice<=12){
+                const auto& garage=GarageChoices[driverIdx*12+seatedChoice-1];
+                char racePath[160];
+                std::snprintf(racePath,sizeof racePath,"models/%sskin_%u_driver.gmdl",garage.prefix,skinSlot);
+                modelPath=racePath;
+                std::snprintf(racePath,sizeof racePath,"models/%sskin_%u_driver.dskm",garage.prefix,skinSlot);
+                animationPath=racePath;
+                return;
+            }
             char skinModel[128];
             std::snprintf(skinModel,sizeof skinModel,"models/ui_driver_%u_skin_%u_000.gmdl",driverIdx,skinSlot);
-            char sdSkinModel[128];
-            std::snprintf(sdSkinModel,sizeof sdSkinModel,"sdmc:/3ds/mkw-3ds/%s",skinModel);
-            FILE* f=fopen(skinModel,"rb");
-            if(!f) f=fopen(sdSkinModel,"rb");
-            if(skinSlot>0&&f){
-                fclose(f);
+            if(skinSlot>0&&menuAssetExists(skinModel)){
                 modelPath=skinModel;
                 std::snprintf(path,sizeof path,"models/ui_driver_%u_skin_%u.dskm",driverIdx,skinSlot);
-                char sdPath[128];
-                std::snprintf(sdPath,sizeof sdPath,"sdmc:/3ds/mkw-3ds/%s",path);
-                FILE* af=fopen(path,"rb");
-                if(!af) af=fopen(sdPath,"rb");
-                if(af){fclose(af);animationPath=path;}
+                if(menuAssetExists(path))animationPath=path;
                 else{std::snprintf(path,sizeof path,"models/ui_driver_%u.dskm",driverIdx);animationPath=path;}
             }else{
-                if(f)fclose(f);
-                std::snprintf(path,sizeof path,"models/ui_driver_%u_000.gmdl",driverIdx);
-                modelPath=path;
-                std::snprintf(path,sizeof path,"models/ui_driver_%u.dskm",driverIdx);
-                animationPath=path;
+                std::snprintf(path,sizeof path,"models/ui_driver_%u_000.gmdl",driverIdx);modelPath=path;
+                std::snprintf(path,sizeof path,"models/ui_driver_%u.dskm",driverIdx);animationPath=path;
             }
         }
         if(k==Background){std::snprintf(path,sizeof path,"models/ui_back_%d_000.gmdl",i);modelPath=path;std::snprintf(path,sizeof path,"models/ui_back_%d.dskm",i);animationPath=path;}
-        if(k==Machine){std::snprintf(path,sizeof path,"models/ui_machine_%d_%u_000.gmdl",(i/12)&0xff,unsigned(i%12));modelPath=path;}
+        if(k==Machine){
+            const unsigned machine=unsigned(i)&0xffffu,skin=unsigned(i)>>16;
+            std::snprintf(path,sizeof path,"models/ui_machine_%u_%u_skin_%u_000.gmdl",machine/12,machine%12,skin);
+            if(skin&&menuAssetExists(path)){modelPath=path;}
+            else {std::snprintf(path,sizeof path,"models/ui_machine_%u_%u_000.gmdl",machine/12,machine%12);modelPath=path;}
+        }
     }
     void run()override{
         auto loaded=std::make_unique<Model>();if(!loaded->load(modelPath.c_str()))return;
@@ -201,9 +216,12 @@ void MenuModels::update(Renderer& renderer,const MenuState& visual){
     choose(Background,w.background,shownBackground_);
     choose(Machine,w.machine,shownMachine_);
     // The seated driver must be the one on the displayed machine.
-    choose(Driver,shownMachine_>=0?(shownMachine_/12)|(w.driver&~0xff):w.driver,shownDriver_);
+    const bool seatedSkin=shownMachine_>=0&&(unsigned(shownMachine_)>>16)!=0;
+    const unsigned machineId=unsigned(shownMachine_)&0xffffu;
+    const int displayedDriver=shownMachine_>=0?int((machineId/12)|((unsigned(shownMachine_)>>16)<<8)|(seatedSkin?((machineId%12+1)<<16):0)):w.driver;
+    choose(Driver,displayedDriver,shownDriver_);
     if(auto* driver=shownDriver_>=0?find(Driver,shownDriver_):nullptr;driver&&driver->animation){
-        int clip=driver->animation->find(shownMachine_>=0?seatedClip(unsigned(shownMachine_/12),unsigned(shownMachine_%12)):"sel_wait");
+        int clip=driver->animation->find(seatedSkin?"drive":shownMachine_>=0?seatedClip(machineId/12,machineId%12):"sel_wait");
         if(clip<0)clip=driver->animation->find("sel_wait");
         if(clip<0)clip=driver->animation->find("drive");
         if(clip!=driverClip_){driver->animation->clearPoseTransition();driverFrame_=0;}
@@ -292,12 +310,14 @@ void MenuModels::draw(Renderer& renderer,const MenuState& state,const UiTransiti
     }
     auto* driver=shownDriver_>=0?find(Driver,shownDriver_):nullptr;
     if(!driver||!driver->resident())return;
+    const bool raceSkinPose=(unsigned(shownDriver_)>>16)!=0;
     {const auto t0=svcGetSystemTick();
-    if(driver->animation)driver->animation->apply(*driver->model,driverClip_,float(driverFrame_),driverFrame_,driverFace_,float(driverFrame_));
+    if(driver->animation)driver->animation->apply(*driver->model,driverClip_,raceSkinPose?15.f:float(driverFrame_),driverFrame_,driverFace_,float(driverFrame_));
     renderMetrics.skinMs+=float((svcGetSystemTick()-t0)*1000.0/SYSCLOCK_ARM11);}
     auto* machine=shownMachine_>=0?find(Machine,shownMachine_):nullptr;
     if(machine&&machine->resident()) {
-        const unsigned driverId=unsigned(shownMachine_)/12,choice=unsigned(shownMachine_)%12;
+        const unsigned machineId=unsigned(shownMachine_)&0xffffu;
+        const unsigned driverId=machineId/12,choice=machineId%12;
         // Original centered 480-high framebuffer is cropped to a 256-square
         // image, then placed by model_set_p. Its AspectAdjust flag reduces
         // horizontal scale to 608/832 before the 608x456 UI reaches the LCD.
@@ -314,6 +334,8 @@ void MenuModels::draw(Renderer& renderer,const MenuState& state,const UiTransiti
         Mtx_RotateY(&matrix,3.14159265359f/4.f,true);
         Mtx_Scale(&matrix,scale,scale,scale);
         renderer.drawAtScreen(*machine->model,matrix,x,y,1.f,2.f*400.f/832.f*placement.scale,2.f*display::MenuScaleY*placement.scale);
+        // Menu machines include the retail seat-height base; race chassis
+        // models do not. Both preview pose sources use this menu-space seat.
         const auto& seat=MenuSeats[driverId][choice];Mtx_Translate(&matrix,0,seat.y,seat.z,true);
         renderer.drawAtScreen(*driver->model,matrix,x,y,1.f,2.f*400.f/832.f*placement.scale,2.f*display::MenuScaleY*placement.scale);
     }else if(state.page==UiPage::Character) {

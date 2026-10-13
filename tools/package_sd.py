@@ -4,6 +4,8 @@ import hashlib,json,shutil,struct,zipfile
 from gx_material import GMDL_SUBMESH_BYTES
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];assets=ROOT/'sd-card/3ds/mkw-3ds';out=ROOT/'build/playable/3ds/mkw-3ds';out.mkdir(parents=True,exist_ok=True)
+from verify_menu_pack import verify_menu_pack
+if (assets/'menu.pak').is_file():verify_menu_pack(assets)
 roster_overlay=ROOT/'build/roster'
 def roster_asset(relative):
  relative=Path(relative)
@@ -334,7 +336,7 @@ if pulsar_manifest_path.is_file():
        if gmdl.is_file():
         files[gmdl]=Path('models')/gmdl.name;b=gmdl.read_bytes()
         magic,version,nv,ni,ns,nt=struct.unpack_from('<4s5I',b)
-        stride=44 if version==3 else 56
+        stride=GMDL_SUBMESH_BYTES[version]
         for i in range(nt):
          tex=b[24+ns*stride+i*64:24+ns*stride+(i+1)*64].split(b'\0')[0].decode();t3x=assets/'textures'/f'{tex}.t3x'
          if t3x.is_file():files[t3x]=Path('textures')/t3x.name
@@ -355,6 +357,33 @@ for skin_gmdl in sorted((assets/'models').glob('ui_driver_*_skin_*_000.gmdl')):
  prefix=skin_gmdl.name.removesuffix('_000.gmdl')
  for t3x in sorted((assets/'textures').glob(f'{prefix}_*.t3x')):
   files[t3x]=Path('textures')/t3x.name
+# Race skins are distinct from the standing menu previews. Ship their matching
+# animation bank and every texture named by the model, just like the roster.
+for skin_gmdl in sorted((assets/'models').glob('*_skin_*.gmdl')):
+ if skin_gmdl.name.startswith('ui_driver_'):continue
+ if skin_gmdl.stem.endswith('_000') and not skin_gmdl.name.startswith('ui_machine_'):continue
+ skin_dskm=skin_gmdl.with_suffix('.dskm')
+ if skin_gmdl.stem.endswith('_driver') and not skin_dskm.is_file():raise ValueError('Incomplete race skin: '+skin_gmdl.name+'; run tools/cook_garage_skins.py')
+ files[skin_gmdl]=Path('models')/skin_gmdl.name
+ if skin_dskm.is_file():files[skin_dskm]=Path('models')/skin_dskm.name
+ b=skin_gmdl.read_bytes();magic,version,nv,ni,ns,nt=struct.unpack_from('<4s5I',b)
+ if magic!=b'GMDL' or version not in GMDL_SUBMESH_BYTES:raise ValueError('Invalid race skin model: '+skin_gmdl.name)
+ for i in range(nt):
+  start=24+ns*GMDL_SUBMESH_BYTES[version]+i*64
+  tex=b[start:start+64].split(b'\0')[0].decode()
+  relative=Path('textures')/(tex+'.t3x')
+  if relative.parent!=Path('textures') or not (assets/relative).is_file():raise ValueError('Missing race skin texture: '+str(relative))
+  files[assets/relative]=relative
+skin_audio=ROOT/'build/skin-audio/audio'
+if (skin_audio/'skins.json').is_file():
+ info=json.loads((skin_audio/'skins.json').read_text())
+ if digest_file(skin_audio/'skin-voices.brsar')!=info['archiveSha256']:raise ValueError('Skin voice archive is stale')
+ for old in [source for source,relative in files.items() if relative==Path('audio/revo_kart.brsar')]:del files[old]
+ files[skin_audio/'skin-voices.brsar']=Path('audio/revo_kart.brsar')
+ for entry in info['variants']:
+  source=skin_audio/entry['path']
+  if digest_file(source)!=entry['sha256']:raise ValueError('Skin voice table is stale')
+  files[source]=Path('audio')/entry['path']
 for map_t3x in sorted((assets/'textures').glob('race_map_retro_*.t3x')):
  files[map_t3x]=Path('textures')/map_t3x.name
 if '--list' in sys.argv:

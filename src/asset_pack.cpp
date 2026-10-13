@@ -25,7 +25,17 @@ struct Archives {
 Archives& archives(){static Archives value;return value;}
 std::uint32_t u32(const unsigned char* p){std::uint32_t v;std::memcpy(&v,p,4);return v;}
 bool load(Archive& a){
- std::FILE* f=std::fopen(a.path,"rb");if(!f)return false;
+ std::FILE* f=std::fopen(a.path,"rb");
+ if(!f && a.path && a.path[0]!='/' && !std::strchr(a.path,':')){
+  char alt[256];
+  std::snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",a.path);
+  f=std::fopen(alt,"rb");
+  if(!f){
+   std::snprintf(alt,sizeof alt,"romfs:/%s",a.path);
+   f=std::fopen(alt,"rb");
+  }
+ }
+ if(!f)return false;
  std::setvbuf(f,nullptr,_IONBF,0);
  unsigned char header[12];
  if(std::fread(header,1,12,f)!=12||std::memcmp(header,"MPK1",4)){std::fclose(f);return false;}

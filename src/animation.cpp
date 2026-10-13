@@ -73,26 +73,30 @@ bool DriverAnimation::load(const char* path,const Model& model){
     // Menu banks come from the open menu.pak; other banks are loose files.
     bool ok=false;size_t size=0;
     if(const long packed=pack::size(path);packed>=0){
-        size=size_t(packed);if(size<28||size>12*1024*1024)return false;
+        size=size_t(packed);if(size<28||size>24*1024*1024)return false;
         data_=allocateBank(size,dataLinear_);if(!data_)return false;
         ok=pack::readInto(path,data_,size);
     }else{
         FILE* f=std::fopen(path,"rb");
-        if(!f && path && path[0]!='/'){
+        if(!f && path && path[0]!='/' && !std::strchr(path,':')){
             char alt[256];
             std::snprintf(alt,sizeof alt,"sdmc:/3ds/mkw-3ds/%s",path);
             f=std::fopen(alt,"rb");
+            if(!f){
+                std::snprintf(alt,sizeof alt,"romfs:/%s",path);
+                f=std::fopen(alt,"rb");
+            }
         }
         if(!f)return false;std::fseek(f,0,SEEK_END);long length=std::ftell(f);std::rewind(f);
         if(length<0){std::fclose(f);return false;}size=size_t(length);
-        if(size<28||size>12*1024*1024){std::fclose(f);return false;}
+        if(size<28||size>24*1024*1024){std::fclose(f);return false;}
         data_=allocateBank(size,dataLinear_);if(!data_){std::fclose(f);return false;}
         ok=std::fread(data_,1,size,f)==size;std::fclose(f);
     }
     auto u32=[](const uint8_t* p){uint32_t v;std::memcpy(&v,p,4);return v;};
     if(!ok||std::memcmp(data_,"DSKM",4)||u32(data_+4)<2||u32(data_+4)>5){reset();return false;}
     vertices_=u32(data_+8);matrices_=u32(data_+12);count_=u32(data_+16);shapes_=u32(data_+20);faceCount_=u32(data_+24);
-    if(vertices_!=model.vertexCount||!matrices_||matrices_>128||!count_||count_>64||shapes_>64||faceCount_>64||model.submeshes.size()>64){reset();return false;}
+    if(vertices_!=model.vertexCount||!matrices_||matrices_>MatrixCapacity||!count_||count_>64||shapes_>64||faceCount_>64||model.submeshes.size()>64){reset();return false;}
     size_t cursor=28;
     int32_t rootSlot=-2;
     if(u32(data_+4)==5){

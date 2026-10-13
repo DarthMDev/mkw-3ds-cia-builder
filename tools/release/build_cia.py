@@ -308,6 +308,9 @@ def stage_package(version,cci,keep_stage):
     run([sys.executable,'tools/package_sd.py','--no-zip'])
     import package_cia
     target=package_cia.package(cci,version)
+    # An installed Patch title overrides the full CIA's executable. Keep both
+    # local outputs on the same build so reinstalling cannot leave old code.
+    if not cci:package_cia.package(version=version,update=True)
     # The staged files become the SD card copy for the update CIA:
     # build/release/sd-card/3ds/mkw-3ds plus its content stamp.
     if not cci:

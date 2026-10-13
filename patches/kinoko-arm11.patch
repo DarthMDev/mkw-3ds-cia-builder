@@ -3,9 +3,9 @@ index eb8ee04..c5e3fe0 100644
 --- a/include/Logger.hh
 +++ b/include/Logger.hh
 @@ -14,6 +14,23 @@
- 
+
  #define STATIC_ASSERT(e) static_assert(e, "[" FILE_NAME ":" TOSTRING(__LINE__) "] ASSERT: " #e)
- 
+
 +#ifdef KINOKO_QUIET
 +// Release builds: every check still runs and still aborts; nothing is printed.
 +#define RUNTIME_ASSERT(e) \
@@ -31,7 +31,7 @@ index eb8ee04..c5e3fe0 100644
          printf("[" FILE_NAME ":" TOSTRING(__LINE__) "] REPORT: " m "\n", ##__VA_ARGS__); \
      } while (0)
 +#endif
- 
+
  #ifdef BUILD_DEBUG
  #define DEBUG(m, ...) \
 diff --git a/source/abstract/File.cc b/source/abstract/File.cc
@@ -41,14 +41,14 @@ index ee849c9..d882277 100644
 @@ -16,7 +16,12 @@ u8 *Load(const char *path, size_t &size) {
          path++;
      }
- 
+
 +#ifdef KINOKO_QUIET
 +    // Release builds resolve paths against the working directory.
 +    const char *root = nullptr;
 +#else
      const char *root = std::getenv("KINOKO_FILESYSTEM_ROOT");
 +#endif
- 
+
      if (root && root[0] != '\0') {
          // path relative to KINOKO_FILESYSTEM_ROOT
 diff --git a/source/egg/math/Math.hh b/source/egg/math/Math.hh
@@ -56,7 +56,7 @@ index f0c4cc4..8424fae 100644
 --- a/source/egg/math/Math.hh
 +++ b/source/egg/math/Math.hh
 @@ -30,16 +30,18 @@ namespace EGG::Mathf {
- 
+
  /// @brief Fused multiply-add operation.
  /// @details We cannot use std::fma due to the Wii computing at 64-bit precision.
 +/// mkw-3ds: force25Bit is the identity on a widened f32 (its low 29 mantissa bits
@@ -66,7 +66,7 @@ index f0c4cc4..8424fae 100644
 -            static_cast<f64>(x) * force25Bit(static_cast<f64>(y)) + static_cast<f64>(z));
 +            static_cast<f64>(x) * static_cast<f64>(y) + static_cast<f64>(z));
  }
- 
+
  /// @brief Fused multiply-subtract operation.
  /// @details We cannot use std::fms due to the Wii computing at 64-bit precision.
  [[nodiscard]] static inline constexpr f32 fms(f32 x, f32 y, f32 z) {
@@ -74,7 +74,7 @@ index f0c4cc4..8424fae 100644
 -            static_cast<f64>(x) * force25Bit(static_cast<f64>(y)) - static_cast<f64>(z));
 +            static_cast<f64>(x) * static_cast<f64>(y) - static_cast<f64>(z));
  }
- 
+
  // sin/cos struct
 diff --git a/source/game/field/ObjectCollisionKart.hh b/source/game/field/ObjectCollisionKart.hh
 index f35456b..a66f16f 100644
@@ -83,7 +83,7 @@ index f35456b..a66f16f 100644
 @@ -27,6 +27,11 @@ public:
              Vehicle vehicle);
      [[nodiscard]] static const EGG::Vector3f &translation(size_t idx);
- 
+
 +    /// The hull as last transformed by checkCollision (item contacts reuse it in the same pass).
 +    [[nodiscard]] ObjectCollisionConvexHull *hull() const {
 +        return m_hull;
@@ -97,16 +97,16 @@ index edcbbda..03df1ab 100644
 --- a/source/game/field/ObjectDirector.cc
 +++ b/source/game/field/ObjectDirector.cc
 @@ -2,6 +2,7 @@
- 
+
  #include "game/field/BoxColManager.hh"
  #include "game/field/ObjectDrivableDirector.hh"
 +#include "game/field/ObjectCollisionSphere.hh"
  #include "game/field/obj/ObjectRegistry.hh"
- 
+
  #include "game/kart/KartObject.hh"
 @@ -65,6 +66,59 @@ void ObjectDirector::addManagedObject(ObjectCollidable *obj) {
  }
- 
+
  /// @addr{0x8082AB04}
 +// USA808172a8: collect every source primitive hit and object callback before
 +// the item's controller applies its own fate. Reuse the completed kart-pass
@@ -167,7 +167,7 @@ index edcbbda..03df1ab 100644
 @@ -80,11 +134,12 @@ size_t ObjectDirector::checkKartObjectCollision(Kart::KartObject *kartObj,
              continue;
          }
- 
+
 -        // We have a collision, process it
 -        // Assume that we are not in a star, mega, or bullet
 -        Kart::Reaction reactionOnKart = m_hitTableKart.reaction(m_hitTableKart.slot(obj->id()));
@@ -178,7 +178,7 @@ index edcbbda..03df1ab 100644
          Kart::Reaction reactionOnObj =
 -                m_hitTableKartObject.reaction(m_hitTableKartObject.slot(obj->id()));
 +                m_hitTableKartObject.reaction(m_hitTableKartObject.slot(obj->id()), column);
- 
+
          // The object might change the reaction states
          obj->processKartReactions(kartObj, reactionOnKart, reactionOnObj);
 @@ -147,7 +202,8 @@ void ObjectDirector::DestroyInstance() {
@@ -190,11 +190,11 @@ index edcbbda..03df1ab 100644
 +      m_hitTableItemObject("GeoHitTableItemObj.bin"), m_objects(MAX_UNIT_COUNT),
        m_calcObjects(MAX_UNIT_COUNT), m_collisionObjects(MAX_UNIT_COUNT), m_psea(nullptr),
        m_managedObjects(MAX_MANAGED_OBJECTS) {}
- 
+
 @@ -173,6 +229,12 @@ void ObjectDirector::createObjects() {
      bool rGV2 = course == Course::SNES_Ghost_Valley_2;
      bool sun = false;
- 
+
 +    // Retail (USA 0x80813378) builds no item boxes and no Bob-omb cars while ObjectDirector
 +    // +0x55 is set, as in time trials. Kinoko's time trials replay a ghost as player 0.
 +    const auto &scenario = System::RaceConfig::Instance()->raceScenario();
@@ -207,7 +207,7 @@ index edcbbda..03df1ab 100644
 @@ -191,6 +253,11 @@ void ObjectDirector::createObjects() {
              continue;
          }
- 
+
 +        const auto objectId = static_cast<ObjectId>(pObj->id());
 +        if (timeTrial && (objectId == ObjectId::KBombCar || objectId == ObjectId::KBombCar1)) {
 +            continue;
@@ -230,18 +230,18 @@ index 9634abd..7f86310 100644
 --- a/source/game/field/ObjectDirector.hh
 +++ b/source/game/field/ObjectDirector.hh
 @@ -34,11 +34,19 @@ public:
- 
+
      size_t checkKartObjectCollision(Kart::KartObject *kartObj,
              ObjectCollisionConvexHull *convexHull);
 +    size_t checkItemObjectCollision(s16 type, u8 owner, const EGG::Vector3f &position,
 +            const EGG::Vector3f &velocity, f32 radius, bool held);
 +    void broadcastItemCollision(s16 type);
 +    [[nodiscard]] u8 itemOwner() const { return m_itemOwner; }
- 
+
      [[nodiscard]] const ObjectFlowTable &flowTable() const {
          return m_flowTable;
      }
- 
+
 +    [[nodiscard]] const fixed_vector<ObjectBase *> &objects() const {
 +        return m_objects;
 +    }
@@ -256,7 +256,7 @@ index 9634abd..7f86310 100644
 +    ObjectHitTable m_hitTableItem;
 +    ObjectHitTable m_hitTableItemObject;
 +    u8 m_itemOwner = 12; ///< Owner of the current source item callback,12=none.
- 
+
      fixed_vector<ObjectBase *> m_objects;          ///< All objects live here
      fixed_vector<ObjectBase *> m_calcObjects;      ///< Objects needing calc() live here too.
 diff --git a/source/game/field/ObjectDrivableDirector.hh b/source/game/field/ObjectDrivableDirector.hh
@@ -271,16 +271,16 @@ index 2bdb115..380a7e4 100644
 +    [[nodiscard]] const fixed_vector<ObjectDrivable *> &objects() const { return m_objects; }
 +
      void createObakeManager(const System::MapdataGeoObj &params);
- 
+
      [[nodiscard]] bool checkSpherePartial(f32 radius, const EGG::Vector3f &pos,
 diff --git a/source/game/field/ObjectFlowTable.hh b/source/game/field/ObjectFlowTable.hh
 index 8a3053f..12b0d2c 100644
 --- a/source/game/field/ObjectFlowTable.hh
 +++ b/source/game/field/ObjectFlowTable.hh
 @@ -59,6 +59,13 @@ public:
- 
+
      [[nodiscard]] ObjectId getIdFromName(const char *name) const;
- 
+
 +    /// @brief The entry's sound actor type (s16 at +0x62; Object::LoadSound USA 0x8080c84c):
 +    /// 1 Audio::ObjectActor, 2 ObjectSoundAnimNoHandle, 3 Audio::ObjectActorAnim, else none.
 +    [[nodiscard]] s16 soundMode(ObjectId id) const {
@@ -297,18 +297,18 @@ index 767c3a2..56894e9 100644
 +++ b/source/game/field/ObjectHitTable.cc
 @@ -1,5 +1,6 @@
  #include "ObjectHitTable.hh"
- 
+
 +#include "game/kart/KartObject.hh"
  #include "game/system/ResourceManager.hh"
- 
+
  #include <egg/util/Stream.hh>
 @@ -16,12 +17,14 @@ ObjectHitTable::ObjectHitTable(const char *filename) {
- 
+
      m_count = stream.read_s16();
      m_fieldCount = stream.read_s16();
 -    m_reactions = owning_span<s16>(m_count);
 +    m_reactions = owning_span<s16>(m_count * m_fieldCount);
- 
+
 -    for (auto &reaction : m_reactions) {
 +    // Each row is the object ID then one reaction per field.
 +    for (s16 row = 0; row < m_count; ++row) {
@@ -319,12 +319,12 @@ index 767c3a2..56894e9 100644
 +            m_reactions[row * m_fieldCount + field] = stream.read_s16();
 +        }
      }
- 
+
      m_slots = reinterpret_cast<const s16 *>(stream.dataAtIndex());
 @@ -30,10 +33,22 @@ ObjectHitTable::ObjectHitTable(const char *filename) {
  /// @addr{0x807F9348}
  ObjectHitTable::~ObjectHitTable() = default;
- 
+
 -Kart::Reaction ObjectHitTable::reaction(s16 i) const {
 +Kart::Reaction ObjectHitTable::reaction(s16 i, s16 column) const {
      ASSERT(i != -1);
@@ -344,7 +344,7 @@ index 767c3a2..56894e9 100644
 +    }
 +    return status.onBit(Kart::eStatus::Bullet) ? 3 : 0;
  }
- 
+
  s16 ObjectHitTable::slot(ObjectId id) const {
 diff --git a/source/game/field/ObjectHitTable.hh b/source/game/field/ObjectHitTable.hh
 index fc438b9..31a445e 100644
@@ -353,12 +353,12 @@ index fc438b9..31a445e 100644
 @@ -13,13 +13,17 @@ public:
      ObjectHitTable(const char *filename);
      ~ObjectHitTable();
- 
+
 -    Kart::Reaction reaction(s16 i) const;
 +    /// @param column Retail per-row field: 0 normal, 1 Star, 2 Mega, 3 Bullet (kart tables).
 +    Kart::Reaction reaction(s16 i, s16 column = 0) const;
      s16 slot(ObjectId id) const;
- 
+
 +    /// RMCU 0x808179cc: the kart-table column for a racer's power-up state.
 +    static s16 KartColumn(const Kart::KartObject *kartObj);
 +
@@ -369,7 +369,7 @@ index fc438b9..31a445e 100644
 +    owning_span<s16> m_reactions; ///< m_count rows of m_fieldCount reactions.
      const s16 *m_slots;
  };
- 
+
 diff --git a/source/game/field/RailInterpolator.cc b/source/game/field/RailInterpolator.cc
 index 762b868..6e62c6a 100644
 --- a/source/game/field/RailInterpolator.cc
@@ -377,7 +377,7 @@ index 762b868..6e62c6a 100644
 @@ -155,7 +155,15 @@ RailInterpolator::Status RailLinearInterpolator::calc() {
      if (shouldChangeDirection()) {
          status = Status::ChangingDirection;
- 
+
 -        calcDirectionChange();
 +        // Retail (PAL 0x806F0050 / 0x806EEBEC): a path marked stop-at-end
 +        // parks on its final segment instead of reversing.
@@ -389,12 +389,12 @@ index 762b868..6e62c6a 100644
 +            m_currPointIdx = m_pointCount - 2;
 +        }
      }
- 
+
      m_currentDirection = m_points[m_nextPointIdx].pos - m_points[m_currPointIdx].pos;
 @@ -326,7 +334,15 @@ RailInterpolator::Status RailSmoothInterpolator::calc() {
      if (shouldChangeDirection()) {
          status = Status::ChangingDirection;
- 
+
 -        calcDirectionChange();
 +        // Retail (PAL 0x806F0050 / 0x806EEBEC): a path marked stop-at-end
 +        // parks on its final segment instead of reversing.
@@ -406,7 +406,7 @@ index 762b868..6e62c6a 100644
 +            m_currPointIdx = m_pointCount - 2;
 +        }
      }
- 
+
      if (m_movementDirectionForward) {
 diff --git a/source/game/field/RailInterpolator.hh b/source/game/field/RailInterpolator.hh
 index 11bf1fd..af97e04 100644
@@ -415,7 +415,7 @@ index 11bf1fd..af97e04 100644
 @@ -36,6 +36,12 @@ public:
          m_usePerPointVelocities = isSet;
      }
- 
+
 +    /// Retail flag at +0x16, set by the opening-pan cameras (PAL 0x805ADB40):
 +    /// reaching the end of the path stops there instead of reversing.
 +    void setStopAtEnd(bool isSet) {
@@ -468,7 +468,7 @@ index c206aac..9b2035a 100644
 +        cueSound(0x2fb, SoundCall::Hold);
 +    }
      f32 getCollisionRadius() const override;
- 
+
      [[nodiscard]] bool checkPointPartial(const EGG::Vector3f &v0, const EGG::Vector3f &v1,
 diff --git a/source/game/field/obj/ObjectBasabasa.cc b/source/game/field/obj/ObjectBasabasa.cc
 index bec54f4..461dc6d 100644
@@ -476,7 +476,7 @@ index bec54f4..461dc6d 100644
 +++ b/source/game/field/obj/ObjectBasabasa.cc
 @@ -34,13 +34,14 @@ void ObjectBasabasaDummy::init() {
  }
- 
+
  /// @addr{0x806B6874}
 -Kart::Reaction ObjectBasabasaDummy::onCollision(Kart::KartObject * /*kartObj*/,
 +Kart::Reaction ObjectBasabasaDummy::onCollision(Kart::KartObject *kartObj,
@@ -489,7 +489,7 @@ index bec54f4..461dc6d 100644
 +        reactionOnKart = hitTable.reaction(hitTable.slot(ObjectId::BasabasaDummy),
 +                ObjectHitTable::KartColumn(kartObj));
      }
- 
+
      return reactionOnKart;
 @@ -62,6 +63,10 @@ void ObjectBasabasaDummy::calcState0() {
          EGG::Matrix34f mat = transform();
@@ -501,23 +501,23 @@ index bec54f4..461dc6d 100644
 +        cueSound(0x23e, SoundCall::Voice); // SE_CC_BASA_V_ATK
      }
  }
- 
+
 diff --git a/source/game/field/obj/ObjectBase.cc b/source/game/field/obj/ObjectBase.cc
 index ef9550f..df0ceca 100644
 --- a/source/game/field/obj/ObjectBase.cc
 +++ b/source/game/field/obj/ObjectBase.cc
 @@ -3,6 +3,7 @@
  #include "game/field/ObjectDirector.hh"
- 
+
  #include "game/system/CourseMap.hh"
 +#include "game/system/RaceConfig.hh"
  #include "game/system/ResourceManager.hh"
  #include "game/system/map/MapdataPointInfo.hh"
- 
+
 @@ -12,6 +13,16 @@
- 
+
  namespace Kinoko::Field {
- 
+
 +// USA8080bc64 uses ObjectsMgr's mode flags: >=7, Time Trial2 and Ghost
 +// Race5 retain5/6. Ordinary offline modes map those to3/4, independently
 +// of whether the triggering item has a physical model.
@@ -534,7 +534,7 @@ index ef9550f..df0ceca 100644
 @@ -29,6 +40,27 @@ ObjectBase::ObjectBase(const char *name, const EGG::Vector3f &pos, const EGG::Ve
      m_id = ObjectDirector::Instance()->flowTable().getIdFromName(name);
  }
- 
+
 +namespace {
 +constexpr size_t SOUND_CUE_MAX = 96;
 +ObjectBase::SoundCue s_soundCues[SOUND_CUE_MAX];
@@ -571,13 +571,13 @@ index 1ccec15..9edf7fc 100644
 +    virtual void processItemReactions(s16 type, bool direct, s16 &reactionOnItem,
 +            s16 &reactionOnObj);
 +    virtual void onGlobalItemCollision(s16 /*reactionOnItem*/, s16 /*reactionOnObj*/) {}
- 
+
      [[nodiscard]] virtual const char *getName() const;
- 
+
 @@ -78,6 +82,11 @@ public:
          return m_railInterpolator;
      }
- 
+
 +    /// The course placement this object was built from (null for spawned parts).
 +    [[nodiscard]] const System::MapdataGeoObj *mapObj() const {
 +        return m_mapObj;
@@ -589,7 +589,7 @@ index 1ccec15..9edf7fc 100644
 @@ -163,6 +172,28 @@ public:
          return m_transform;
      }
- 
+
 +    /// @brief The object's Audio::ObjectActor calls at their retail call points: a
 +    /// presentation record taken by the game each tick and never read by the simulation.
 +    /// Start: Object::StartSoundLimited (USA 0x8080c9e8); Hold: HoldSoundLimited
@@ -621,19 +621,19 @@ index 2f3400b..85ffe8f 100644
 +++ b/source/game/field/obj/ObjectBeltCurveA.cc
 @@ -1,5 +1,10 @@
  #include "ObjectBeltCurveA.hh"
- 
+
 +#include "game/system/RaceManager.hh"
 +
 +#include <algorithm>
 +#include <cstdlib>
 +
  namespace Kinoko::Field {
- 
+
  /// @addr{0x807FC90C}
 @@ -43,6 +48,25 @@ EGG::Vector3f ObjectBeltCurveA::calcRoadVelocity(u32 variant, const EGG::Vector3
      }
  }
- 
+
 +/// @brief Retail BeltCurveA::Update (807f05f4) and its animation update (807f07cc): sound only.
 +void ObjectBeltCurveA::calc() {
 +    constexpr s32 RAMP_FRAMES = 60;
@@ -663,12 +663,12 @@ index fe20a13..ec11cd5 100644
 @@ -19,6 +19,8 @@ public:
          return variant == 4 || variant == 5;
      }
- 
+
 +    void calc() override;
 +
  private:
      [[nodiscard]] f32 calcDirSwitchVelocity(u32 t) const;
- 
+
 diff --git a/source/game/field/obj/ObjectBulldozer.cc b/source/game/field/obj/ObjectBulldozer.cc
 index f592e7f..4d8ae43 100644
 --- a/source/game/field/obj/ObjectBulldozer.cc
@@ -707,7 +707,7 @@ index 8e57393..68525e2 100644
 +
 +    cueMoveSound();
  }
- 
+
  /// @addr{0x806B8844}
 @@ -136,6 +138,17 @@ void ObjectCarA::calcCruising() {
          m_motionState = MotionState::Decelerating;
@@ -725,7 +725,7 @@ index 8e57393..68525e2 100644
 +        cueSound(0x2b1, SoundCall::Hold);            // SE_CN_SHP_CAR_BACK
 +    }
  }
- 
+
  /// @addr{0x806B8D3C}
 diff --git a/source/game/field/obj/ObjectCarA.hh b/source/game/field/obj/ObjectCarA.hh
 index 0b38874..8f34e85 100644
@@ -736,7 +736,7 @@ index 0b38874..8f34e85 100644
      void calcAccel();
      void calcCruising();
 +    void cueMoveSound() const;
- 
+
      const f32 m_finalVel;
      const f32 m_accel;
 diff --git a/source/game/field/obj/ObjectCarTGE.cc b/source/game/field/obj/ObjectCarTGE.cc
@@ -745,16 +745,16 @@ index bd434d7..c922727 100644
 +++ b/source/game/field/obj/ObjectCarTGE.cc
 @@ -6,17 +6,32 @@
  #include "game/field/obj/ObjectHighwayManager.hh"
- 
+
  #include "game/kart/KartObject.hh"
 +#include "game/kart/KartParam.hh"
- 
+
  #include "game/system/RaceConfig.hh"
- 
+
 +#include <limits>
 +
  namespace Kinoko::Field {
- 
+
 +// Bomb cars (retail USA 0x806C9118 / 0x806C9D1C / 0x806C9FA8).
 +static constexpr f32 BOMB_BLAST_RADIUS = 1250.0f;  ///< 0x808BF464
 +static constexpr u32 BOMB_BLAST_SPIN_FRAME = 32;    ///< +0x162: later blast hits only spin
@@ -787,9 +787,9 @@ index bd434d7..c922727 100644
 +        snprintf(m_carName, sizeof(m_carName), "%s", name);
 +        m_carType = CarType::BombCar;
      }
- 
+
      const auto *resourceName = getResources();
- 
+
 -    switch (carVariant) {
 +    if (m_carType == CarType::BombCar) {
 +        snprintf(m_mdlName, sizeof(m_mdlName), "%s", resourceName);
@@ -807,7 +807,7 @@ index bd434d7..c922727 100644
 +        m_dummyId = ObjectDirector::Instance()->flowTable().getIdFromName("K_bomb_car_dummy");
          break;
      }
- 
+
 +    m_baseScale = scale().x;
 +    s_bombRegrowPeak = 1.5f * scale().x;
 +
@@ -817,7 +817,7 @@ index bd434d7..c922727 100644
 @@ -131,11 +152,21 @@ void ObjectCarTGE::init() {
          m_nextStateId = 2;
      }
- 
+
 -    m_squashed = false;
 +    m_squashed.fill(false);
      setPos(m_railInterpolator->curPos());
@@ -835,12 +835,12 @@ index bd434d7..c922727 100644
 +    m_blastRadius = BOMB_BLAST_RADIUS;
 +    m_blastPhase = 0;
  }
- 
+
  /// @addr{0x806D6ECC}
 @@ -153,7 +184,25 @@ void ObjectCarTGE::calc() {
          }
      }
- 
+
 -    calcPos();
 +    if (m_carType == CarType::BombCar) {
 +        // USA 0x806C808C: the rail runs on while the car is blown up.
@@ -861,29 +861,29 @@ index bd434d7..c922727 100644
 +            cueSound(0x206, SoundCall::Hold, m_currSpeed); // SE_CC_TGE_CAR_T_MV
 +        }
 +    }
- 
+
      m_hasAuxCollision = false;
  }
 @@ -165,11 +214,14 @@ void ObjectCarTGE::createCollision() {
      constexpr f32 NORMAL_RADIUS = 150.0f;
      constexpr f32 NORMAL_HEIGHT = 200.0f;
- 
+
 -    ASSERT(m_carType == CarType::Truck || m_carType == CarType::Normal);
 +    ObjectCollidable::createCollision();
- 
+
 -    bool isTruck = (m_carType == CarType::Truck);
 +    // Bomb cars keep the flow table's sphere alone (USA 0x806C8CB8).
 +    if (m_carType == CarType::BombCar) {
 +        return;
 +    }
- 
+
 -    ObjectCollidable::createCollision();
 +    bool isTruck = (m_carType == CarType::Truck);
- 
+
      f32 radius = isTruck ? TRUCK_RADIUS : NORMAL_RADIUS;
      f32 height = isTruck ? TRUCK_HEIGHT : NORMAL_HEIGHT;
 @@ -187,6 +239,9 @@ void ObjectCarTGE::calcCollisionTransform() {
- 
+
      calcTransform();
      col->transform(transform(), scale(), m_scaledTangentDir);
 +    if (!m_auxCollision) {
@@ -897,7 +897,7 @@ index bd434d7..c922727 100644
      constexpr f32 NORMAL_RADIUS = 600.0f;
      constexpr f32 TRUCK_RADIUS = 1100.0f;
 +    constexpr f32 BOMB_RADIUS = 400.0f;
- 
+
 -    ASSERT(m_carType == CarType::Truck || m_carType == CarType::Normal);
 -    return (m_carType == CarType::Truck) ? TRUCK_RADIUS : NORMAL_RADIUS;
 +    switch (m_carType) {
@@ -909,13 +909,13 @@ index bd434d7..c922727 100644
 +        return NORMAL_RADIUS;
 +    }
  }
- 
+
  /// @addr{0x806D7328}
  Kart::Reaction ObjectCarTGE::onCollision(Kart::KartObject *kartObj, Kart::Reaction reactionOnKart,
 -        Kart::Reaction /*reactionOnObj*/, EGG::Vector3f &hitDepth) {
 +        Kart::Reaction reactionOnObj, EGG::Vector3f &hitDepth) {
      constexpr u32 SQUASH_INVULNERABILITY = 200;
- 
+
 +    if (m_carType == CarType::BombCar) {
 +        // Retail USA 0x806C84E8: touching the bomb car blows it up (object reaction 5 for
 +        // every kart, GeoHitTableKartObj); the kart reacts with an explosion (32), and once
@@ -940,7 +940,7 @@ index bd434d7..c922727 100644
 @@ -218,14 +298,20 @@ Kart::Reaction ObjectCarTGE::onCollision(Kart::KartObject *kartObj, Kart::Reacti
          }
      }
- 
+
 -    if (m_highwayMgr && m_highwayMgr->squashTimer() < SQUASH_INVULNERABILITY) {
 +    // Retail USA 0x806C84E8 reads and marks the colliding player's own squash state.
 +    const size_t playerIdx = kartObj->param()->playerIdx();
@@ -951,7 +951,7 @@ index bd434d7..c922727 100644
 +        reactionOnKart = hitTable.reaction(hitTable.slot(static_cast<ObjectId>(m_dummyId)),
 +                ObjectHitTable::KartColumn(kartObj));
      }
- 
+
      // In the base game, behavior branches on reactionOnObj, but for time trials it's always 0.
      if (reactionOnKart != Kart::Reaction::None && reactionOnKart != Kart::Reaction::WallAllSpeed) {
 -        m_squashed = true;
@@ -964,7 +964,7 @@ index bd434d7..c922727 100644
 @@ -249,7 +335,7 @@ bool ObjectCarTGE::checkCollision(ObjectCollisionBase *lhs, EGG::Vector3f &dist)
      dist = EGG::Vector3f::zero;
      bool hasCol = lhs->check(*m_collision, dist);
- 
+
 -    if (!hasCol) {
 +    if (!hasCol && m_auxCollision) {
          hasCol = lhs->check(*m_auxCollision, dist);
@@ -973,7 +973,7 @@ index bd434d7..c922727 100644
 @@ -338,4 +424,122 @@ void ObjectCarTGE::calcPos() {
      setMatrixTangentTo(m_up, m_tangent);
  }
- 
+
 +/// @addr{0x806CA1C0}
 +/// @brief Bomb cars sit on the rail point, their heading and up vector eased 10% a frame
 +/// toward the rail tangent and the floor normal between the segment's points.
@@ -1098,14 +1098,14 @@ index 3bf29e5..1d8af81 100644
 --- a/source/game/field/obj/ObjectCarTGE.hh
 +++ b/source/game/field/obj/ObjectCarTGE.hh
 @@ -2,6 +2,8 @@
- 
+
  #pragma once
- 
+
 +#include <array>
 +
  #include "game/field/StateManager.hh"
  #include "game/field/obj/ObjectCollidable.hh"
- 
+
 @@ -14,7 +16,7 @@ public:
      enum class CarType {
          Normal = 0,
@@ -1113,10 +1113,10 @@ index 3bf29e5..1d8af81 100644
 -        BombCar = 2, ///< Unused in time trials
 +        BombCar = 2, ///< Never built in time trials (ObjectDirector::createObjects)
      };
- 
+
      ObjectCarTGE(const System::MapdataGeoObj &params);
 @@ -52,11 +54,41 @@ public:
- 
+
      /// @addr{0x806D9A04}
      void reset() {
 -        m_squashed = false;
@@ -1136,7 +1136,7 @@ index 3bf29e5..1d8af81 100644
 +    [[nodiscard]] bool exploded() const {
 +        return m_exploded;
      }
- 
+
 -    [[nodiscard]] bool squashed() const {
 -        return m_squashed;
 +    /// Bomb car: the blast is on (retail +0x1D9), its collision grown to the blast radius.
@@ -1158,17 +1158,17 @@ index 3bf29e5..1d8af81 100644
 +    [[nodiscard]] f32 blastRadius() const {
 +        return m_blastRadius;
      }
- 
+
  private:
 @@ -68,6 +100,10 @@ private:
      void calcState2();
- 
+
      void calcPos();
 +    void calcBombPos();
 +    void explode();
 +    void calcExploded();
 +    void calcRegrow();
- 
+
      const ObjectHighwayManager *m_highwayMgr;
      ObjectCollisionBase *m_auxCollision;
 @@ -81,10 +117,22 @@ private:
@@ -1179,7 +1179,7 @@ index 3bf29e5..1d8af81 100644
 +    std::array<bool, 12> m_squashed;
      bool m_hasAuxCollision;
      f32 m_hitAngle;
- 
+
 +    // Bomb cars (retail car type 2).
 +    bool m_exploded;        ///< +0x1BD
 +    bool m_blastActive;     ///< +0x1D9
@@ -1206,10 +1206,10 @@ index 6316a2c..593f5c3 100644
 +
 +    cueSound(0x265, SoundCall::Start); // SE_CC_CHOROPU_FACE_UP (retail 806b6764)
  }
- 
+
  /// @addr{0x806BB39C}
 @@ -154,6 +156,10 @@ void ObjectChoropu::enterJumping() {
- 
+
      setPos(m_isStationary ? m_transMat.base(3) : m_railMat.base(3));
      setRot(EGG::Vector3f(rot().x, rot().y, 0.0f));
 +
@@ -1217,7 +1217,7 @@ index 6316a2c..593f5c3 100644
 +    cueSound(0x268, SoundCall::Start); // SE_CC_CHOROPU_JUMP
 +    cueSound(0x269, SoundCall::Voice); // SE_CC_CHOROPU_V_JUMP
  }
- 
+
  void ObjectChoropu::calcStateStub() {}
 @@ -190,6 +196,8 @@ void ObjectChoropu::calcDigging() {
              calcGround();
@@ -1226,7 +1226,7 @@ index 6316a2c..593f5c3 100644
 +
 +    cueSound(0x264, SoundCall::Hold); // SE_CC_CHOROPU_MV (retail 806b6374)
  }
- 
+
  /// @addr{0x806BB144}
 diff --git a/source/game/field/obj/ObjectCollidable.cc b/source/game/field/obj/ObjectCollidable.cc
 index c7c65b0..9ea35a8 100644
@@ -1242,7 +1242,7 @@ index c7c65b0..9ea35a8 100644
 +    if (!collisionSet) {
 +        return ObjectBase::getCollisionRadius();
 +    }
- 
+
      f32 zRadius = scale().z * static_cast<f32>(parse<s16>(collisionSet->params.box.z));
      f32 xRadius = scale().x * static_cast<f32>(parse<s16>(collisionSet->params.box.x));
 diff --git a/source/game/field/obj/ObjectCollidable.hh b/source/game/field/obj/ObjectCollidable.hh
@@ -1251,7 +1251,7 @@ index 012ec51..20cc5cf 100644
 +++ b/source/game/field/obj/ObjectCollidable.hh
 @@ -39,6 +39,11 @@ public:
      }
- 
+
      virtual void onWallCollision(Kart::KartObject *, const EGG::Vector3f &) {}
 +    // GeoHitTableItem / GeoHitTableItemObj are independent of the kart tables.
 +    // Values are item response0/1/2 and object response0/3/4/5/6, not kart actions.
@@ -1260,13 +1260,13 @@ index 012ec51..20cc5cf 100644
 +            s16 /*reactionOnObj*/, EGG::Vector3f & /*hitDepth*/) { return reactionOnItem; }
      virtual void onObjectCollision(Kart::KartObject *) {}
      virtual bool checkCollision(ObjectCollisionBase *lhs, EGG::Vector3f &dist);
- 
+
 diff --git a/source/game/field/obj/ObjectCow.cc b/source/game/field/obj/ObjectCow.cc
 index 1d1d81e..f0b06ac 100644
 --- a/source/game/field/obj/ObjectCow.cc
 +++ b/source/game/field/obj/ObjectCow.cc
 @@ -243,6 +243,11 @@ void ObjectCowLeader::calcRoam() {
- 
+
      setPos(m_railInterpolator->curPos() - EGG::Vector3f::ey * 10.0f);
      setTarget(m_railInterpolator->curPos() + m_railInterpolator->curTangentDir() * 10.0f);
 +
@@ -1275,7 +1275,7 @@ index 1d1d81e..f0b06ac 100644
 +        cueSound(0x28f, SoundCall::Start); // SE_CN_MMC_COW_BELL
 +    }
  }
- 
+
  /// @addr{0x806BDD48}
 @@ -394,6 +399,10 @@ void ObjectCowFollower::calcFreeRoam() {
      if (m_rail->segmentT() > m_railSegThreshold) {
@@ -1286,7 +1286,7 @@ index 1d1d81e..f0b06ac 100644
 +        cueSound(0x28f, SoundCall::Start); // SE_CN_MMC_COW_BELL (retail 806ba30c)
 +    }
  }
- 
+
  /// @addr{0x806BE9CC}
 @@ -419,6 +428,10 @@ void ObjectCowFollower::calcFollowLeader() {
      if (dist < DIST_THRESHOLD) {
@@ -1297,7 +1297,7 @@ index 1d1d81e..f0b06ac 100644
 +        cueSound(0x28f, SoundCall::Start); // SE_CN_MMC_COW_BELL (retail 806ba544)
 +    }
  }
- 
+
  /// @addr{0x806BEB54}
 diff --git a/source/game/field/obj/ObjectCow.hh b/source/game/field/obj/ObjectCow.hh
 index 1d29e4b..6487a48 100644
@@ -1306,18 +1306,18 @@ index 1d29e4b..6487a48 100644
 @@ -16,6 +16,10 @@ public:
      Kart::Reaction onCollision(Kart::KartObject *kartObj, Kart::Reaction reactionOnKart,
              Kart::Reaction reactionOnObj, EGG::Vector3f &hitDepth) override;
- 
+
 +    [[nodiscard]] f32 xzSpeed() const {
 +        return m_xzSpeed;
 +    }
 +
  protected:
      virtual void calcFloor();
- 
+
 @@ -61,6 +65,11 @@ public:
          return 1;
      }
- 
+
 +    /// Length of the looping middle of the eat animation.
 +    [[nodiscard]] u16 eatFrames() const {
 +        return m_eatFrames;
@@ -1333,7 +1333,7 @@ index 75d79c7..071f007 100644
 @@ -12,6 +12,15 @@ public:
      void init() override;
      void calc() override;
- 
+
 +    /// 0 walking, 1 still, 2 deactivated, 3 resurfacing.
 +    [[nodiscard]] s32 state() const {
 +        return static_cast<s32>(m_state);
@@ -1353,7 +1353,7 @@ index 6d7ed5d..2cb9f89 100644
 @@ -40,6 +40,16 @@ void ObjectCrane::calc() {
          m_xt = 0;
      }
- 
+
 +    const s32 xt = static_cast<s16>(m_xt);
 +    const s32 half = static_cast<s16>(m_xPeriod) / 2;
 +    const s32 period = static_cast<s16>(m_xPeriod);
@@ -1366,7 +1366,7 @@ index 6d7ed5d..2cb9f89 100644
 +
      setMovingObjVel(pos() - prevPos);
  }
- 
+
 diff --git a/source/game/field/obj/ObjectDokan.cc b/source/game/field/obj/ObjectDokan.cc
 index 9b48872..98dab76 100644
 --- a/source/game/field/obj/ObjectDokan.cc
@@ -1384,13 +1384,13 @@ index 9b48872..98dab76 100644
 +        }
      }
  }
- 
+
 diff --git a/source/game/field/obj/ObjectDossun.cc b/source/game/field/obj/ObjectDossun.cc
 index a403ced..c2a0cd7 100644
 --- a/source/game/field/obj/ObjectDossun.cc
 +++ b/source/game/field/obj/ObjectDossun.cc
 @@ -101,8 +101,11 @@ Kart::Reaction ObjectDossun::onCollision(Kart::KartObject *kartObj, Kart::Reacti
- 
+
      if (xzDist.length() < SQUISH_DISTANCE * scale().x &&
              (m_anmState == AnmState::Falling || m_touchingGround)) {
 +        // Retail 8075304c: it laughs at the racer it lands on (ghost karts excepted).
@@ -1400,15 +1400,15 @@ index a403ced..c2a0cd7 100644
 +        return hitTable.reaction(hitTable.slot(ObjectId::DossuncSoko),
 +                ObjectHitTable::KartColumn(kartObj));
      }
- 
+
      return reactionOnKart;
 @@ -170,6 +173,7 @@ void ObjectDossun::checkFloorCollision() {
- 
+
      startGrounded();
      m_touchingGround = true;
 +    cueSound(0x243, SoundCall::Start); // SE_CC_DOSSUN_GND (retail 80752820)
  }
- 
+
  } // namespace Kinoko::Field
 diff --git a/source/game/field/obj/ObjectDossun.hh b/source/game/field/obj/ObjectDossun.hh
 index 0cc1bcf..42d62be 100644
@@ -1417,7 +1417,7 @@ index 0cc1bcf..42d62be 100644
 @@ -43,6 +43,11 @@ public:
          m_groundedTimer = GROUND_DURATION;
      }
- 
+
 +    /// 0 still, 1 before fall, 2 falling, 3 grounded, 4 rising.
 +    [[nodiscard]] s32 anmState() const {
 +        return static_cast<s32>(m_anmState);
@@ -1432,7 +1432,7 @@ index a9be525..16a9c9f 100644
 +++ b/source/game/field/obj/ObjectDossunNormal.cc
 @@ -66,6 +66,7 @@ void ObjectDossunNormal::calcInactive() {
      }
- 
+
      if (m_stillTimer <= SHAKE_DURATION) {
 +        cueSound(0x242, SoundCall::StartNew); // SE_CC_DOSSUN_PRE_PRESS (retail 80753544)
          m_shakePhase += SHAKE_PHASE_CHANGE;
@@ -1449,13 +1449,13 @@ index 3b80dce..a2a2b08 100644
 +        cueSound(0x241, SoundCall::Hold); // SE_CC_DOSSUN_MV_GND (retail moving state 80757020)
      }
  };
- 
+
 diff --git a/source/game/field/obj/ObjectEscalator.cc b/source/game/field/obj/ObjectEscalator.cc
 index 2aee21c..50640ba 100644
 --- a/source/game/field/obj/ObjectEscalator.cc
 +++ b/source/game/field/obj/ObjectEscalator.cc
 @@ -48,6 +48,12 @@ void ObjectEscalator::calc() {
- 
+
      m_stepFactor = calcStepFactor(t);
      setPos(m_initialPos + m_stepDims * m_stepFactor);
 +
@@ -1465,28 +1465,28 @@ index 2aee21c..50640ba 100644
 +    }
 +    cueSound(0x2aa, SoundCall::Hold); // SE_CN_SHP_ESCALATOR_MV
  }
- 
+
  /// @addr{0x80803910}
 @@ -349,7 +355,7 @@ f32 ObjectEscalator::calcStepFactor(s32 t) {
- 
+
      // Escalator is moving full speed after switching directions twice
      auto dist6 = [=, this]() -> f64 {
 -        f64 t = static_cast<f64>(std::max(dtFullSpeed[1], 0));
 +        f64 t = static_cast<f64>(std::max<s32>(dtFullSpeed[1], 0));
          return t * static_cast<f64>(m_speed[2]);
      };
- 
+
 diff --git a/source/game/field/obj/ObjectEscalator.hh b/source/game/field/obj/ObjectEscalator.hh
 index 4c78a98..12e1031 100644
 --- a/source/game/field/obj/ObjectEscalator.hh
 +++ b/source/game/field/obj/ObjectEscalator.hh
 @@ -20,6 +20,8 @@ public:
      ~ObjectEscalator() override;
- 
+
      void calc() override;
 +    // Presentation reads the same phase as collision; it never advances physics.
 +    [[nodiscard]] f32 stepFactor() const { return m_stepFactor; }
- 
+
      /// @addr{0x80803CF0}
      [[nodiscard]] ObjectId id() const override {
 diff --git a/source/game/field/obj/ObjectFireRing.cc b/source/game/field/obj/ObjectFireRing.cc
@@ -1500,7 +1500,7 @@ index dcc2d8e..8f0a43a 100644
 +
 +    cueSound(0x1ef, SoundCall::Hold); // SE_CC_FIRE_RING (retail 8075985c)
  }
- 
+
  } // namespace Kinoko::Field
 diff --git a/source/game/field/obj/ObjectFireRing.hh b/source/game/field/obj/ObjectFireRing.hh
 index 4ed9bc5..3b2c926 100644
@@ -1509,7 +1509,7 @@ index 4ed9bc5..3b2c926 100644
 @@ -21,6 +21,10 @@ public:
      /// @addr{0x80768734}
      void createCollision() override {}
- 
+
 +    [[nodiscard]] std::span<ObjectFireball *const> fireballs() const {
 +        return std::span<ObjectFireball *const>(m_fireballs.begin(), m_fireballs.size());
 +    }
@@ -1528,16 +1528,16 @@ index 398ec6b..210284d 100644
 +
 +    cueSound(0x256, SoundCall::Start); // SE_CC_FSNAKE_APPEAR (retail OnCycleStart 806e3bd0)
  }
- 
+
  /// @addr{0x806C1DCC}
 @@ -130,6 +132,8 @@ void ObjectFireSnake::enterRest() {
- 
+
          m_bounceDir = RotateXZByYaw(angle * DEG2RAD, m_initRot);
      }
 +
 +    cueSound(0x257, SoundCall::Start); // SE_CC_FSNAKE_GND (retail 806e41e8)
  }
- 
+
  /// @addr{0x806C1A88}
 diff --git a/source/game/field/obj/ObjectFireSnake.hh b/source/game/field/obj/ObjectFireSnake.hh
 index d7a77d2..fc15063 100644
@@ -1546,7 +1546,7 @@ index d7a77d2..fc15063 100644
 @@ -32,6 +32,10 @@ public:
      void initProjectile(const EGG::Vector3f &pos) override;
      void onLaunch() override;
- 
+
 +    [[nodiscard]] const ObjectBase *kid(size_t idx) const {
 +        return m_kids[idx];
 +    }
@@ -1565,7 +1565,7 @@ index f516c83..9873eb4 100644
 +
 +    cueSound(0x1f0, SoundCall::Hold); // SE_CC_FIRE_BAR (retail 80759258)
  }
- 
+
  } // namespace Kinoko::Field
 diff --git a/source/game/field/obj/ObjectFirebar.hh b/source/game/field/obj/ObjectFirebar.hh
 index ebc03bb..0d1e9f6 100644
@@ -1574,7 +1574,7 @@ index ebc03bb..0d1e9f6 100644
 @@ -23,6 +23,10 @@ public:
          return id() == ObjectId::WLFirebarGC ? "WLfirebarGC" : "koopaFirebar";
      }
- 
+
 +    [[nodiscard]] std::span<ObjectFireball *const> fireballs() const {
 +        return std::span<ObjectFireball *const>(m_fireballs.begin(), m_fireballs.size());
 +    }
@@ -1589,25 +1589,25 @@ index 30eb1aa..0d5882c 100644
 @@ -35,6 +35,10 @@ public:
          m_isActive = isSet;
      }
- 
+
 +    [[nodiscard]] bool active() const {
 +        return m_isActive;
 +    }
 +
      static constexpr f32 HEIGHT = 384.0f;
- 
+
  private:
 diff --git a/source/game/field/obj/ObjectFlamePoleFoot.cc b/source/game/field/obj/ObjectFlamePoleFoot.cc
 index 561afeb..692eec9 100644
 --- a/source/game/field/obj/ObjectFlamePoleFoot.cc
 +++ b/source/game/field/obj/ObjectFlamePoleFoot.cc
 @@ -197,6 +197,7 @@ void ObjectFlamePoleFoot::enterEruptingUp() {
- 
+
      m_initEruptVel = vel;
      m_eruptAccel = vel * vel / (2.0f * m_initScaledHeight);
 +    cueSound(0x1da, SoundCall::Start); // SE_CC_FLAME_POLE_UP
  }
- 
+
  /// @addr{0x8067F484}
 @@ -204,6 +205,7 @@ void ObjectFlamePoleFoot::calcEruptingUp() {
      f32 frame = static_cast<f32>(m_cycleFrame - m_stateStart[1]);
@@ -1615,15 +1615,15 @@ index 561afeb..692eec9 100644
              m_initEruptVel * frame - frame * 0.5f * m_eruptAccel * frame);
 +    cueSound(0x1db, SoundCall::Hold, m_heightOffset / m_initScaledHeight); // SE_CC_FLAME_POLE_STAY
  }
- 
+
  /// @addr{0x8067F544}
 @@ -212,6 +214,7 @@ void ObjectFlamePoleFoot::calcEruptingStay() {
- 
+
      f32 angle = 360.0f * static_cast<f32>(m_cycleFrame - m_stateStart[2]) / 30.0f;
      m_heightOffset = m_scaledHeight + AMPLITUDE * EGG::Mathf::SinFIdx(DEG2FIDX * angle);
 +    cueSound(0x1db, SoundCall::Hold, m_heightOffset / m_initScaledHeight); // SE_CC_FLAME_POLE_STAY
  }
- 
+
  u32 ObjectFlamePoleFoot::s_flamePoleCount = 0;
 diff --git a/source/game/field/obj/ObjectFlamePoleFoot.hh b/source/game/field/obj/ObjectFlamePoleFoot.hh
 index cfd568e..1df4911 100644
@@ -1631,7 +1631,7 @@ index cfd568e..1df4911 100644
 +++ b/source/game/field/obj/ObjectFlamePoleFoot.hh
 @@ -37,6 +37,10 @@ public:
      }
- 
+
      [[nodiscard]] f32 getScaleY(u32 timeOffset) const override;
 +
 +    [[nodiscard]] const ObjectFlamePole *pole() const {
@@ -1646,7 +1646,7 @@ index cfd568e..1df4911 100644
          m_heightOffset = 0.0f;
 +        cueSound(0x1d9, SoundCall::Start); // SE_CC_FLAME_POLE_SIGN
      }
- 
+
      void enterEruptingUp();
 @@ -60,6 +65,7 @@ private:
      /// @addr{0x8067F5EC}
@@ -1654,19 +1654,19 @@ index cfd568e..1df4911 100644
          m_scaledHeight = m_heightOffset;
 +        cueSound(0x1dc, SoundCall::Start); // SE_CC_FLAME_POLE_DOWN
      }
- 
+
      /// @addr{0x8067F650}
 diff --git a/source/game/field/obj/ObjectFlamePoleV.cc b/source/game/field/obj/ObjectFlamePoleV.cc
 index 86c1f04..a09b3a4 100644
 --- a/source/game/field/obj/ObjectFlamePoleV.cc
 +++ b/source/game/field/obj/ObjectFlamePoleV.cc
 @@ -70,6 +70,7 @@ void ObjectFlamePoleV::calcErupted() {
- 
+
      f32 sin = EGG::Mathf::SinFIdx(DEG2FIDX * (360.0f * frame / 30.0f));
      m_currOffsetY = m_maxOffsetY + AMPLITUDE * sin;
 +    cueSound(0x1db, SoundCall::Hold, m_currOffsetY / m_maxOffsetY); // SE_CC_FLAME_POLE_STAY
  }
- 
+
  /// @addr{0x806C43E8}
 diff --git a/source/game/field/obj/ObjectFlamePoleV.hh b/source/game/field/obj/ObjectFlamePoleV.hh
 index d447748..f025476 100644
@@ -1678,14 +1678,14 @@ index d447748..f025476 100644
          enableCollision();
 +        cueSound(0x1d9, SoundCall::Start); // SE_CC_FLAME_POLE_SIGN
      }
- 
+
      /// @addr{0x806C4178}
      void enterErupting() {
          m_currOffsetY = 0.0f;
          CalcEruptionKinematics(ERUPT_FRAMES, m_maxOffsetY, m_initEruptingVel, m_eruptionDecel);
 +        cueSound(0x1da, SoundCall::Start); // SE_CC_FLAME_POLE_UP
      }
- 
+
      /// @addr{0x806C4280}
 @@ -47,6 +49,7 @@ private:
      void enterLowering() {
@@ -1693,15 +1693,15 @@ index d447748..f025476 100644
          m_fallSpeed = m_maxOffsetY / FALL_FRAMES;
 +        cueSound(0x1dc, SoundCall::Start); // SE_CC_FLAME_POLE_DOWN
      }
- 
+
      /// @addr{0x806C4478}
 @@ -69,6 +72,7 @@ private:
- 
+
          m_currOffsetY =
                  CalcParabolicDisplacement(m_initEruptingVel, m_eruptionDecel, m_currentFrame);
 +        cueSound(0x1db, SoundCall::Hold, m_currOffsetY / m_maxOffsetY); // SE_CC_FLAME_POLE_STAY
      }
- 
+
      void calcErupted();
 diff --git a/source/game/field/obj/ObjectHanachan.cc b/source/game/field/obj/ObjectHanachan.cc
 index 15870f0..0538007 100644
@@ -1710,7 +1710,7 @@ index 15870f0..0538007 100644
 @@ -186,6 +186,11 @@ void ObjectHanachan::calcWalk() {
      calcRailAlignmentMotion();
      m_chain.calc();
- 
+
 +    // Retail 806bf144: every 15 frames of walking the ground shakes under the middle segment.
 +    if (m_currentFrame % 15 == 0) {
 +        m_parts[(m_parts.size() & ~size_t(1)) / 2]->cueSound(0x26c, SoundCall::Start);
@@ -1718,7 +1718,7 @@ index 15870f0..0538007 100644
 +
      m_stillAngVel = 15.0f;
  }
- 
+
 diff --git a/source/game/field/obj/ObjectHanachan.hh b/source/game/field/obj/ObjectHanachan.hh
 index fc9ac57..baefa51 100644
 --- a/source/game/field/obj/ObjectHanachan.hh
@@ -1726,7 +1726,7 @@ index fc9ac57..baefa51 100644
 @@ -172,6 +172,15 @@ public:
      /// @addr{0x806CC9F4}
      void createCollision() override {}
- 
+
 +    /// Head first, then the six body segments.
 +    [[nodiscard]] const ObjectBase *part(size_t idx) const {
 +        return m_parts[idx];
@@ -1751,7 +1751,7 @@ index 3489928..ef1a9db 100644
 +        cueSound(0x2b5, SoundCall::Hold); // SE_CN_BDX_HEYHO_MV
      }
  }
- 
+
 diff --git a/source/game/field/obj/ObjectHeyho.hh b/source/game/field/obj/ObjectHeyho.hh
 index 9e7c5b3..1d79f10 100644
 --- a/source/game/field/obj/ObjectHeyho.hh
@@ -1759,7 +1759,7 @@ index 9e7c5b3..1d79f10 100644
 @@ -16,6 +16,11 @@ public:
      void loadAnims() override;
      void calcCollisionTransform() override;
- 
+
 +    /// 1 move, 2 jump, 3 jumped (landing).
 +    [[nodiscard]] s32 currentAnim() const {
 +        return static_cast<s32>(m_currentAnim);
@@ -1774,14 +1774,14 @@ index 9e7c5b3..1d79f10 100644
          m_spinFrame = 0;
 +        cueSound(0x2b6, SoundCall::Start); // SE_CN_BDX_HEYHO_JUMP
      }
- 
+
      void calcMove();
 diff --git a/source/game/field/obj/ObjectHeyhoBall.cc b/source/game/field/obj/ObjectHeyhoBall.cc
 index 32fb49e..4b2f6e2 100644
 --- a/source/game/field/obj/ObjectHeyhoBall.cc
 +++ b/source/game/field/obj/ObjectHeyhoBall.cc
 @@ -67,6 +67,7 @@ void ObjectHeyhoBall::enterFalling() {
- 
+
  /// @addr{0x806D0AD8}
  void ObjectHeyhoBall::calcFalling() {
 +    cueSound(0x333, SoundCall::StartNew); // SE_CR_GBH_CANNON_MOV
@@ -1798,13 +1798,13 @@ index 3ad8e2e..966a48e 100644
          m_workingPos = m_initPos + EGG::Vector3f::ey * -BALL_RADIUS;
 +        cueSound(0x334, SoundCall::Start); // SE_CR_GBH_CANNON_GND
      }
- 
+
      /// @addr{0x806D0D84}
      void enterExploding() {
          m_scaleChangeRate = (1.2f * m_blastRadiusRatio - 1.0f) / 40.0f / 40.0f;
 +        cueSound(0x336, SoundCall::Start); // SE_CR_GBH_CANNON_EXP
      }
- 
+
      /// @addr{0x806D0A14}
 @@ -78,6 +80,7 @@ private:
          if (m_currentFrame >= REST_FRAMES) {
@@ -1812,7 +1812,7 @@ index 3ad8e2e..966a48e 100644
          }
 +        cueSound(0x335, SoundCall::Hold); // SE_CR_GBH_CANNON_WAIT
      }
- 
+
      void calcExploding();
 diff --git a/source/game/field/obj/ObjectHighwayManager.cc b/source/game/field/obj/ObjectHighwayManager.cc
 index 05086af..13ac02c 100644
@@ -1821,35 +1821,35 @@ index 05086af..13ac02c 100644
 @@ -3,6 +3,8 @@
  #include "game/field/ObjectDirector.hh"
  #include "game/field/obj/ObjectCarTGE.hh"
- 
+
 +#include "game/system/RaceConfig.hh"
 +
  namespace Kinoko::Field {
- 
+
  /// @addr{0x806D2908}
 @@ -39,7 +41,7 @@ ObjectHighwayManager::~ObjectHighwayManager() = default;
- 
+
  /// @addr{0x806D332C}
  void ObjectHighwayManager::init() {
 -    m_squashTimer = SQUASH_MAX;
 +    m_squashTimer.fill(SQUASH_MAX);
  }
- 
+
  /// @addr{0x806D345C}
 @@ -48,20 +50,30 @@ void ObjectHighwayManager::calc() {
  }
- 
+
  /// @addr{0x806D50AC}
 +/// @details Retail (USA 0x806C64DC) keeps a timer per player and a squashed flag per player
 +/// on every car: each player's timer restarts when any car squashed that player while the
 +/// player was vulnerable, then every car's flags clear and every timer counts on.
  void ObjectHighwayManager::calcSquash() {
      constexpr u32 SQUASH_INVULNERABILITY = 200;
- 
+
 -    bool vulnerable = m_squashTimer >= SQUASH_INVULNERABILITY;
 +    const size_t players = std::min<size_t>(
 +            System::RaceConfig::Instance()->raceScenario().playerCount, MAX_PLAYERS);
- 
+
 -    for (auto *&obj : m_cars) {
 -        if (obj->squashed() && vulnerable) {
 -            m_squashTimer = 0;
@@ -1860,17 +1860,17 @@ index 05086af..13ac02c 100644
 +            }
          }
 +    }
- 
+
 +    for (auto *&obj : m_cars) {
          obj->reset();
      }
- 
+
 -    m_squashTimer = std::min<u32>(m_squashTimer + 1, SQUASH_MAX);
 +    for (size_t player = 0; player < players; ++player) {
 +        m_squashTimer[player] = std::min<u32>(m_squashTimer[player] + 1, SQUASH_MAX);
 +    }
  }
- 
+
  } // namespace Kinoko::Field
 diff --git a/source/game/field/obj/ObjectHighwayManager.hh b/source/game/field/obj/ObjectHighwayManager.hh
 index 3877176..041fb23 100644
@@ -1878,32 +1878,32 @@ index 3877176..041fb23 100644
 +++ b/source/game/field/obj/ObjectHighwayManager.hh
 @@ -1,5 +1,7 @@
  #pragma once
- 
+
 +#include <array>
 +
  #include "game/field/obj/ObjectCollidable.hh"
- 
+
  namespace Kinoko::Field {
 @@ -28,15 +30,18 @@ public:
      /// @addr{0x806D5C64}
      void loadRail() override {}
- 
+
 -    [[nodiscard]] u32 squashTimer() const {
 -        return m_squashTimer;
 +    /// Frames since this player was last squashed by a car (retail +0x120, one per player).
 +    [[nodiscard]] u32 squashTimer(size_t playerIdx) const {
 +        return playerIdx < m_squashTimer.size() ? m_squashTimer[playerIdx] : SQUASH_MAX;
      }
- 
+
 +    static constexpr size_t MAX_PLAYERS = 12;
 +
  private:
      void calcSquash();
- 
+
      owning_span<ObjectCarTGE *> m_cars;
 -    u32 m_squashTimer; ///< Normally an array, one for each player.
 +    std::array<u32, MAX_PLAYERS> m_squashTimer; ///< One per player, as retail.
- 
+
      static constexpr u32 SQUASH_MAX = 600;
  };
 diff --git a/source/game/field/obj/ObjectHwanwan.cc b/source/game/field/obj/ObjectHwanwan.cc
@@ -1913,7 +1913,7 @@ index e9a7410..c88733e 100644
 @@ -32,6 +32,12 @@ void ObjectHwanwan::init() {
  void ObjectHwanwan::calc() {
      StateManager::calc();
- 
+
 +    // Retail 806f0830: the jaw snaps on keyframe 9 of each 15-frame chomp; the bark is held.
 +    if (m_chompFrame++ % 15 == 9) {
 +        cueSound(0x235, SoundCall::Start); // SE_CC_WANWAN_H_MV
@@ -1934,7 +1934,7 @@ index 14ee3e8..c10c236 100644
 +    u32 m_chompFrame = 0; ///< Presentation only: retail +0x3fc.
      f32 m_initJumpVel;
      f32 m_targetY;
- 
+
 diff --git a/source/game/field/obj/ObjectId.hh b/source/game/field/obj/ObjectId.hh
 index e2bc0b5..a5a9d92 100644
 --- a/source/game/field/obj/ObjectId.hh
@@ -1966,7 +1966,7 @@ index 0ca6a69..fba4dbe 100644
 @@ -46,6 +46,11 @@ public:
          m_state = state;
      }
- 
+
 +    /// 0 idle, 2 riding as a brick; retail VS races reveal the box as 1.
 +    [[nodiscard]] u32 state() const {
 +        return m_state;
@@ -1981,15 +1981,15 @@ index f951dc1..38de8df 100644
 +++ b/source/game/field/obj/ObjectKoopaBall.cc
 @@ -1,5 +1,7 @@
  #include "ObjectKoopaBall.hh"
- 
+
 +#include "game/kart/KartObject.hh"
 +
  #include "game/field/CollisionDirector.hh"
- 
+
  #include "game/kart/KartCollide.hh"
 @@ -81,10 +83,17 @@ void ObjectKoopaBall::calc() {
  }
- 
+
  /// @addr{0x80771BF4}
 -Kart::Reaction ObjectKoopaBall::onCollision(Kart::KartObject * /*kartObj*/,
 +Kart::Reaction ObjectKoopaBall::onCollision(Kart::KartObject *kartObj,
@@ -2005,7 +2005,7 @@ index f951dc1..38de8df 100644
 +    }
 +    return reactionOnKart;
  }
- 
+
  /// @addr{0x80770F4C}
 @@ -100,6 +109,7 @@ void ObjectKoopaBall::calcTangible() {
          m_railInterpolator->setCurrVel(INITIAL_VELOCITY / INITIAL_ANGULAR_SPEED);
@@ -2025,7 +2025,7 @@ index f951dc1..38de8df 100644
 +        }
      }
  }
- 
+
 diff --git a/source/game/field/obj/ObjectKoopaBall.hh b/source/game/field/obj/ObjectKoopaBall.hh
 index 9ff7961..ad95f27 100644
 --- a/source/game/field/obj/ObjectKoopaBall.hh
@@ -2033,7 +2033,7 @@ index 9ff7961..ad95f27 100644
 @@ -27,6 +27,20 @@ public:
          return m_vel;
      }
- 
+
 +    /// 0 rolling, 1 waiting in the statue, 2 exploding.
 +    [[nodiscard]] s32 state() const {
 +        return static_cast<s32>(m_state);
@@ -2058,22 +2058,22 @@ index b2afa76..f5a83a5 100644
 @@ -53,6 +53,10 @@ void ObjectKoopaFigure64::calc() {
          disableCollision();
      }
- 
+
 +    if (m_cycleFrame < FIRE_DURATION) {
 +        cueSound(0x35d, SoundCall::Hold); // SE_CR_64K_FIGURE_FRAME
 +    }
 +
      ++m_cycleFrame;
  }
- 
+
 diff --git a/source/game/field/obj/ObjectKuribo.hh b/source/game/field/obj/ObjectKuribo.hh
 index 4be2781..5a38aeb 100644
 --- a/source/game/field/obj/ObjectKuribo.hh
 +++ b/source/game/field/obj/ObjectKuribo.hh
 @@ -20,6 +20,10 @@ public:
- 
+
      void loadAnims() override;
- 
+
 +    [[nodiscard]] f32 animTimer() const {
 +        return m_animTimer;
 +    }
@@ -2088,7 +2088,7 @@ index 5a1ae1e..e561bbb 100644
 @@ -27,6 +27,14 @@ public:
          return 1000.0f;
      }
- 
+
 +    [[nodiscard]] bool attacking() const {
 +        return m_state == State::Attack;
 +    }
@@ -2105,9 +2105,9 @@ index 625de8d..f823ad2 100644
 --- a/source/game/field/obj/ObjectPenguin.hh
 +++ b/source/game/field/obj/ObjectPenguin.hh
 @@ -44,6 +44,11 @@ public:
- 
+
      virtual void enterWalk();
- 
+
 +    /// 0 walk, 1 dive, 2 slider, 3 slider (slowing), 4 stand up.
 +    [[nodiscard]] s32 state() const {
 +        return static_cast<s32>(m_state);
@@ -2119,7 +2119,7 @@ index 625de8d..f823ad2 100644
 @@ -80,6 +85,11 @@ public:
          m_state = State::Walk;
      }
- 
+
 +    /// Frames left in the one-shot dive or stand-up animation.
 +    [[nodiscard]] s32 anmTimer() const {
 +        return m_anmTimer;
@@ -2146,7 +2146,7 @@ index d4cf398..a28ac25 100644
              m_groundFrame = time;
 +            cueSound(0x2cb, SoundCall::Start); // SE_CN_SBK_PILLAR_GND
          }
- 
+
      } else {
 diff --git a/source/game/field/obj/ObjectPoihana.cc b/source/game/field/obj/ObjectPoihana.cc
 index 330e0af..39807e5 100644
@@ -2154,7 +2154,7 @@ index 330e0af..39807e5 100644
 +++ b/source/game/field/obj/ObjectPoihana.cc
 @@ -1,6 +1,12 @@
  #include "ObjectPoihana.hh"
- 
+
  #include "game/field/CollisionDirector.hh"
 +#include "game/kart/KartCollide.hh"
 +#include "game/kart/KartMove.hh"
@@ -2162,9 +2162,9 @@ index 330e0af..39807e5 100644
 +#include "game/system/RaceConfig.hh"
 +#include <algorithm>
 +#include <cmath>
- 
+
  namespace Kinoko::Field {
- 
+
 @@ -42,6 +48,16 @@ void ObjectPoihana::init() {
      m_accel = EGG::Vector3f(0.0f, -1.2f, 0.0f);
      m_radius = 100.0f;
@@ -2181,14 +2181,14 @@ index 330e0af..39807e5 100644
 +    playAnimation("walk");
      m_nextStateId = 0;
  }
- 
+
 @@ -75,6 +91,7 @@ void ObjectPoihana::calcOrthonormalBasis() {
  /// @addr{0x80747788}
  void ObjectPoihana::calcCollision() {
      CollisionInfo info;
 +    m_grounded = false;
      EGG::Vector3f pos = collisionPos();
- 
+
      bool hasCol = CollisionDirector::Instance()->checkSphereFull(m_radius, pos, EGG::Vector3f::inf,
 @@ -93,6 +110,7 @@ void ObjectPoihana::calcCollision() {
      if (info.floorDist > -std::numeric_limits<f32>::min()) {
@@ -2197,11 +2197,11 @@ index 330e0af..39807e5 100644
 +        m_grounded = true;
      }
  }
- 
+
 @@ -174,4 +192,294 @@ void ObjectPoihana::calcUp() {
      m_up = up;
  }
- 
+
 +// These clocks belong to simulation. The renderer samples them without
 +// changing state, so animation sounds survive culling and stereo rendering.
 +void ObjectPoihana::playAnimation(const char *name, f32 rate) {
@@ -2498,16 +2498,16 @@ index 0010514..ba63d6d 100644
 --- a/source/game/field/obj/ObjectPoihana.hh
 +++ b/source/game/field/obj/ObjectPoihana.hh
 @@ -2,6 +2,7 @@
- 
+
  #include "game/field/StateManager.hh"
  #include "game/field/obj/ObjectCollidable.hh"
 +#include <mkw/object_animation_sound.hpp>
- 
+
  namespace Kinoko::Field {
- 
+
 @@ -53,27 +54,51 @@ public:
      void init() override;
- 
+
      /// @addr{0x80748B70}
 -    void calc() override {
 -        ObjectPoihanaBase::calc();
@@ -2520,7 +2520,7 @@ index 0010514..ba63d6d 100644
 +    void onGlobalItemCollision(s16 reactionOnItem, s16 reactionOnObj) override;
 +    [[nodiscard]] const char *animationName() const { return m_animationName; }
 +    [[nodiscard]] f32 animationFrame() const { return m_animationFrame; }
- 
+
  private:
 -    void enterStateStub() {}
 -
@@ -2573,12 +2573,12 @@ index 0010514..ba63d6d 100644
 +    void enterToppleNoBury();
 +    void calcToppleNoBury();
 +    void rotateTopple(f32 angle, EGG::Vector3f &up, EGG::Vector3f &forward);
- 
+
      /// @addr{0x80747308}
      [[nodiscard]] EGG::Vector3f curPos() const {
 @@ -108,22 +133,14 @@ private:
      }
- 
+
      static constexpr std::array<StateManagerEntry, 8> STATE_ENTRIES = {{
 -            {StateEntry<ObjectPoihana, &ObjectPoihana::enterState0, &ObjectPoihana::calcState0And1>(
 -                    0)},
@@ -2606,7 +2606,7 @@ index 0010514..ba63d6d 100644
 +        StateEntry<ObjectPoihana, &ObjectPoihana::enterToppleNoBury, &ObjectPoihana::calcToppleNoBury>(7),
      }};
  };
- 
+
 diff --git a/source/game/field/obj/ObjectPress.cc b/source/game/field/obj/ObjectPress.cc
 index cdad49d..361c9b6 100644
 --- a/source/game/field/obj/ObjectPress.cc
@@ -2619,7 +2619,7 @@ index cdad49d..361c9b6 100644
 +        return hitTable.reaction(hitTable.slot(ObjectId::PressSoko),
 +                ObjectHitTable::KartColumn(kartObj));
      }
- 
+
      return reactionOnKart;
 @@ -211,6 +212,7 @@ void ObjectPress::checkCollisionLowering() {
      m_startingRise = false;
@@ -2627,16 +2627,16 @@ index cdad49d..361c9b6 100644
      m_startedLowered = true;
 +    cueSound(0x29b, SoundCall::Start); // SE_CN_FCT_PRESS (retail 80763a7c)
  }
- 
+
  /// @addr{0x8076E7AC}
 diff --git a/source/game/field/obj/ObjectPress.hh b/source/game/field/obj/ObjectPress.hh
 index 4a09456..66e3366 100644
 --- a/source/game/field/obj/ObjectPress.hh
 +++ b/source/game/field/obj/ObjectPress.hh
 @@ -31,6 +31,11 @@ public:
- 
+
      virtual void calcRaised();
- 
+
 +    /// 0 raised, 1 wind-up, 2 lowering, 3 lowered, 4 raising.
 +    [[nodiscard]] s32 state() const {
 +        return static_cast<s32>(m_state);
@@ -2656,7 +2656,7 @@ index af14ace..c16814e 100644
 +
 +    cueSound(0x2c6, SoundCall::Hold); // SE_CN_WTR_E_PROPELLER (retail 8075811c)
  }
- 
+
  /// @addr{0x807655B4}
 diff --git a/source/game/field/obj/ObjectPylon.cc b/source/game/field/obj/ObjectPylon.cc
 index b71200d..7ee8ca2 100644
@@ -2672,7 +2672,7 @@ index b71200d..7ee8ca2 100644
                      info.wallNrm);
 +            cueSound(0x1fa, SoundCall::Start); // SE_CC_PYRON_GND
          }
- 
+
          calcRotLock();
 @@ -344,6 +346,7 @@ void ObjectPylon::calcComeBack() {
              if (mask & KCL_TYPE_FLOOR) {
@@ -2699,7 +2699,7 @@ index 4fa2c4d..693ee85 100644
 +        }
      }
  }
- 
+
  /// @addr{0x8076FD90}
  void ObjectRock::breakRock() {
 +    // Retail 8075cfa8: the break, and the net it hits where the course has one.
@@ -2720,7 +2720,7 @@ index ecf794f..fdc76a5 100644
      calcMove();
 +    cueSound(0x247, SoundCall::Hold); // SE_CC_SANBO_MV (retail 80765c04)
  }
- 
+
  /// @addr{0x8077A5F8}
 diff --git a/source/game/field/obj/ObjectShip64.cc b/source/game/field/obj/ObjectShip64.cc
 index c94ef47..12fbce8 100644
@@ -2728,20 +2728,20 @@ index c94ef47..12fbce8 100644
 +++ b/source/game/field/obj/ObjectShip64.cc
 @@ -31,6 +31,9 @@ void ObjectShip64::calc() {
      m_tangent.normalise();
- 
+
      setMatrixFromOrthonormalBasisAndPos(m_tangent);
 +
 +    cueSound(0x356, SoundCall::Hold); // SE_CR_64D_SHIP_AUD
 +    cueSound(0x355, SoundCall::Hold); // SE_CR_64D_SHIP_MV
  }
- 
+
  /// @addr{0x80766864}
 diff --git a/source/game/field/obj/ObjectTownBridge.cc b/source/game/field/obj/ObjectTownBridge.cc
 index d0ccd0a..0d50478 100644
 --- a/source/game/field/obj/ObjectTownBridge.cc
 +++ b/source/game/field/obj/ObjectTownBridge.cc
 @@ -54,6 +54,18 @@ void ObjectTownBridge::calc() {
- 
+
      setRot(EGG::Vector3f(rot().x, rot().y, F_PI * angle / 180.0f));
      m_state = calcState(t);
 +
@@ -2757,7 +2757,7 @@ index d0ccd0a..0d50478 100644
 +        cueSound(0x384, SoundCall::Hold); // SE_CR_DSM_BRIDGE_MOV
 +    }
  }
- 
+
  /// @addr{0x808095B8}
 diff --git a/source/game/field/obj/ObjectTownBridge.hh b/source/game/field/obj/ObjectTownBridge.hh
 index 9eec98f..22975d3 100644
@@ -2776,16 +2776,16 @@ index 46d8de2..606975b 100644
 --- a/source/game/field/obj/ObjectTruckWagon.cc
 +++ b/source/game/field/obj/ObjectTruckWagon.cc
 @@ -88,6 +88,7 @@ void ObjectTruckWagonCart::calcState0() {
- 
+
          setMatrixTangentTo(m_up, m_tangent);
- 
+
 +        cueSound(0x2bc, SoundCall::Hold); // SE_CN_TRK_TRUCK_MV (retail 806d0140)
          return;
      }
- 
+
 @@ -103,6 +104,12 @@ void ObjectTruckWagonCart::calcState0() {
              KCL_TYPE_FLOOR, &info, nullptr, 0);
- 
+
      if (hasCol) {
 +        // Retail 806d0140: landing from the drop past mid-segment, otherwise rolling.
 +        if (m_railInterpolator->segmentT() > 0.5f && m_vel.y < 0.0f) {
@@ -2795,15 +2795,15 @@ index 46d8de2..606975b 100644
 +        }
          m_vel.y = 0.0f;
          addPos(info.tangentOff);
- 
+
 @@ -169,6 +176,8 @@ void ObjectTruckWagonCart::calcState1() {
- 
+
      setPos(m_railInterpolator->curPos() + INITIAL_OFFSET - mat.ps_multVector(INITIAL_OFFSET));
      m_lastVel = m_vel;
 +
 +    cueSound(0x2bd, SoundCall::Hold, m_pitch); // SE_CN_TRK_TRUCK_ROPE (retail 806d06c0)
  }
- 
+
  /// @addr{0x806E01C0}
 diff --git a/source/game/field/obj/ObjectTruckWagon.hh b/source/game/field/obj/ObjectTruckWagon.hh
 index e6f2db7..4b19c3f 100644
@@ -2811,19 +2811,19 @@ index e6f2db7..4b19c3f 100644
 +++ b/source/game/field/obj/ObjectTruckWagon.hh
 @@ -67,10 +67,14 @@ private:
      void enterState0() {}
- 
+
      /// @addr{0x806E12D0}
 -    void enterState1() {}
 +    void enterState1() {
 +        cueSound(0x2c2, SoundCall::Start); // SE_CN_TRK_TRUCK_SWING (retail 806d0620)
 +    }
- 
+
      /// @addr{0x806E17F4}
 -    void enterState2() {}
 +    void enterState2() {
 +        cueSound(0x2c1, SoundCall::Start); // SE_CN_TRK_TRUCK_SHAKE (retail 806d0b44)
 +    }
- 
+
      /// @addr{0x806E1898}
      void enterState3() {}
 diff --git a/source/game/field/obj/ObjectTwistedWay.hh b/source/game/field/obj/ObjectTwistedWay.hh
@@ -2831,9 +2831,9 @@ index 5426b1c..1011593 100644
 --- a/source/game/field/obj/ObjectTwistedWay.hh
 +++ b/source/game/field/obj/ObjectTwistedWay.hh
 @@ -19,6 +19,10 @@ public:
- 
+
      void calc() override;
- 
+
 +    [[nodiscard]] u32 introTimer() const {
 +        return m_introTimer;
 +    }
@@ -2846,7 +2846,7 @@ index e93d05e..c605a33 100644
 --- a/source/game/field/obj/ObjectVolcanoBall.cc
 +++ b/source/game/field/obj/ObjectVolcanoBall.cc
 @@ -36,6 +36,11 @@ void ObjectVolcanoBall::calcFalling() {
- 
+
          setPos(m_railInterpolator->curPos());
      }
 +
@@ -2855,7 +2855,7 @@ index e93d05e..c605a33 100644
 +        cueSound(0x2d5, SoundCall::StartNew); // SE_CN_VLC_FBALL_FLY
 +    }
  }
- 
+
  } // namespace Kinoko::Field
 diff --git a/source/game/field/obj/ObjectVolcanoBall.hh b/source/game/field/obj/ObjectVolcanoBall.hh
 index d8f3028..c768c26 100644
@@ -2863,13 +2863,13 @@ index d8f3028..c768c26 100644
 +++ b/source/game/field/obj/ObjectVolcanoBall.hh
 @@ -44,7 +44,9 @@ private:
      }
- 
+
      /// @addr{0x806E327C}
 -    void enterState2() {}
 +    void enterState2() {
 +        cueSound(0x2d6, SoundCall::Start); // SE_CN_VLC_FBALL_GND (retail 806d25cc)
 +    }
- 
+
      /// @addr{0x806E2F34}
      void calcDormant() {}
 @@ -56,6 +58,7 @@ private:
@@ -2878,7 +2878,7 @@ index d8f3028..c768c26 100644
          }
 +        cueSound(0x2d7, SoundCall::Hold); // SE_CN_VLC_FBALL_FIRE (retail 806d2674)
      }
- 
+
      const u16 m_burnDuration; ///< How long the ball burns for before disappearing
 diff --git a/source/game/field/obj/ObjectVolcanoBallLauncher.hh b/source/game/field/obj/ObjectVolcanoBallLauncher.hh
 index 57e64e5..4f6fa8c 100644
@@ -2887,7 +2887,7 @@ index 57e64e5..4f6fa8c 100644
 @@ -29,6 +29,10 @@ public:
      /// @addr{0x806E3A6C}
      void loadRail() override {}
- 
+
 +    [[nodiscard]] std::span<ObjectVolcanoBall *const> balls() const {
 +        return std::span<ObjectVolcanoBall *const>(m_balls.begin(), m_balls.size());
 +    }
@@ -2902,7 +2902,7 @@ index 0fe43f8..4a5bbc4 100644
 @@ -28,6 +28,26 @@ void ObjectVolcanoPiece::calc() {
          update(0);
      }
- 
+
 +    // Retail VolcanoPiece::Update (80806654): rumbling, a quake as it gives way, and the fall.
 +    // Object 0x20d (the brick blocks) shares the class with its own warning sound.
 +    switch (calcState(timer)) {
@@ -2943,7 +2943,7 @@ index 79ceb67..bed25fd 100644
 +    setPos(calcPos(timer));
      setMovingObjVel(pos() - prevPos);
  }
- 
+
 diff --git a/source/game/field/obj/ObjectWLWallGC.cc b/source/game/field/obj/ObjectWLWallGC.cc
 index fcdaed0..8bdef0d 100644
 --- a/source/game/field/obj/ObjectWLWallGC.cc
@@ -2959,30 +2959,30 @@ index fcdaed0..8bdef0d 100644
 +        cueSound(0x36c, SoundCall::Hold); // SE_CR_GCW_PWALL_MOV
 +    }
  }
- 
+
  /// @addr{0x8086BF30}
 diff --git a/source/game/field/obj/ObjectWanwan.cc b/source/game/field/obj/ObjectWanwan.cc
 index 576dbde..cd9ba70 100644
 --- a/source/game/field/obj/ObjectWanwan.cc
 +++ b/source/game/field/obj/ObjectWanwan.cc
 @@ -36,6 +36,7 @@ ObjectWanwan::ObjectWanwan(const System::MapdataGeoObj &params)
- 
+
      auto *pile = EGG::egg_new<ObjectWanwanPile>(pos(), rot(), scale());
      pile->load();
 +    m_pile = pile;
- 
+
      m_anchor = pos() + ANCHOR_OFFSET;
- 
+
 @@ -164,6 +165,7 @@ void ObjectWanwan::enterAttack() {
      m_anchor.y += 30.0f;
- 
+
      calcRandomTarget();
 +    cueSound(0x22f, SoundCall::Voice); // SE_CC_WANWAN_ATK_V (retail BeforeAttack 806d5e6c)
  }
- 
+
  /// @addr{0x806E73C4}
 @@ -238,6 +240,9 @@ void ObjectWanwan::calcAttack() {
- 
+
      if (m_chainTaut || m_attackStill) {
          if (!m_attackStill) {
 +            // Retail AttackUpdate (806d5f28): the chain snaps taut and yanks the stake.
@@ -2994,7 +2994,7 @@ index 576dbde..cd9ba70 100644
 @@ -347,6 +352,12 @@ void ObjectWanwan::calcMat() {
  void ObjectWanwan::calcChainAttachMat() {
      u32 idx = m_currentStateId == 1 ? 0 : m_frame % 15;
- 
+
 +    // Retail 806d4e98: the jaw snaps on keyframe 9 of its 15-frame chomp; the bark is held.
 +    if (idx == 9) {
 +        cueSound(0x22c, SoundCall::Start); // SE_CC_WANWAN_MOUSE
@@ -3002,7 +3002,7 @@ index 576dbde..cd9ba70 100644
 +    cueSound(0x234, SoundCall::Hold); // SE_CC_WANWAN_BARK
 +
      calcTransform();
- 
+
      EGG::Matrix34f mat = transform();
 diff --git a/source/game/field/obj/ObjectWanwan.hh b/source/game/field/obj/ObjectWanwan.hh
 index 7a31e6e..41be821 100644
@@ -3011,7 +3011,7 @@ index 7a31e6e..41be821 100644
 @@ -48,6 +48,26 @@ public:
      Kart::Reaction onCollision(Kart::KartObject *kartObj, Kart::Reaction reactionOnKart,
              Kart::Reaction reactionOnObj, EGG::Vector3f &hitDepth) override;
- 
+
 +    [[nodiscard]] const EGG::Vector3f &anchor() const {
 +        return m_anchor;
 +    }
@@ -3049,7 +3049,7 @@ index 9414c8f..4711579 100644
 +++ b/source/game/item/ItemDirector.cc
 @@ -3,6 +3,19 @@
  #include "game/system/RaceConfig.hh"
- 
+
  namespace Kinoko::Item {
 +ItemDirector::CoursePickupHook ItemDirector::s_pickupHook = nullptr;
 +void *ItemDirector::s_pickupContext = nullptr;
@@ -3064,7 +3064,7 @@ index 9414c8f..4711579 100644
 +        const EGG::Vector3f &velocity, u8 owner) {
 +    if (s_pickupHook) s_pickupHook(s_pickupContext, position, velocity, owner);
 +}
- 
+
  /// @addr{0x80799794}
  void ItemDirector::init() {
 diff --git a/source/game/item/ItemDirector.hh b/source/game/item/ItemDirector.hh
@@ -3072,7 +3072,7 @@ index cf05b06..9b5298c 100644
 --- a/source/game/item/ItemDirector.hh
 +++ b/source/game/item/ItemDirector.hh
 @@ -30,6 +30,13 @@ public:
- 
+
      static ItemDirector *CreateInstance();
      static void DestroyInstance();
 +    // Retail course callbacks create dropped pickups directly. The port's
@@ -3082,17 +3082,17 @@ index cf05b06..9b5298c 100644
 +    static void ClearCoursePickupHook(void *context);
 +    static void CreateCourseMushroom(const EGG::Vector3f &position,
 +            const EGG::Vector3f &velocity, u8 owner);
- 
+
      [[nodiscard]] const ItemInventory &itemInventory(s16 idx) const {
          return m_karts[idx].inventory();
 @@ -48,6 +55,8 @@ private:
      owning_span<KartItem> m_karts;
- 
+
      static ItemDirector *s_instance; ///< @addr{0x809C3618}
 +    static CoursePickupHook s_pickupHook;
 +    static void *s_pickupContext;
  };
- 
+
  } // namespace Item
 diff --git a/source/game/item/KartItem.cc b/source/game/item/KartItem.cc
 index 32f8621..1d34e76 100644
@@ -3101,7 +3101,7 @@ index 32f8621..1d34e76 100644
 @@ -66,6 +66,23 @@ void KartItem::clear() {
      }
  }
- 
+
 +/// @addr{0x80798A30}
 +void KartItem::loseFromDamage(u8 attacker) {
 +    clear();
@@ -3129,7 +3129,7 @@ index 0b88329..69b7dcf 100644
 @@ -22,6 +22,26 @@ public:
      void activateMushroom();
      void useMushroom();
- 
+
 +    /// @brief Retail ItemHolderPlayer damage hooks, called from kart action starts and Lightning.
 +    /// Strong loss (RMCU fn_28867C) drops the inventory, roulette and tethered items; weak loss
 +    /// (fn_288774) drops tethered items, only a single trailing one when `trailOnly` is set.
@@ -3154,12 +3154,12 @@ index 0b88329..69b7dcf 100644
      [[nodiscard]] ItemInventory &inventory() {
          return m_inventory;
 @@ -42,6 +62,7 @@ private:
- 
+
      Flags m_flags;
      ItemInventory m_inventory;
 +    LossRequests m_loss;
  };
- 
+
  } // namespace Kinoko::Item
 diff --git a/source/game/kart/KartAction.cc b/source/game/kart/KartAction.cc
 index 49b6770..0daf16e 100644
@@ -3211,7 +3211,7 @@ index 49b6770..0daf16e 100644
 +    m_multiplier = 1.0f;
 +    return true;
  }
- 
+
  /// @addr{0x805673B0}
 @@ -46,13 +87,21 @@ void KartAction::calcVehicleSpeed() {
  /// @brief Starts an action.
@@ -3220,9 +3220,9 @@ index 49b6770..0daf16e 100644
 -bool KartAction::start(Action action) {
 +bool KartAction::start(Action action, bool force, u8 attacker) {
      ASSERT(action != Action::None);
- 
+
      auto &status = KartObjectProxy::status();
- 
+
 +    // RMCU 0x8056325c: the respawn and cannon states, Star and Bullet refuse every action.
 +    // Mega refuses one unless the caller forces it (Star and Bullet contact). Retail also
 +    // checks bits 40, 72, 82, 83 and 89, which nothing here produces, and a battle-only
@@ -3236,11 +3236,11 @@ index 49b6770..0daf16e 100644
 +    if (!force && status.onBit(eStatus::Mega)) {
          return false;
      }
- 
+
 @@ -89,11 +138,26 @@ bool KartAction::start(Action action) {
      m_up = move()->up();
      move()->clear();
- 
+
 +    m_attacker = attacker;
 +    m_lastStarted = action;
 +    ++m_startCount;
@@ -3249,7 +3249,7 @@ index 49b6770..0daf16e 100644
      (this->*m_onStart)();
      return true;
  }
- 
+
 +/// @brief Retail start functions report item loss to the ItemHolder: strong loss (RMCU fn_28867C)
 +/// for launches, flips, POW and presses, weak loss (fn_288774) for spins.
 +void KartAction::loseItems(bool strong, bool trailOnly) {
@@ -3265,24 +3265,24 @@ index 49b6770..0daf16e 100644
  /// @brief Initializes rotation parameters.
  /// @warning The parameter is supposed to be an enum, but we discard it.
 @@ -109,7 +173,9 @@ void KartAction::startRotation(size_t idx) {
- 
+
      m_rotationDirection = dir.cross(bodyFront()).dot(bodyUp()) > 0.0f ? 1.0f : -1.0f;
      setRotation(idx);
 +    ++m_spinStartCount;
      m_flags.setBit(eFlags::Rotating);
 +    move()->cueSound(KartMove::SoundCue::Spin);
  }
- 
+
  /// @addr{0x80569AE8}
 @@ -243,12 +309,17 @@ void KartAction::startLaunch(f32 extVelScalar, f32 extVelKart, f32 extVelBike, f
      m_rotAxis = move()->smoothedUp().cross(m_side);
- 
+
      dynamics()->setExtVel(dynamics()->extVel() + extVel);
 +    // USA 805646b8: launch reactions call KartEffect's crash callback.
 +    // Presentation observes this serial after the simulation pass.
 +    ++m_crashStartCount;
  }
- 
+
  /// @addr{0x805696CC}
  void KartAction::activateCrush(u16 timer) {
      move()->activateCrush(m_crushTimer + timer);
@@ -3291,7 +3291,7 @@ index 49b6770..0daf16e 100644
 +    status().setBit(eStatus::PressAction);
 +    loseItems(true);
  }
- 
+
  /// @addr{0x80567C68}
 @@ -262,6 +333,7 @@ void KartAction::applyStartSpeed() {
  /// @addr{0x80569DB4}
@@ -3299,11 +3299,11 @@ index 49b6770..0daf16e 100644
      ASSERT(idx - 1 < s_rotationParams.size());
 +    m_rotationCount = static_cast<u32>(idx);
      m_rotationParams = &s_rotationParams[--idx];
- 
+
      m_finalAngle = m_rotationParams->finalAngle;
 @@ -278,8 +350,16 @@ void KartAction::setRotation(size_t idx) {
  void KartAction::startStub() {}
- 
+
  /// @addr{0x80567FB4}
 +/// RMCU 57bb4: one rotation through fn_57988, which also drops a single trailing item.
 +void KartAction::startAction0() {
@@ -3316,33 +3316,33 @@ index 49b6770..0daf16e 100644
      startRotation(2);
 +    loseItems(false);
  }
- 
+
  /// @addr{0x8056865C}
 @@ -290,6 +370,7 @@ void KartAction::startAction2() {
      constexpr f32 NUM_ROTATIONS = 1.0f;
- 
+
      startLaunch(EXT_VEL_SCALAR, EXT_VEL_KART, EXT_VEL_BIKE, NUM_ROTATIONS, 0);
 +    loseItems(false);
  }
- 
+
  /// @addr{0x80568718}
 @@ -300,7 +381,7 @@ void KartAction::startAction3() {
      constexpr f32 NUM_ROTATIONS = 1.0f;
- 
+
      startLaunch(EXT_VEL_SCALAR, EXT_VEL_KART, EXT_VEL_BIKE, NUM_ROTATIONS, 1);
 -    Item::ItemDirector::Instance()->kartItem(0).clear();
 +    loseItems(true);
  }
- 
+
  /// @addr{0x80568CB8}
 @@ -311,10 +392,11 @@ void KartAction::startAction4() {
      constexpr f32 NUM_ROTATIONS = 2.0f;
- 
+
      startLaunch(EXT_VEL_SCALAR, EXT_VEL_KART, EXT_VEL_BIKE, NUM_ROTATIONS, 1);
 -    Item::ItemDirector::Instance()->kartItem(0).clear();
 +    loseItems(true);
  }
- 
+
  /// @addr{0x80568FA4}
 +/// RMCU 58bf0: weak loss with flag 0 drops every tethered item.
  void KartAction::startAction5() {
@@ -3350,7 +3350,7 @@ index 49b6770..0daf16e 100644
      constexpr f32 EXT_VEL_KART = 40.0f;
 @@ -322,6 +404,27 @@ void KartAction::startAction5() {
      constexpr f32 NUM_ROTATIONS = 1.0f;
- 
+
      startLaunch(EXT_VEL_SCALAR, EXT_VEL_KART, EXT_VEL_BIKE, NUM_ROTATIONS, 2);
 +    loseItems(false, false);
 +}
@@ -3374,7 +3374,7 @@ index 49b6770..0daf16e 100644
 +    dynamics()->setExtVel(dynamics()->extVel() + EGG::Vector3f(0.0f, 20.0f, 0.0f));
 +    loseItems(true);
  }
- 
+
  /// @addr{0x805690A0}
 @@ -334,9 +437,10 @@ void KartAction::startLargeFlipAction() {
      if (m_currentAction == Action::UNK_8) {
@@ -3382,27 +3382,27 @@ index 49b6770..0daf16e 100644
          dynamics()->setExtVel(dynamics()->extVel() + m_side * -20.0f);
 +        move()->cueSound(KartMove::SoundCue::BlowSide);
      }
- 
+
 -    Item::ItemDirector::Instance()->kartItem(0).clear();
 +    loseItems(true);
- 
+
      m_deltaPitch = 0.0f;
      m_pitch = 0.0f;
 @@ -348,8 +452,10 @@ void KartAction::startLargeFlipAction() {
  }
- 
+
  /// @addr{0x80568000}
 +/// Actions 9 (RMCU 57c4c), 10 and 17 (57c98, Lightning and Thunder Cloud strikes).
  void KartAction::startAction9() {
      startRotation(2);
 +    loseItems(false);
  }
- 
+
  /// @addr{0x80569774}
 @@ -361,6 +467,15 @@ void KartAction::startLongPressAction() {
      activateCrush(CRUSH_DURATION);
  }
- 
+
 +/// RMCU 59464: flattened by a Mega Mushroom racer, a 20 frame press then 480 crushed frames.
 +void KartAction::startMegaCrushAction() {
 +    constexpr u32 ACTION_DURATION = 20;
@@ -3421,12 +3421,12 @@ index 49b6770..0daf16e 100644
      startRotation(1);
 +    loseItems(false);
  }
- 
+
  /* ================================ *
 @@ -393,6 +509,13 @@ bool KartAction::calcAction1() {
      return finished;
  }
- 
+
 +// RMCU 58004 switches to the extra table entry after the first revolution.
 +bool KartAction::calcPowAction() {
 +    static const ActionParams slowed = {0.96f, 0.96f, 3};
@@ -3440,7 +3440,7 @@ index 49b6770..0daf16e 100644
 @@ -537,7 +660,11 @@ bool KartAction::calcPressAction() {
      extVel.y = std::min(0.0f, extVel.y);
      dynamics()->setExtVel(extVel);
- 
+
 -    return m_frame > m_crushTimer;
 +    if (m_frame > m_crushTimer) {
 +        status().resetBit(eStatus::PressAction);
@@ -3448,12 +3448,12 @@ index 49b6770..0daf16e 100644
 +    }
 +    return false;
  }
- 
+
  /* ================================ *
 @@ -546,6 +673,11 @@ bool KartAction::calcPressAction() {
- 
+
  void KartAction::endStub(bool /*arg*/) {}
- 
+
 +/// RMCU 5971c: an interrupted press still ends the press state.
 +void KartAction::endPressAction(bool /*arg*/) {
 +    status().resetBit(eStatus::PressAction);
@@ -3464,7 +3464,7 @@ index 49b6770..0daf16e 100644
      if (arg) {
 @@ -594,66 +726,66 @@ const std::array<KartAction::RotationParams, 5> KartAction::s_rotationParams = {
  }};
- 
+
  const std::array<KartAction::StartActionFunc, KartAction::MAX_ACTION> KartAction::s_onStart = {{
 -        &KartAction::startStub,
 +        &KartAction::startAction0,
@@ -3491,7 +3491,7 @@ index 49b6770..0daf16e 100644
 -        &KartAction::startStub,
 +        &KartAction::startAction9,
  }};
- 
+
  const std::array<KartAction::CalcActionFunc, KartAction::MAX_ACTION> KartAction::s_onCalc = {{
 -        &KartAction::calcStub,
 +        &KartAction::calcAction1,
@@ -3518,7 +3518,7 @@ index 49b6770..0daf16e 100644
 -        &KartAction::calcStub,
 +        &KartAction::calcAction1,
  }};
- 
+
  const std::array<KartAction::EndActionFunc, KartAction::MAX_ACTION> KartAction::s_onEnd = {{
 -        &KartAction::endStub,
 +        &KartAction::endAction1,
@@ -3547,7 +3547,7 @@ index 49b6770..0daf16e 100644
 -        &KartAction::endStub,
 +        &KartAction::endAction1,
  }};
- 
+
  } // namespace Kinoko::Kart
 diff --git a/source/game/kart/KartAction.hh b/source/game/kart/KartAction.hh
 index 9c0c974..ddf03e0 100644
@@ -3567,7 +3567,7 @@ index 9c0c974..ddf03e0 100644
 +    UNK_17 = 17, ///< Thunder Cloud strike.
      Max = 18,
  };
- 
+
 @@ -27,6 +31,7 @@ class KartAction : KartObjectProxy {
  public:
      enum class eFlags {
@@ -3610,12 +3610,12 @@ index 9c0c974..ddf03e0 100644
 +    [[nodiscard]] u8 lastAttacker() const { return m_attacker; }
 +
 +    static constexpr u8 NO_ATTACKER = 0xc;
- 
+
      void setHitDepth(const EGG::Vector3f &hitDepth) {
          m_hitDepth = hitDepth;
 @@ -98,7 +130,10 @@ private:
       * ================================ */
- 
+
      void startStub();
 +    void startAction0();
      void startAction1();
@@ -3631,9 +3631,9 @@ index 9c0c974..ddf03e0 100644
 +    void startMegaCrushAction();
      void startShortPressAction();
      void startSpinShrinkAction();
- 
+
 @@ -115,6 +151,7 @@ private:
- 
+
      bool calcStub();
      bool calcAction1();
 +    bool calcPowAction();
@@ -3647,7 +3647,7 @@ index 9c0c974..ddf03e0 100644
 +    void endPressAction(bool arg);
 +
 +    void loseItems(bool strong, bool trailOnly = true);
- 
+
      EGG::Vector3f m_side;
      Action m_currentAction;
 @@ -150,6 +190,8 @@ private:
@@ -3668,14 +3668,14 @@ index 9c0c974..ddf03e0 100644
 +    u32 m_crashStartCount = 0;
 +    Action m_lastStarted = Action::None;
 +    u8 m_attacker = NO_ATTACKER;
- 
+
      static constexpr size_t MAX_ACTION = static_cast<size_t>(Action::Max);
- 
+
      static const std::array<ActionParams, MAX_ACTION> s_actionParams;
      static const std::array<RotationParams, 5> s_rotationParams;
 +    static bool s_powWindowActive; ///< Retail 0x80510118.
 +    static s16 s_powWindow;        ///< Retail 0x8051011a.
- 
+
      static const std::array<StartActionFunc, MAX_ACTION> s_onStart;
      static const std::array<CalcActionFunc, MAX_ACTION> s_onCalc;
 diff --git a/source/game/kart/KartBoost.hh b/source/game/kart/KartBoost.hh
@@ -3685,7 +3685,7 @@ index d5df85d..2324f58 100644
 @@ -27,6 +27,8 @@ public:
          m_active.fill(false);
      }
- 
+
 +    bool active(Type type) const { return m_active[static_cast<size_t>(type)]; }
 +
      /// @beginGetters
@@ -3697,13 +3697,13 @@ index 9d706df..4213ce0 100644
 +++ b/source/game/kart/KartBurnout.cc
 @@ -1,5 +1,6 @@
  #include "KartBurnout.hh"
- 
+
 +#include "game/kart/KartMove.hh"
  #include "game/kart/KartPhysics.hh"
  #include "game/kart/KartState.hh"
- 
+
 @@ -15,6 +16,7 @@ KartBurnout::~KartBurnout() = default;
- 
+
  /// @addr{0x805890B0}
  void KartBurnout::start() {
 +    move()->cueSound(KartMove::SoundCue::StartFail);
@@ -3716,7 +3716,7 @@ index 5ac1c77..995bc5d 100644
 +++ b/source/game/kart/KartCollide.cc
 @@ -1,7 +1,11 @@
  #include "KartCollide.hh"
- 
+
 +#include <cstring>
 +
  #include "game/kart/KartBody.hh"
@@ -3725,7 +3725,7 @@ index 5ac1c77..995bc5d 100644
 +#include "game/kart/KartObjectManager.hh"
  #include "game/kart/KartPhysics.hh"
  #include "game/kart/KartState.hh"
- 
+
 @@ -40,6 +44,281 @@ void KartCollide::init() {
      m_poleAngVelTimer = 0;
      m_poleYaw = 0.0f;
@@ -4006,19 +4006,19 @@ index 5ac1c77..995bc5d 100644
 +    victimCollide->m_kartBumpForce = impulse;
 +    victimCollide->m_kartBumpAttacker = attacker->param()->playerIdx();
  }
- 
+
  /// @addr{0x805730D4}
 @@ -294,6 +573,8 @@ void KartCollide::calcFloorEffect() {
              colDir->findClosestCollisionEntry(&mask, KCL_TYPE_BIT(COL_TYPE_SOLID_OOB));
          }
- 
+
 +        // Retail Kart::Link::SetCamera (presentation request only).
 +        m_oobCameraPending = 0x8;
          activateOob(true, &mask, false, false);
      }
- 
+
 @@ -353,6 +634,16 @@ void KartCollide::calcTriggers(Field::KCLTypeMask *mask, const EGG::Vector3f &po
- 
+
  /// @addr{0x8056F510}
  void KartCollide::handleTriggers(Field::KCLTypeMask *mask) {
 +    // Retail ProcessTriggers (USA 0x8056a6c0) first hands a sound trigger's variant to
@@ -4033,10 +4033,10 @@ index 5ac1c77..995bc5d 100644
 +
      calcFallBoundary(mask, false);
      processCannon(mask);
- 
+
 @@ -389,6 +680,11 @@ void KartCollide::calcFallBoundary(Field::KCLTypeMask *mask, bool shortBoundary)
      }
- 
+
      if (!safe) {
 +        // Retail fn_1_619E4: variants 1-3 StopCameraMovAndRotation, others
 +        // SetCamera; ActivateOOB(false, ...) adds UpdateCameraOnOOBHit
@@ -4048,21 +4048,21 @@ index 5ac1c77..995bc5d 100644
  }
 @@ -415,16 +711,49 @@ void KartCollide::calcBeforeRespawn() {
  }
- 
+
  /// @addr{0x80573B00}
 -void KartCollide::activateOob(bool /*detachCamera*/, Field::KCLTypeMask * /*mask*/,
 +void KartCollide::activateOob(bool detachCamera, Field::KCLTypeMask *mask,
          bool /*somethingCPU*/, bool /*somethingBullet*/) {
      constexpr s16 RESPAWN_TIME = 130;
- 
+
      auto &status = KartObjectProxy::status();
 +    const u16 cameraRequest = m_oobCameraPending;
 +    m_oobCameraPending = 0;
- 
+
      if (status.onBit(eStatus::BeforeRespawn)) {
          return;
      }
- 
+
 +    // Port, audio only: retail fn_1_610D0 (USA 0x8056c634) picks the fall voice
 +    // from the variant of the entry the caller found (fn_1_611BC).
 +    {
@@ -4095,7 +4095,7 @@ index 5ac1c77..995bc5d 100644
 +
 +    m_oobCameraRequest = cameraRequest;
      move()->initOob();
- 
+
      m_respawnTimer = RESPAWN_TIME;
 @@ -572,6 +901,11 @@ void KartCollide::calcObjectCollision() {
      for (size_t i = 0; i < collisionCount; ++i) {
@@ -4108,11 +4108,11 @@ index 5ac1c77..995bc5d 100644
 +            move()->cueObjectContact(pos() - direction * m_boundingRadius);
              size_t handlerIdx = static_cast<std::underlying_type_t<Reaction>>(reaction);
              Action newAction = (this->*s_objectCollisionHandlers[handlerIdx])(i);
- 
+
 @@ -835,11 +1169,21 @@ void KartCollide::applySomeFloorMoment(f32 down, f32 rate, CollisionGroup *hitbo
          return;
      }
- 
+
 -    EGG::Matrix34f rotMat;
 -    rotMat.makeQ(dynamics()->mainRot());
 -    EGG::Matrix34f tmp = rotMat.multiplyTo(dynamics()->invInertiaTensor());
@@ -4133,7 +4133,7 @@ index 5ac1c77..995bc5d 100644
 +        m_floorMomentValid = true;
 +    }
 +    const EGG::Matrix34f &tmp = m_floorMomentTensor;
- 
+
      EGG::Vector3f crossVec = colData.relPos.cross(colData.floorNrm);
      crossVec = tmp.multVector(crossVec);
 diff --git a/source/game/kart/KartCollide.hh b/source/game/kart/KartCollide.hh
@@ -4142,13 +4142,13 @@ index 714bada..2396c09 100644
 +++ b/source/game/kart/KartCollide.hh
 @@ -8,9 +8,13 @@
  #include "game/field/CourseColMgr.hh"
- 
+
  #include <egg/core/BitFlag.hh>
 +#include <egg/math/Matrix.hh>
 +#include <egg/math/Quat.hh>
- 
+
  namespace Kinoko::Kart {
- 
+
 +class KartObject;
 +
  enum class Reaction {
@@ -4177,7 +4177,7 @@ index 714bada..2396c09 100644
 @@ -113,6 +130,33 @@ public:
      void startFloorMomentRate();
      void calcFloorMomentRate();
- 
+
 +    /// Item objects live outside the time-trial engine. RMCU KartSub pass one runs
 +    /// PlayerSub18_checkItemCollision right after the object collision; a race item controller
 +    /// registers this hook to resolve its contacts for the racer at that point.
@@ -4224,7 +4224,7 @@ index 714bada..2396c09 100644
 +        return m_kartBumpAttacker;
 +    }
      /// @endGetters
- 
+
  private:
 @@ -226,8 +281,30 @@ private:
      s16 m_poleAngVelTimer;
@@ -4248,21 +4248,21 @@ index 714bada..2396c09 100644
 +    bool checkKartCollision(KartObject *self, KartObject *other);
 +    void applyKartBump(f32 sign, KartObject *attacker, KartObject *victim,
 +            const EGG::Vector3f &dir, const EGG::Vector3f &normal) const;
- 
+
      static std::array<ObjectCollisionHandler, 33> s_objectCollisionHandlers;
 +    static ItemCollisionHook s_itemCollisionHook;
 +    static KartBumpHook s_kartBumpHook;
 +    static void *s_kartBumpContext;
 +    static void *s_itemCollisionContext;
  };
- 
+
  } // namespace Kinoko::Kart
 diff --git a/source/game/kart/KartJump.cc b/source/game/kart/KartJump.cc
 index b777ce7..2285ef9 100644
 --- a/source/game/kart/KartJump.cc
 +++ b/source/game/kart/KartJump.cc
 @@ -215,6 +215,7 @@ void KartJump::setAngle(const EGG::Vector3f &left) {
- 
+
  /// @addr{0x80575EE8}
  void KartJump::start(const EGG::Vector3f &left) {
 +    move()->cueSound(KartMove::SoundCue::Trick);
@@ -4282,15 +4282,15 @@ index 3f8a267..9831726 100644
  #include "game/kart/KartPhysics.hh"
  #include "game/kart/KartScale.hh"
 @@ -18,6 +19,7 @@
- 
+
  #include "game/system/CourseMap.hh"
  #include "game/system/RaceManager.hh"
 +#include "game/system/RaceConfig.hh"
  #include "game/system/map/MapdataCannonPoint.hh"
  #include "game/system/map/MapdataJugemPoint.hh"
- 
+
 @@ -41,6 +43,9 @@ static constexpr std::array<CannonParameter, 3> CANNON_PARAMETERS = {{
- 
+
  /// @addr{0x80577FC4}
  KartMove::KartMove() : m_smoothedUp(EGG::Vector3f::ey), m_scale(1.0f, 1.0f, 1.0f) {
 +    if (auto *config = System::RaceConfig::Instance()) {
@@ -4300,7 +4300,7 @@ index 3f8a267..9831726 100644
      m_hitboxScale = 1.0f;
      m_shockSpeedMultiplier = 1.0f;
 @@ -135,9 +140,11 @@ void KartMove::setTurnParams() {
- 
+
  /// @addr{0x805784D4}
  void KartMove::init(bool b1, bool b2) {
 +    m_startEffectSerial = 0;
@@ -4415,7 +4415,7 @@ index 3f8a267..9831726 100644
 +
  void KartMove::calc() {
      auto &status = KartObjectProxy::status();
- 
+
 @@ -322,6 +418,11 @@ void KartMove::calc() {
      calcBoost();
      calcMushroomBoost();
@@ -4431,7 +4431,7 @@ index 3f8a267..9831726 100644
 @@ -336,11 +437,34 @@ void KartMove::calc() {
      calcRotation();
  }
- 
+
 +/// RMCU 0x8057a844. A trick (Up) arms a ten-frame dodge, or cuts a POW spin in its first
 +/// eight frames to one rotation; a POW target touching the ground during the hit window
 +/// starts the POW action (the action gates still apply).
@@ -4458,19 +4458,19 @@ index 3f8a267..9831726 100644
  /// @addr{0x80584334}
  void KartMove::calcRespawnStart() {
      constexpr float RESPAWN_HEIGHT = 700.0f;
- 
+
 -    const auto *jugemPoint = System::RaceManager::Instance()->jugemPoint();
 +    const auto *jugemPoint = System::RaceManager::Instance()->jugemPoint(param()->playerIdx());
      const EGG::Vector3f &jugemPos = jugemPoint->pos();
      const EGG::Vector3f &jugemRot = jugemPoint->rot();
- 
+
 @@ -350,9 +474,14 @@ void KartMove::calcRespawnStart() {
- 
+
      setInitialPhysicsValues(respawnPos, respawnRot);
- 
+
 -    Item::ItemDirector::Instance()->kartItem(0).clear();
 +    Item::ItemDirector::Instance()->kartItem(param()->playerIdx()).clear();
- 
+
      status().resetBit(eStatus::TriggerRespawn).setBit(eStatus::InRespawn);
 +
 +    // Retail DoRespawn (USA 0x8057de08): the point's sound zone (KMP::Holder<JGPT> +0x2c).
@@ -4478,20 +4478,20 @@ index 3f8a267..9831726 100644
 +        cueSoundTrigger(static_cast<u8>(zone - 1));
 +    }
  }
- 
+
  /// @addr{0x80579A50}
 @@ -541,6 +670,7 @@ void KartMove::calcDirs() {
      local_88.normalise();
      m_flags.setBit(eFlags::LaunchBoost);
      auto &status = KartObjectProxy::status();
 +    status.resetBit(eStatus::GroundDirs);
- 
+
      if (status.offBit(eStatus::InATrick, eStatus::OverZipper) &&
              (((status.onBit(eStatus::TouchingGround) || status.offBit(eStatus::RampBoost) ||
 @@ -578,6 +708,10 @@ void KartMove::calcDirs() {
              }
          }
- 
+
 +        // Retail sets state bit 61 here unless in a burnout (or state bit 72).
 +        if (status.offBit(eStatus::Burnout)) {
 +            status.setBit(eStatus::GroundDirs);
@@ -4502,7 +4502,7 @@ index 3f8a267..9831726 100644
 @@ -674,7 +808,10 @@ void KartMove::calcStickyRoad() {
  void KartMove::calcOffroad() {
      auto &status = KartObjectProxy::status();
- 
+
 -    if (status.onBit(eStatus::BoostOffroadInvincibility)) {
 +    // Retail RMCU 0x69b3c directly checks Bullet, Cloud and Mega state.
 +    // Their immunity ends with the state, without creating a boost timer.
@@ -4512,7 +4512,7 @@ index 3f8a267..9831726 100644
          m_kclRotFactor = param()->stats().kclRot[0];
      } else {
 @@ -705,6 +842,10 @@ void KartMove::calcOffroad() {
- 
+
  /// @addr{0x8058677C}
  void KartMove::calcRisingWater() {
 +    // Original RMCU 8057ff90 clears word at KartState+8 bit 21:
@@ -4524,7 +4524,7 @@ index 3f8a267..9831726 100644
      if (!psea) {
 @@ -725,9 +866,12 @@ void KartMove::calcRisingWater() {
      }
- 
+
      f32 dist = -objDir->distAboveRisingWater(pos);
 -    if (dist > 0.0f && status().offBit(Kart::eStatus::BoostOffroadInvincibility)) {
 -        f32 speedScale = std::min(1.0f, dist / 100.0f);
@@ -4537,14 +4537,14 @@ index 3f8a267..9831726 100644
 +        }
      }
  }
- 
+
 @@ -1147,6 +1291,7 @@ void KartMove::releaseMt() {
- 
+
      if (status.offBit(eStatus::BeforeRespawn, eStatus::InAction)) {
          activateBoost(KartBoost::Type::AllMt, mtLength);
 +        cueSound(SoundCue::BoostVoice); // retail asks again whether or not it activated
      }
- 
+
      m_driftState = DriftState::NotDrifting;
 @@ -1343,7 +1488,9 @@ void KartMove::calcVehicleSpeed() {
      } else if (status.offBit(eStatus::Boost)) {
@@ -4560,7 +4560,7 @@ index 3f8a267..9831726 100644
 @@ -1438,7 +1585,12 @@ void KartMove::calcAcceleration() {
          dynamics()->setKillExtVelY(status.onBit(eStatus::RespawnKillY));
      }
- 
+
 -    if (status.onBit(eStatus::Burnout)) {
 +    // Retail RMCU .text 0x6930c..0x69344: Bullet sets speed and soft
 +    // limit directly to 145 * engine-class rate * controller rate (1 here).
@@ -4574,7 +4574,7 @@ index 3f8a267..9831726 100644
 @@ -1468,9 +1620,24 @@ void KartMove::calcAcceleration() {
          }
      }
- 
+
 -    f32 speedLimit = status.onBit(eStatus::JumpPad) ? m_jumpPadMaxSpeed : m_baseSpeed;
 +    // Retail uses the AISpeedRace speed (+0x1c) for CPUs touching the ground.
 +    f32 speedLimit = status.onBit(eStatus::JumpPad) ? m_jumpPadMaxSpeed :
@@ -4596,7 +4596,7 @@ index 3f8a267..9831726 100644
 +        boostSpdLimit = std::max(boostSpdLimit, 115.0f);
 +    }
      m_jumpPadBoostMultiplier = boostMultiplier;
- 
+
      f32 scaleMultiplier = m_shockSpeedMultiplier;
 @@ -1486,18 +1653,26 @@ void KartMove::calcAcceleration() {
      bool ignoreScale = status.onBit(eStatus::RampBoost, eStatus::ZipperInvisibleWall,
@@ -4606,18 +4606,18 @@ index 3f8a267..9831726 100644
 +    // Retail 805755d8..805755e4: only the boost floor gets the class
 +    // multiplier here. The normal stat base was already scaled at init.
 +    boostSpeed *= (boostSpdLimit * (m_engineClassRate * m_kclSpeedFactor));
- 
+
      if (status.offBit(eStatus::JumpPad) && boostSpeed > 0.0f && boostSpeed > speedLimit) {
          speedLimit = boostSpeed;
      }
- 
+
 -    m_jumpPadSoftSpeedLimit = boostSpdLimit * m_kclSpeedFactor;
 +    m_jumpPadSoftSpeedLimit = boostSpeed;
- 
+
      if (status.onBit(eStatus::RampBoost)) {
          speedLimit = std::max(speedLimit, 100.0f);
      }
- 
+
 +    // Bypass kart/offroad/boost scaling as the original Bullet branch does;
 +    // retain the common wall response, hard cap and internal velocity path.
 +    if (m_bulletActive) {
@@ -4625,7 +4625,7 @@ index 3f8a267..9831726 100644
 +    }
 +
      m_lastDir = (m_speed > 0.0f) ? 1.0f * m_dir : -1.0f * m_dir;
- 
+
      f32 local_c8 = 1.0f;
 @@ -1669,6 +1844,7 @@ void KartMove::calcWallCollisionStart(f32 param_2) {
          if (wallKclType() == COL_TYPE_SPECIAL_WALL && wallKclVariant() == 0) {
@@ -4642,56 +4642,56 @@ index 3f8a267..9831726 100644
 +    cueSound(SoundCue::Hop);
      status().setBit(eStatus::Hop).resetBit(eStatus::DriftManual);
      onHop();
- 
+
 @@ -1987,7 +2164,9 @@ void KartMove::hop() {
  void KartMove::tryStartBoostPanel() {
      constexpr s16 BOOST_PANEL_DURATION = 60;
- 
+
 -    if (status().onBit(eStatus::BeforeRespawn, eStatus::InAction)) {
 +    // Retail RMCU 0x80580d6c refuses panels, ramps and jump pads with status 4, 32, 72,
 +    // 82, 83, 91 (Bullet) or 135 set; this port produces 4, 32 and 91.
 +    if (status().onBit(eStatus::BeforeRespawn, eStatus::InAction, eStatus::Bullet)) {
          return;
      }
- 
+
 @@ -2003,13 +2182,15 @@ void KartMove::tryStartBoostRamp() {
- 
+
      auto &status = KartObjectProxy::status();
- 
+
 -    if (status.onBit(eStatus::BeforeRespawn, eStatus::InAction)) {
 +    // Retail RMCU 0x80580d6c: no ramp boost for a Bullet (see tryStartBoostPanel).
 +    if (status.onBit(eStatus::BeforeRespawn, eStatus::InAction, eStatus::Bullet)) {
          return;
      }
- 
+
      status.setBit(eStatus::RampBoost);
      m_rampBoost = BOOST_RAMP_DURATION;
      setOffroadInvincibility(BOOST_RAMP_DURATION);
 +    cueSound(SoundCue::BoostRamp);
  }
- 
+
  /// @stage 2
 @@ -2030,7 +2211,9 @@ void KartMove::tryStartJumpPad() {
- 
+
      auto &status = KartObjectProxy::status();
- 
+
 -    if (status.onBit(eStatus::BeforeRespawn, eStatus::InAction, eStatus::HalfPipeRamp)) {
 +    // Retail RMCU 0x805794b4: also refused for a Bullet (status 91).
 +    if (status.onBit(eStatus::BeforeRespawn, eStatus::InAction, eStatus::HalfPipeRamp,
 +                eStatus::Bullet)) {
          return;
      }
- 
+
 @@ -2079,6 +2262,7 @@ void KartMove::tryStartJumpPad() {
      m_jumpPadMinSpeed = m_jumpPadProperties->minSpeed;
      m_jumpPadMaxSpeed = m_jumpPadProperties->maxSpeed;
      m_speed = std::max(m_speed, m_jumpPadMinSpeed);
 +    cueSound(jumpPadVariant == 4 ? SoundCue::JumpPadMushroom : SoundCue::JumpPad);
  }
- 
+
  /// @addr{0x80582530}
 @@ -2114,7 +2298,10 @@ void KartMove::cancelJumpPad() {
- 
+
  /// @addr{0x8057F090}
  void KartMove::activateBoost(KartBoost::Type type, s16 frames) {
 +    // Retail plays the boost sound before the timer check (USA 0x80578874).
@@ -4708,7 +4708,7 @@ index 3f8a267..9831726 100644
 +    m_startEffectDuration = frames;
 +    ++m_startEffectSerial;
  }
- 
+
  /// @addr{0x8057F3D8}
 @@ -2260,6 +2449,7 @@ void KartMove::activateCrush(u16 timer) {
      status().setBit(eStatus::Crushed);
@@ -4716,7 +4716,7 @@ index 3f8a267..9831726 100644
      m_kartScale->startCrush();
 +    cueSound(SoundCue::Press);
  }
- 
+
  /// @addr{0x80580F9C}
 @@ -2271,6 +2461,7 @@ void KartMove::calcCrushed() {
      if (--m_crushTimer == 0) {
@@ -4725,20 +4725,20 @@ index 3f8a267..9831726 100644
 +        cueSound(SoundCue::PressEnd);
      }
  }
- 
+
 @@ -2280,7 +2471,7 @@ void KartMove::calcScale() {
- 
+
      const EGG::Vector3f sizeScale = m_kartScale->sizeScale();
      setScale(m_kartScale->pressScale() * sizeScale);
 -    m_totalScale = m_shockSpeedMultiplier;
 +    m_totalScale = m_shockSpeedMultiplier * m_megaScale;
      m_hitboxScale = std::max(sizeScale.z, m_totalScale);
- 
+
      if (sizeScale.z != 1.0f) {
 @@ -2290,22 +2481,161 @@ void KartMove::calcScale() {
      m_invScale = m_scale.z > 1.0f ? 1.0f / m_scale.z : 1.0f;
  }
- 
+
 +/// @brief RMCU 0x80579a04 (PlayerSub10_activateStar): 450 frames of Star, refused while an
 +/// action or the Bullet is active. It clears Blooper ink and lifts a crush, but not a shrink.
 +/// @return Whether the Star started.
@@ -4866,7 +4866,7 @@ index 3f8a267..9831726 100644
 +/// Lightning uses action 10.
 +bool KartMove::applyLightningEffect(u16 timer, bool spinShrink, bool cloudStrike) {
      auto &status = state()->status();
- 
+
 -    if (status.onBit(eStatus::InRespawn, eStatus::AfterRespawn, eStatus::CannonStart)) {
 -        return;
 +    if (status.onBit(eStatus::TriggerRespawn, eStatus::InRespawn, eStatus::AfterRespawn,
@@ -4878,7 +4878,7 @@ index 3f8a267..9831726 100644
 +        endMega(false);
 +        return true;
      }
- 
+
 -    action()->start(Action::UNK_15);
 -    Item::ItemDirector::Instance()->kartItem(0).clear();
 +    Action reaction = Action::UNK_10;
@@ -4892,7 +4892,7 @@ index 3f8a267..9831726 100644
 +    Item::ItemDirector::Instance()->kartItem(param()->playerIdx()).loseFromDamage(
 +            KartAction::NO_ATTACKER);
      status.setBit(eStatus::Shocked);
- 
+
      if (timer > m_shockTimer) {
          m_shockTimer = timer;
          m_kartScale->startShrink(0);
@@ -4900,14 +4900,14 @@ index 3f8a267..9831726 100644
 +
 +    return true;
  }
- 
+
  /// @addr{0x80580998}
 @@ -2328,6 +2658,7 @@ void KartMove::deactivateShock(bool resetSpeed) {
      status().resetBit(eStatus::Shocked);
      m_shockTimer = 0;
      m_kartScale->endShrink(0);
 +    cueSound(SoundCue::Grow);
- 
+
      if (resetSpeed) {
          m_shockSpeedMultiplier = 1.0f;
 @@ -2366,6 +2697,7 @@ void KartMove::enterCannon() {
@@ -4916,7 +4916,7 @@ index 3f8a267..9831726 100644
      m_cannonProgress.setZero();
 +    cueSound(SoundCue::Cannon);
  }
- 
+
  /// @addr{0x80584D58}
 @@ -2468,6 +2800,7 @@ void KartMove::exitCannon() {
  void KartMove::triggerRespawn() {
@@ -4924,11 +4924,11 @@ index 3f8a267..9831726 100644
      status().setBit(eStatus::TriggerRespawn);
 +    cueSound(SoundCue::Respawn);
  }
- 
+
  /// @addr{0x80587B30}
 @@ -2483,6 +2816,7 @@ void KartMoveBike::startWheelie() {
      constexpr u16 WHEELIE_COOLDOWN = 20;
- 
+
      status().setBit(eStatus::Wheelie);
 +    cueSound(SoundCue::Wheelie);
      m_wheelieFrames = 0;
@@ -4940,7 +4940,7 @@ index 9845504..0a21213 100644
 +++ b/source/game/kart/KartMove.hh
 @@ -1,6 +1,7 @@
  #pragma once
- 
+
  #include "game/kart/KartBoost.hh"
 +#include "game/kart/KartAction.hh"
  #include "game/kart/KartBurnout.hh"
@@ -4969,21 +4969,21 @@ index 9845504..0a21213 100644
 +    /// The Thunder Cloud's carry status (retail bit 93, set by activateTc).
 +    void setThunderCloud(bool active);
 +    /// @}
- 
+
      /// @addr{0x80580768}
      void activateShrink() {
 -        applyShrink(300);
 +        applyLightningEffect(300, true, false);
      }
- 
+
 -    void applyShrink(u16 timer);
 +    bool applyLightningEffect(u16 timer, bool spinShrink, bool cloudStrike);
      void calcShock();
      void deactivateShock(bool resetSpeed);
- 
+
 @@ -209,9 +225,45 @@ public:
      }
- 
+
      /// @addr{0x8057B9AC}
 +    // Retail AISpeedRace writes KartMove+0x1c, a CPU-only speed. The original
 +    // PlayerSub10_updateAcceleration uses it instead of the stat base speed
@@ -5025,12 +5025,12 @@ index 9845504..0a21213 100644
 +    [[nodiscard]] u16 shockTimer() const {
 +        return m_shockTimer;
      }
- 
+
      /// @addr{0x80581720}
 @@ -224,6 +276,92 @@ public:
      }
      /// @endSetters
- 
+
 +    bool boostActive(KartBoost::Type type) const { return m_boost.active(type); }
 +    /// @brief Read only, for presentation (audio).
 +    bool ssmtCharged() const { return m_flags.onBit(eFlags::SsmtCharged); }
@@ -5123,7 +5123,7 @@ index 9845504..0a21213 100644
 @@ -292,6 +430,10 @@ public:
          return m_lastDir;
      }
- 
+
 +    [[nodiscard]] f32 outsideDriftAngle() const {
 +        return m_outsideDriftAngle;
 +    }
@@ -5134,7 +5134,7 @@ index 9845504..0a21213 100644
 @@ -300,6 +442,17 @@ public:
          return m_smoothedForward;
      }
- 
+
 +    /// Retail slipstream state (KartMove +0xec/+0xf0, state bits 64 charging / 65 boost).
 +    [[nodiscard]] bool slipstreamCharging() const {
 +        return m_slipstreamCharging;
@@ -5152,7 +5152,7 @@ index 9845504..0a21213 100644
 @@ -383,12 +536,21 @@ protected:
          f32 boostRotFactor;
      };
- 
+
 +    f32 m_engineClassRate = 1.0f; ///< Retail Movement +0x10; selected before kart creation.
      f32 m_baseSpeed;      ///< The speed associated with the current character/vehicle stats.
      f32 m_softSpeedLimit; ///< Base speed + boosts + wheelies, restricted to the hard speed limit.
@@ -5190,7 +5190,7 @@ index 9845504..0a21213 100644
 +                                   ///< Retail reads it nowhere else (no physical effect).
 +    bool m_slipstreamCharging = false;
 +    bool m_slipstreamBoost = false;
- 
+
      static constexpr f32 MINIMUM_DRIFT_THRESOLD = 0.55f;
  };
 diff --git a/source/game/kart/KartObject.cc b/source/game/kart/KartObject.cc
@@ -5200,25 +5200,25 @@ index f869a97..4c11983 100644
 @@ -107,7 +107,7 @@ void KartObject::initImpl() {
  void KartObject::prepare() {
      EGG::Vector3f euler_angles_deg, position;
- 
+
 -    System::RaceManager::Instance()->findKartStartPoint(position, euler_angles_deg);
 +    System::RaceManager::Instance()->findKartStartPoint(position, euler_angles_deg, param()->playerIdx());
      move()->setInitialPhysicsValues(position, euler_angles_deg);
  }
- 
+
 diff --git a/source/game/kart/KartObjectManager.cc b/source/game/kart/KartObjectManager.cc
 index b43ec55..4dc2d2c 100644
 --- a/source/game/kart/KartObjectManager.cc
 +++ b/source/game/kart/KartObjectManager.cc
 @@ -1,5 +1,6 @@
  #include "KartObjectManager.hh"
- 
+
 +#include "game/kart/KartAction.hh"
  #include "game/kart/KartCollide.hh"
  #include "game/kart/KartParamFileManager.hh"
  #include "game/system/RaceConfig.hh"
 @@ -10,6 +11,7 @@ namespace Kinoko::Kart {
- 
+
  /// @addr{0x8058FEE0}
  void KartObjectManager::init() {
 +    KartAction::ResetPowWindow(); // RMCU PlayerHolder_init 0x805896bc
@@ -5227,7 +5227,7 @@ index b43ec55..4dc2d2c 100644
          m_objects[i]->prepare();
 @@ -17,18 +19,26 @@ void KartObjectManager::init() {
  }
- 
+
  /// @addr{0x8058FFE8}
 +/// Retail PlayerHolder_update (USA 0x805897C4) runs pass zero for every racer
 +/// before any pass one, so racer-to-racer collision sees this frame's poses.
@@ -5238,7 +5238,7 @@ index b43ec55..4dc2d2c 100644
          object->collide()->setTangentOff(EGG::Vector3f::zero);
          object->collide()->setMovement(EGG::Vector3f::zero);
      }
- 
+
      for (size_t i = 0; i < m_count; ++i) {
 -        KartObject *object = m_objects[i];
 -        object->calcSub();
@@ -5253,16 +5253,16 @@ index b43ec55..4dc2d2c 100644
 +    // RMCU PlayerHolder_update 0x805897c4: the POW hit window ticks after every kart.
 +    KartAction::CalcPowWindow();
  }
- 
+
  /// @addr{0x8058FAA8}
 @@ -80,6 +90,8 @@ KartObjectManager::~KartObjectManager() {
- 
+
      EGG::egg_delete(s_thunderScaleUpAnmChr);
      EGG::egg_delete(s_thunderScaleDownAnmChr);
 +    EGG::egg_delete(s_megaScaleUpAnmChr);
 +    EGG::egg_delete(s_megaScaleDownAnmChr);
      EGG::egg_delete(s_pressScaleUpAnmChr);
- 
+
      // If the proxy list is not cleared when we're done with the KartObjectManager, the list's
 @@ -99,12 +111,18 @@ void KartObjectManager::loadScaleAnimations() {
      s_thunderScaleUpAnmChr = EGG::egg_new<Abstract::g3d::ResAnmChr>(resAnmChr);
@@ -5275,14 +5275,14 @@ index b43ec55..4dc2d2c 100644
      resAnmChr = Abstract::g3d::ResFile(file).resAnmChr("press_scale_up");
      s_pressScaleUpAnmChr = EGG::egg_new<Abstract::g3d::ResAnmChr>(resAnmChr);
  }
- 
+
  Abstract::g3d::ResAnmChr *KartObjectManager::s_thunderScaleUpAnmChr = nullptr;
  Abstract::g3d::ResAnmChr *KartObjectManager::s_thunderScaleDownAnmChr = nullptr;
 +Abstract::g3d::ResAnmChr *KartObjectManager::s_megaScaleUpAnmChr = nullptr;
 +Abstract::g3d::ResAnmChr *KartObjectManager::s_megaScaleDownAnmChr = nullptr;
  Abstract::g3d::ResAnmChr *KartObjectManager::s_pressScaleUpAnmChr = nullptr;
  KartObjectManager *KartObjectManager::s_instance = nullptr;
- 
+
 diff --git a/source/game/kart/KartObjectManager.hh b/source/game/kart/KartObjectManager.hh
 index 0424da1..d55b0b3 100644
 --- a/source/game/kart/KartObjectManager.hh
@@ -5290,16 +5290,16 @@ index 0424da1..d55b0b3 100644
 @@ -32,6 +32,8 @@ public:
      }
      /// @endGetters
- 
+
 +    [[nodiscard]] size_t count() const { return m_count; }
 +
      static KartObjectManager *CreateInstance();
      static void DestroyInstance();
- 
+
 @@ -43,6 +45,14 @@ public:
          return s_thunderScaleDownAnmChr;
      }
- 
+
 +    [[nodiscard]] static const Abstract::g3d::ResAnmChr *MegaScaleUpAnmChr() {
 +        return s_megaScaleUpAnmChr;
 +    }
@@ -5312,7 +5312,7 @@ index 0424da1..d55b0b3 100644
          return s_pressScaleUpAnmChr;
      }
 @@ -64,6 +74,8 @@ private:
- 
+
      static Abstract::g3d::ResAnmChr *s_thunderScaleUpAnmChr;   ///< @addr{0x809C18A0}
      static Abstract::g3d::ResAnmChr *s_thunderScaleDownAnmChr; ///< @addr{0x809C18A4}
 +    static Abstract::g3d::ResAnmChr *s_megaScaleUpAnmChr;
@@ -5325,13 +5325,13 @@ index 13619fe..139b27a 100644
 --- a/source/game/kart/KartObjectProxy.cc
 +++ b/source/game/kart/KartObjectProxy.cc
 @@ -223,7 +223,7 @@ const CollisionData &KartObjectProxy::collisionData() const {
- 
+
  /// @addr{0x805903F4}
  const System::KPad *KartObjectProxy::inputs() const {
 -    return System::RaceManager::Instance()->player().inputs();
 +    return System::RaceManager::Instance()->player(param()->playerIdx()).inputs();
  }
- 
+
  /// @addr{0x80590A40}
 diff --git a/source/game/kart/KartScale.cc b/source/game/kart/KartScale.cc
 index 9ee6596..8813627 100644
@@ -5355,14 +5355,14 @@ index b83813a..b62f05e 100644
 @@ -30,8 +30,6 @@ static constexpr std::array<StartBoostEntry, 6> START_BOOST_ENTRIES = {{
  KartState::KartState() {
      m_status.makeAllZero();
- 
+
 -    m_status.changeBit(inputs()->driftIsAuto(), eStatus::AutoDrift);
 -
      m_airtime = 0;
      m_cannonPointId = 0;
      m_startBoostIdx = 0;
 @@ -39,6 +37,9 @@ KartState::KartState() {
- 
+
  /// @addr{0x8059455C}
  void KartState::init() {
 +    // KartObjectProxy's per-racer accessor is bound after subsystem construction.
@@ -5370,18 +5370,18 @@ index b83813a..b62f05e 100644
 +    m_status.changeBit(inputs()->driftIsAuto(), eStatus::AutoDrift);
      reset();
  }
- 
+
 @@ -128,6 +129,7 @@ void KartState::resetFlags() {
              eStatus::WallCollisionStart, eStatus::AirStart, eStatus::StickRight,
              eStatus::ZipperInvisibleWall, eStatus::JumpPadDisableYsusForce,
              eStatus::CollidingOffroad, eStatus::JumpPadDisableYsusForce);
 +    m_status.resetBit(eStatus::HardLanding);
- 
+
      m_stickY = 0.0f;
      m_stickX = 0.0f;
 @@ -318,6 +320,10 @@ void KartState::calcCollisions() {
          }
- 
+
          if (m_status.onBit(eStatus::OverZipper)) {
 +            // Retail status bit 95 (USA 0x8058ee04): a zipper landing.
 +            if (m_status.offBit(eStatus::HalfpipeMidair, eStatus::BeforeRespawn)) {
@@ -5389,9 +5389,9 @@ index b83813a..b62f05e 100644
 +            }
              halfPipe()->end(true);
          }
- 
+
 @@ -333,6 +339,16 @@ void KartState::calcCollisions() {
- 
+
          if (!wasTouchingGround) {
              m_status.setBit(eStatus::GroundStart);
 +            // USA 8058ef0c..20; visual threshold is -22, independently
@@ -5405,7 +5405,7 @@ index b83813a..b62f05e 100644
 +                move()->cueSound(KartMove::SoundCue::Landing);
 +            }
          }
- 
+
          if (m_status.onBit(eStatus::InATrick) && jump()->cooldown() == 0) {
 diff --git a/source/game/kart/KartState.hh b/source/game/kart/KartState.hh
 index b399dd6..3bb381a 100644
@@ -5414,16 +5414,16 @@ index b399dd6..3bb381a 100644
 @@ -3,6 +3,8 @@
  #include "game/kart/KartObjectProxy.hh"
  #include "game/kart/Status.hh"
- 
+
 +#include <limits>
 +
  namespace Kinoko::Kart {
- 
+
  /// @brief Houses various flags and other variables to preserve the kart's state.
 @@ -89,6 +91,12 @@ public:
          return m_startBoostCharge;
      }
- 
+
 +    /// Retail KartObjectProxy::setStartBoostIdx: AIControlBase::setStartDashTypeToKart
 +    /// presets a CPU's start boost (1..5, or -1 for a burnout) applied at GO.
 +    void setStartBoostIdx(s32 idx) {
@@ -5440,22 +5440,22 @@ index 5467233..18a283b 100644
 @@ -191,7 +191,10 @@ void KartSub::calcPass1() {
      flags.setBit(Field::eBoxColFlag::Drivable, Field::eBoxColFlag::Object);
      boxColUnit()->search(flags);
- 
+
 +    // Retail searches with 0x1f and resolves each racer it finds first.
 +    collide()->calcKartCollision();
      collide()->calcObjectCollision();
 +    collide()->calcItemCollision();
      dynamics()->setPos(pos() + collide()->tangentOff());
- 
+
      auto &status = KartObjectProxy::status();
 @@ -252,6 +255,7 @@ void KartSub::calcPass1() {
              colData.reset();
          }
- 
+
 +        collide()->calcKartBumpTimer();
          collide()->calcFloorEffect();
          collide()->calcFloorMomentRate();
- 
+
 diff --git a/source/game/kart/Status.hh b/source/game/kart/Status.hh
 index eb1e2b5..7efdc84 100644
 --- a/source/game/kart/Status.hh
@@ -5473,7 +5473,7 @@ index eb1e2b5..7efdc84 100644
 +    GroundDirs = 61, ///< Retail state bit 61: calcDirs updated the facing this frame (AI::isDriftingOnGround).
      Trickable = 62,
 +    Star = 63, ///< Retail item invincibility and 105-unit speed floor.
- 
+
      WheelieRot = 68,
      SkipWheelCalc = 69,
 @@ -74,11 +77,17 @@ enum class eStatus {
@@ -5491,7 +5491,7 @@ index eb1e2b5..7efdc84 100644
 +    Ink = 92,          ///< Retail Blooper ink status.
 +    ThunderCloud = 93, ///< Retail cloud status, 95-unit speed floor.
 +    HardLanding = 94, ///< Retail first floor contact with normal velocity below -22; large landing VFX.
- 
+
      SoftWallSuspension = 97,      ///< Changes wheel physics after touching a soft wall.
      SoftWallPush = 99,            ///< Tracks whether we are being pushed by a soft wall or HWG.
 diff --git a/source/game/render/KartCamera.hh b/source/game/render/KartCamera.hh
@@ -5499,15 +5499,15 @@ index d024797..0ef129d 100644
 --- a/source/game/render/KartCamera.hh
 +++ b/source/game/render/KartCamera.hh
 @@ -54,6 +54,9 @@ public:
- 
+
      void calc();
- 
+
 +    const EGG::Vector3f &position() const { return m_forwardCamera.m_pos; }
 +    const EGG::Vector3f &target() const { return m_forwardCamera.m_targetPos; }
 +
      KartCamera();
      ~KartCamera();
- 
+
 diff --git a/source/game/render/KartModel.hh b/source/game/render/KartModel.hh
 index 69c0072..ee45754 100644
 --- a/source/game/render/KartModel.hh
@@ -5515,7 +5515,7 @@ index 69c0072..ee45754 100644
 @@ -20,6 +20,10 @@ public:
      void FUN_807CB530();
      void FUN_807C7828(u8 playerIdx, bool isBike);
- 
+
 +    /// @brief Read-only source-smoothed steering input for frontend part animation.
 +    [[nodiscard]] f32 steeringInput() const { return _58; }
 +
@@ -5529,7 +5529,7 @@ index 48542d4..69c546b 100644
 +++ b/source/game/system/GhostFile.hh
 @@ -113,7 +113,7 @@ public:
      /// @endGetters
- 
+
  private:
 -    std::array<wchar_t, 11> m_userData;
 +    std::array<char16_t, 11> m_userData;
@@ -5547,38 +5547,38 @@ index 7253a9a..f0ff716 100644
 -    m_playerInput.calc();
 +    for (size_t i = 0; i < m_playerCount; ++i) m_playerInputs[i].calc();
  }
- 
+
  /// @addr{0x805237E8}
  void KPadDirector::calcPads() {
      m_ghostController->calc();
 -    m_hostController->calc();
 +    for (size_t i = 0; i < m_playerCount; ++i) m_hostControllers[i]->calc();
  }
- 
+
  /// @addr{0x80523690}
  void KPadDirector::reset() {
 -    m_playerInput.reset();
 +    for (size_t i = 0; i < m_playerCount; ++i) m_playerInputs[i].reset();
  }
- 
+
  /// @addr{0x80524580}
  void KPadDirector::startGhostProxies() {
 -    m_playerInput.startGhostProxy();
 +    m_playerInputs[0].startGhostProxy();
  }
- 
+
  /// @addr{0x805245DC}
  void KPadDirector::endGhostProxies() {
 -    m_playerInput.endGhostProxy();
 +    m_playerInputs[0].endGhostProxy();
  }
- 
+
  /// @addr{0x8052453C}
  void KPadDirector::setGhostPad(const u8 *inputs, bool driftIsAuto) {
 -    m_playerInput.setGhostController(m_ghostController, inputs, driftIsAuto);
 +    m_playerInputs[0].setGhostController(m_ghostController, inputs, driftIsAuto);
  }
- 
+
 -void KPadDirector::setHostPad(bool driftIsAuto) {
 -    m_playerInput.setHostController(m_hostController, driftIsAuto);
 +void KPadDirector::setHostPad(bool driftIsAuto, size_t index) {
@@ -5586,7 +5586,7 @@ index 7253a9a..f0ff716 100644
 +    m_hostControllers[index]->reset(driftIsAuto);
 +    m_playerInputs[index].setHostController(m_hostControllers[index], driftIsAuto);
  }
- 
+
  /// @addr{0x8052313C}
 @@ -55,11 +57,13 @@ void KPadDirector::DestroyInstance() {
  /// @addr{0x805232F0}
@@ -5595,7 +5595,7 @@ index 7253a9a..f0ff716 100644
 -    m_hostController = EGG::egg_new<KPadHostController>();
 +    for (auto &controller : m_hostControllers) controller = EGG::egg_new<KPadHostController>();
  }
- 
+
  /// @addr{0x805231DC}
  KPadDirector::~KPadDirector() {
 +    EGG::egg_delete(m_ghostController);
@@ -5610,21 +5610,21 @@ index 8cbc005..2eaee9c 100644
 @@ -28,16 +28,22 @@ public:
      void startGhostProxies();
      void endGhostProxies();
- 
+
 -    [[nodiscard]] const KPadPlayer &playerInput() const {
 -        return m_playerInput;
 +    [[nodiscard]] const KPadPlayer &playerInput(size_t index = 0) const {
 +        ASSERT(index < m_playerCount);
 +        return m_playerInputs[index];
      }
- 
+
 -    [[nodiscard]] KPadHostController *hostController() {
 -        return m_hostController;
 +    [[nodiscard]] KPadHostController *hostController(size_t index = 0) {
 +        ASSERT(index < m_playerCount);
 +        return m_hostControllers[index];
      }
- 
+
      void setGhostPad(const u8 *inputs, bool driftIsAuto);
 -    void setHostPad(bool driftIsAuto);
 +    void setHostPad(bool driftIsAuto, size_t index = 0);
@@ -5632,20 +5632,20 @@ index 8cbc005..2eaee9c 100644
 +        ASSERT(count >= 1 && count <= m_playerInputs.size());
 +        m_playerCount = count;
 +    }
- 
+
      static KPadDirector *CreateInstance();
      static void DestroyInstance();
 @@ -52,9 +58,10 @@ private:
      KPadDirector();
      ~KPadDirector() override;
- 
+
 -    KPadPlayer m_playerInput;
 +    std::array<KPadPlayer, 12> m_playerInputs;
 +    size_t m_playerCount = 1;
      KPadGhostController *m_ghostController;
 -    KPadHostController *m_hostController;
 +    std::array<KPadHostController *, 12> m_hostControllers;
- 
+
      static KPadDirector *s_instance; ///< @addr{0x809BD70C}
  };
 diff --git a/source/game/system/RaceConfig.cc b/source/game/system/RaceConfig.cc
@@ -5684,7 +5684,7 @@ index b323386..0aded5b 100644
 +        }
      }
  }
- 
+
 @@ -86,12 +92,16 @@ RaceConfig::~RaceConfig() {
  void RaceConfig::Scenario::init() {
      playerCount = 0;
@@ -5692,7 +5692,7 @@ index b323386..0aded5b 100644
 +    engineClass = 2;
 +    gameMode = GameMode::Time_Trial;
 +    mirror = false;
- 
+
      for (size_t i = 0; i < players.size(); ++i) {
          Player &player = players[i];
          player.character = Character::Mario;
@@ -5701,7 +5701,7 @@ index b323386..0aded5b 100644
 +        player.driftIsAuto = false;
      }
  }
- 
+
 diff --git a/source/game/system/RaceConfig.hh b/source/game/system/RaceConfig.hh
 index e9ab671..dbe9d71 100644
 --- a/source/game/system/RaceConfig.hh
@@ -5726,7 +5726,7 @@ index e9ab671..dbe9d71 100644
 +            Battle = 3,
              Ghost_Race = 5,
          };
- 
+
 @@ -50,6 +54,14 @@ public:
          std::array<Player, 12> players;
          u8 playerCount;
@@ -5740,20 +5740,20 @@ index e9ab671..dbe9d71 100644
 +            return rates[engineClass < 3 ? engineClass : 2];
 +        }
      };
- 
+
      typedef std::function<void(RaceConfig *, void *)> InitCallback;
 diff --git a/source/game/system/RaceManager.cc b/source/game/system/RaceManager.cc
-index 42decd3..481d776 100644
+index 42decd3..69dd981 100644
 --- a/source/game/system/RaceManager.cc
 +++ b/source/game/system/RaceManager.cc
 @@ -13,14 +13,14 @@ namespace Kinoko::System {
- 
+
  /// @addr{0x80532F88}
  void RaceManager::init() {
 -    m_player.init();
 +    for (size_t i = 0; i < m_playerCount; ++i) m_players[i].init(i);
  }
- 
+
  /// @addr{0x805362DC}
 -/// @todo When expanding to other gamemodes, we will need to pass the player index
 -void RaceManager::findKartStartPoint(EGG::Vector3f &pos, EGG::Vector3f &angles) {
@@ -5764,11 +5764,11 @@ index 42decd3..481d776 100644
 +    u32 placement = index + 1;
 +    u32 playerCount = m_playerCount;
      u32 startPointIdx = 0;
- 
+
      MapdataStartPoint *kartpoint = CourseMap::Instance()->getStartPoint(startPointIdx);
 @@ -34,9 +34,12 @@ void RaceManager::findKartStartPoint(EGG::Vector3f &pos, EGG::Vector3f &angles)
  }
- 
+
  /// @addr{0x80533C6C}
 -void RaceManager::endPlayerRace(u32 /*idx*/) {
 -    // We only have one player, so most of the logic is much simpler
@@ -5780,15 +5780,15 @@ index 42decd3..481d776 100644
 +    if (m_finishCount == m_playerCount) m_stage = Stage::FinishGlobal;
 +    else if (idx == 0) m_stage = Stage::FinishLocal;
  }
- 
+
  /// @addr{0x805331B4}
 @@ -44,11 +47,11 @@ void RaceManager::calc() {
      constexpr u16 STAGE_INTRO_DURATION = 172;
- 
+
      m_timerManager.calc();
 -    m_player.calc();
 +    for (size_t i = 0; i < m_playerCount; ++i) m_players[i].calc();
- 
+
      switch (m_stage) {
      case Stage::Intro:
 -        if (++m_introTimer >= STAGE_INTRO_DURATION) {
@@ -5806,7 +5806,7 @@ index 42decd3..481d776 100644
      default:
 @@ -68,8 +72,8 @@ void RaceManager::calc() {
  }
- 
+
  /// @addr{0x8053621C}
 -MapdataJugemPoint *RaceManager::jugemPoint() const {
 -    s8 jugemId = std::max<s8>(m_player.jugemId(), 0);
@@ -5814,9 +5814,9 @@ index 42decd3..481d776 100644
 +    s8 jugemId = std::max<s8>(player(index).jugemId(), 0);
      return System::CourseMap::Instance()->getJugemPoint(static_cast<u16>(jugemId));
  }
- 
+
 @@ -90,7 +94,10 @@ void RaceManager::DestroyInstance() {
- 
+
  /// @addr{0x805327A0}
  RaceManager::RaceManager()
 -    : m_random(RNG_SEED), m_stage(Stage::Intro), m_introTimer(0), m_timer(0) {}
@@ -5824,12 +5824,12 @@ index 42decd3..481d776 100644
 +    m_playerCount = RaceConfig::Instance()->raceScenario().playerCount;
 +    for (size_t i = 0; i < m_playerCount; ++i) m_players[i].bindInputs(i);
 +}
- 
+
  /// @addr{0x80532E3C}
  RaceManager::~RaceManager() {
 @@ -123,11 +130,17 @@ RaceManager::Player::Player() {
  }
- 
+
  /// @addr{0x80534194}
 -void RaceManager::Player::init() {
 +void RaceManager::Player::bindInputs(size_t index) {
@@ -5840,35 +5840,44 @@ index 42decd3..481d776 100644
 +void RaceManager::Player::init(size_t index) {
 +    bindInputs(index);
      auto *courseMap = CourseMap::Instance();
- 
+
      if (courseMap->getCheckPointCount() != 0 && courseMap->getCheckPathCount() != 0) {
 -        const EGG::Vector3f &pos = Kart::KartObjectManager::Instance()->object(0)->pos();
 +        const EGG::Vector3f &pos = Kart::KartObjectManager::Instance()->object(m_playerIndex)->pos();
          f32 distanceRatio;
          s16 checkpointId = courseMap->findSector(pos, 0, distanceRatio);
- 
+
 @@ -140,8 +153,9 @@ void RaceManager::Player::init() {
- 
+
  /// @addr{0x80535304}
  void RaceManager::Player::calc() {
 +    if (m_finished) return;
      auto *courseMap = CourseMap::Instance();
 -    const auto *kart = Kart::KartObjectManager::Instance()->object(0);
 +    const auto *kart = Kart::KartObjectManager::Instance()->object(m_playerIndex);
- 
+
      if (courseMap->getCheckPointCount() == 0 || courseMap->getCheckPathCount() == 0 ||
              kart->status().onBit(Kart::eStatus::BeforeRespawn)) {
 @@ -275,7 +289,7 @@ void RaceManager::Player::incrementLap() {
          return;
      }
- 
+
 -    const auto *kart = Kart::KartObjectManager::Instance()->object(0);
 +    const auto *kart = Kart::KartObjectManager::Instance()->object(m_playerIndex);
      u16 addMs = CourseMap::Instance()->getCheckPointEntryOffsetMs(m_checkpointId, kart->pos(),
              kart->prevPos());
- 
+
+@@ -286,7 +300,7 @@ void RaceManager::Player::incrementLap() {
+     ASSERT(static_cast<size_t>(m_maxLap - 1) < m_lapTimers.size());
+     m_lapTimers[m_maxLap - 1] = timer;
+
+-    if (m_maxLap >= 3) {
++    if (m_maxLap >= RaceManager::Instance()->lapCount()) {
+         endRace(timer);
+     } else {
+         m_maxLap = m_currentLap;
 @@ -295,8 +309,9 @@ void RaceManager::Player::incrementLap() {
- 
+
  /// @addr{0x805347F4}
  void RaceManager::Player::endRace(const Timer &finishTime) {
 +    m_finished = true;
@@ -5876,23 +5885,23 @@ index 42decd3..481d776 100644
 -    RaceManager::Instance()->endPlayerRace(0);
 +    RaceManager::Instance()->endPlayerRace(m_playerIndex);
  }
- 
+
  RaceManager *RaceManager::s_instance = nullptr; ///< @addr{0x809BD730}
 diff --git a/source/game/system/RaceManager.hh b/source/game/system/RaceManager.hh
-index 0faeaf7..819012e 100644
+index 0faeaf7..76cb689 100644
 --- a/source/game/system/RaceManager.hh
 +++ b/source/game/system/RaceManager.hh
 @@ -33,12 +33,18 @@ public:
          Player();
          virtual ~Player() {}
- 
+
 -        void init();
 +        void init(size_t index);
 +        void bindInputs(size_t index);
          void calc();
- 
+
          [[nodiscard]] Timer getLapSplit(size_t idx) const;
- 
+
          /// @beginGetters
 +        [[nodiscard]] bool finished() const { return m_finished; }
 +        [[nodiscard]] s16 currentLap() const { return m_currentLap; }
@@ -5902,49 +5911,71 @@ index 0faeaf7..819012e 100644
          [[nodiscard]] u16 checkpointId() const {
              return m_checkpointId;
          }
+@@ -55,7 +61,7 @@ public:
+             return m_drivingWrongWay;
+         }
+
+-        [[nodiscard]] const std::array<Timer, 3> &lapTimers() const {
++        [[nodiscard]] const std::array<Timer, 255> &lapTimers() const {
+             return m_lapTimers;
+         }
+
 @@ -82,6 +88,9 @@ public:
          void incrementLap();
          void endRace(const Timer &finishTime);
- 
+
 +        size_t m_playerIndex = 0;
 +        bool m_finished = false;
 +        u8 m_finishOrder = 0;
          u16 m_checkpointId;
          f32 m_raceCompletion;
          f32 m_checkpointFactor; ///< The proportion of a lap for the current checkpoint
+@@ -89,10 +98,10 @@ public:
+         f32 m_lapCompletion;
+         s8 m_jugemId;
+         s16 m_currentLap;
+-        s8 m_maxLap;
++        s16 m_maxLap;
+         s8 m_maxKcp;
+         bool m_drivingWrongWay;
+-        std::array<Timer, 3> m_lapTimers;
++        std::array<Timer, 255> m_lapTimers;
+         Timer m_raceTimer;
+         const KPad *m_inputs;
+     };
 @@ -107,7 +116,7 @@ public:
- 
+
      void init();
- 
+
 -    void findKartStartPoint(EGG::Vector3f &pos, EGG::Vector3f &angles);
 +    void findKartStartPoint(EGG::Vector3f &pos, EGG::Vector3f &angles, size_t index = 0);
      void endPlayerRace(u32 idx);
- 
+
      void calc();
 @@ -118,7 +127,7 @@ public:
                  static_cast<std::underlying_type_t<Stage>>(stage);
      }
- 
+
 -    [[nodiscard]] MapdataJugemPoint *jugemPoint() const;
 +    [[nodiscard]] MapdataJugemPoint *jugemPoint(size_t index = 0) const;
- 
+
      /// @beginGetters
      /// @addr{0x80533090}
 @@ -130,14 +139,22 @@ public:
          return m_random;
      }
- 
+
 -    [[nodiscard]] const Player &player() const {
 -        return m_player;
 +    [[nodiscard]] const Player &player(size_t index = 0) const {
 +        ASSERT(index < m_playerCount);
 +        return m_players[index];
      }
- 
+
      [[nodiscard]] const TimerManager &timerManager() const {
          return m_timerManager;
      }
- 
+
 +    /// Port hook: while held, the intro stage waits (karts and objects still
 +    /// simulate). Retail ends the intro on the opening camera instead of the
 +    /// fixed time-trial duration; the frontend releases it when the pan ends.
@@ -5965,14 +5996,14 @@ index 0faeaf7..819012e 100644
 +    }
 +
 +    void setLapCount(u8 lapCount) {
-+        m_lapCount = lapCount;
++        m_lapCount = lapCount ? lapCount : 3;
 +    }
      /// @endGetters
- 
+
      static RaceManager *CreateInstance();
 @@ -161,11 +186,15 @@ private:
      ~RaceManager() override;
- 
+
      Random m_random;
 -    Player m_player;
 +    std::array<Player, 12> m_players;
@@ -5984,7 +6015,7 @@ index 0faeaf7..819012e 100644
 +    bool m_introHeld = false;
      u32 m_timer;
 +    u8 m_lapCount = 3;
- 
+
      static constexpr u16 STAGE_COUNTDOWN_DURATION = 240;
      static constexpr u32 RNG_SEED = 0x74A1B095;
 diff --git a/source/game/system/map/MapdataCheckPoint.cc b/source/game/system/map/MapdataCheckPoint.cc
@@ -5994,7 +6025,7 @@ index aec1afc..7867992 100644
 @@ -41,7 +41,8 @@ void MapdataCheckPoint::initCheckpointLinks(MapdataCheckPointAccessor &accessor,
          if (checkpath) {
              m_prevCount = 0;
- 
+
 -            for (auto [i, prevID] : std::views::enumerate(checkpath->prev())) {
 +            for (size_t i = 0; i < checkpath->prev().size(); ++i) {
 +                auto prevID = checkpath->prev()[i];
@@ -6004,7 +6035,7 @@ index aec1afc..7867992 100644
 @@ -63,7 +64,8 @@ void MapdataCheckPoint::initCheckpointLinks(MapdataCheckPointAccessor &accessor,
          if (checkpath) {
              m_nextCount = 0;
- 
+
 -            for (auto [i, nextID] : std::views::enumerate(checkpath->next())) {
 +            for (size_t i = 0; i < checkpath->next().size(); ++i) {
 +                auto nextID = checkpath->next()[i];
@@ -6013,7 +6044,7 @@ index aec1afc..7867992 100644
                  }
 @@ -78,7 +80,8 @@ void MapdataCheckPoint::initCheckpointLinks(MapdataCheckPointAccessor &accessor,
      }
- 
+
      // Form the checkpoint's quadrilateral(s)
 -    for (auto [i, next] : std::views::enumerate(m_nextPoints)) {
 +    for (size_t i = 0; i < m_nextPoints.size(); ++i) {
@@ -6037,5 +6068,119 @@ index 7e4c5b1..aa2d565 100644
 +        return range < 0 ? 0 : static_cast<s16>(range / 100);
 +    }
      /// @endGetters
- 
+
  private:
+diff --git a/source/game/system/ResourceManager.cc b/source/game/system/ResourceManager.cc
+index 20d58f6..b53e647 100644
+--- a/source/game/system/ResourceManager.cc
++++ b/source/game/system/ResourceManager.cc
+@@ -2,6 +2,11 @@
+
+ #include "game/system/RaceConfig.hh"
+
++#ifdef __3DS__
++#include <cstring>
++extern "C" const char *getActiveTrackArchive();
++#endif
++
+ namespace Kinoko::System {
+
+ #define ARCHIVE_COUNT 2
+@@ -47,6 +52,17 @@ MultiDvdArchive *ResourceManager::load(s32 idx, const char *filename) {
+ MultiDvdArchive *ResourceManager::load(Course courseId) {
+     char buffer[256];
+     snprintf(buffer, sizeof(buffer), "Race/Course/%s", COURSE_NAMES[static_cast<s32>(courseId)]);
++#ifdef __3DS__
++    // A mod uses the retail ID for engine behavior, but its own KMP/KCL.
++    // MultiDvdArchive appends .szs, while the selected path includes it.
++    if (const char *selected = getActiveTrackArchive(); selected && *selected) {
++        snprintf(buffer, sizeof(buffer), "%s", selected);
++        const size_t length = std::strlen(buffer);
++        if (length >= 4 && !std::strcmp(buffer + length - 4, ".szs")) {
++            buffer[length - 4] = '\0';
++        }
++    }
++#endif
+     m_archives[1]->load(buffer);
+     return m_archives[1];
+ }
+diff --git a/source/game/field/obj/ObjectBird.cc b/source/game/field/obj/ObjectBird.cc
+index dbb08e8..40c05f5 100644
+--- a/source/game/field/obj/ObjectBird.cc
++++ b/source/game/field/obj/ObjectBird.cc
+@@ -59,14 +59,17 @@ ObjectBirdLeader::~ObjectBirdLeader() = default;
+
+ /// @addr{0x8077C384}
+ void ObjectBirdLeader::init() {
+-    auto *anmMgr = m_drawMdl->anmMgr();
+-    anmMgr->playAnim(0.0f, 1.0f, 0);
+-    f32 frameCount = anmMgr->activeAnim(Render::AnmType::Chr)->frameCount();
+-
++    auto *anmMgr = m_drawMdl ? m_drawMdl->anmMgr() : nullptr;
+     auto &rand = System::RaceManager::Instance()->random();
+-    f32 rate = rand.getF32(static_cast<f32>(frameCount));
+-    anmMgr->playAnim(rate, 1.0f, 0);
++    if (anmMgr) {
++        anmMgr->playAnim(0.0f, 1.0f, 0);
++        if (const auto *anim = anmMgr->activeAnim(Render::AnmType::Chr)) {
++            f32 rate = rand.getF32(anim->frameCount());
++            anmMgr->playAnim(rate, 1.0f, 0);
++        }
++    }
+
++    if (!m_railInterpolator) return;
+     m_railInterpolator->init(0.0f, 0);
+     m_railInterpolator->calc();
+     setPos(m_railInterpolator->curPos());
+@@ -75,6 +78,7 @@ void ObjectBirdLeader::init() {
+
+ /// @addr{0x8077C504}
+ void ObjectBirdLeader::calc() {
++    if (!m_railInterpolator) return;
+     m_railInterpolator->calc();
+     setPos(m_railInterpolator->curPos());
+ }
+@@ -105,13 +109,15 @@ void ObjectBirdFollower::init() {
+     constexpr f32 POS_DELTA_RANGE = 1000.0f;
+     constexpr f32 POS_DELTA_CENTER = 500.0f;
+
+-    auto *anmMgr = m_drawMdl->anmMgr();
+-    anmMgr->playAnim(0.0f, 1.0f, 0);
+-    f32 frameCount = anmMgr->activeAnim(Render::AnmType::Chr)->frameCount();
+-
++    auto *anmMgr = m_drawMdl ? m_drawMdl->anmMgr() : nullptr;
+     auto &rand = System::RaceManager::Instance()->random();
+-    f32 rate = rand.getF32(static_cast<f32>(frameCount));
+-    anmMgr->playAnim(rate, 1.0f, 0);
++    if (anmMgr) {
++        anmMgr->playAnim(0.0f, 1.0f, 0);
++        if (const auto *anim = anmMgr->activeAnim(Render::AnmType::Chr)) {
++            f32 rate = rand.getF32(anim->frameCount());
++            anmMgr->playAnim(rate, 1.0f, 0);
++        }
++    }
+
+     m_baseSpeed = static_cast<f32>(m_mapObj->setting(0));
+     m_velocity = EGG::Vector3f::ez * m_baseSpeed;
+diff --git a/source/game/field/obj/ObjectPakkunF.cc b/source/game/field/obj/ObjectPakkunF.cc
+index 3dc1581..c0799e7 100644
+--- a/source/game/field/obj/ObjectPakkunF.cc
++++ b/source/game/field/obj/ObjectPakkunF.cc
+@@ -113,11 +113,13 @@ void ObjectPakkunF::enterAttack() {
+     constexpr s32 LINGERING_FRAMES = 60; ///< Additional frames before switching back to idle state
+
+     m_state = State::Attack;
+-    auto *anmMgr = m_drawMdl->anmMgr();
+-    anmMgr->playAnim(0.0f, 1.0f, 0);
+     m_currAttackFrame = 0;
+-    auto *attackAnm = anmMgr->activeAnim(Render::AnmType::Chr);
+-    m_attackFrames = static_cast<s32>(attackAnm->frameCount()) + LINGERING_FRAMES;
++    // Native rendering can omit a draw model (or its animation bank).
++    // Keep the collision attack cycle even when that visual is unavailable.
++    auto *anmMgr = m_drawMdl ? m_drawMdl->anmMgr() : nullptr;
++    if (anmMgr) anmMgr->playAnim(0.0f, 1.0f, 0);
++    auto *attackAnm = anmMgr ? anmMgr->activeAnim(Render::AnmType::Chr) : nullptr;
++    m_attackFrames = (attackAnm ? static_cast<s32>(attackAnm->frameCount()) : 40) + LINGERING_FRAMES;
+ }
+
+ } // namespace Kinoko::Field

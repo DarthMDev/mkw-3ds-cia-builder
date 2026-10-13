@@ -7,7 +7,7 @@ volume, no copy), the HOME Menu art is made from the player's own disc
 (home_menu_art.py), and makerom builds the CIA. --cci builds a cartridge
 image of the same content instead, which emulators boot without installing.
 """
-import argparse, hashlib, json, subprocess, sys, tempfile
+import argparse, hashlib, json, struct, subprocess, sys, tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path[:0]=[str(ROOT/'tools'),str(Path(__file__).parent)]
@@ -31,13 +31,41 @@ def version_number(text):
 def run(*args):
     subprocess.run([str(a) for a in args],check=True)
 
+def omit_packed_models(stage,assets):
+    # Models and animation banks load through pack::read; menu probes use
+    # pack::contains, so all packed models need only their archive copy.
+    # Avoid duplicating hundreds of MB in a CIA copied onto a FAT32 SD card.
+    for archive in ('menu.pak','race.pak'):
+        if archive not in assets:continue
+        with (stage/archive).open('rb') as f:
+            magic,count,names_size=struct.unpack('<4sII',f.read(12))
+            if magic!=b'MPK1':raise ValueError('Invalid '+archive)
+            table=f.read(count*12);names=f.read(names_size)
+            for i in range(count):
+                name_at,offset,size=struct.unpack_from('<III',table,i*12)
+                name=names[name_at:names.index(0,name_at)].decode()
+                if name not in assets or not name.startswith('models/') or Path(name).suffix not in ('.gmdl','.dskm','.dobj'):continue
+                f.seek(offset)
+                if hashlib.sha256(f.read(size)).hexdigest()!=assets[name]:raise ValueError('Packed model differs from staged asset: '+name)
+                (stage/name).unlink();del assets[name]
+
 def package(cci=False,version='0.1.0',output=None,update=False):
     # update: the code-only Patch CIA. Its game files come from the SD card
     # (written by the builder) or the application's own RomFS when that matches;
     # its own HOME Menu art is drawn without the disc and is not what is shown.
     elf=ROOT/'build/mkw-3ds.elf'
     if not elf.is_file():raise SystemExit('Build the program first (tools/build.py)')
+    build_receipt=json.loads((ROOT/'build/build-receipt.json').read_text())
+    if build_receipt.get('elf_sha256')!=digest(elf):raise SystemExit('Rebuild tools/build.py: executable has no matching build receipt')
+    for name,h in {**build_receipt['sources'],**build_receipt['headers']}.items():
+        if digest(ROOT/name)!=h:raise SystemExit('Rebuild tools/build.py: source changed since compilation: '+name)
     if not update and not (SOURCE/'manifest.json').is_file():raise SystemExit('Stage the package first (tools/package_sd.py --no-zip)')
+    if not update:
+        from verify_menu_pack import verify_menu_pack
+        cooked=ROOT/'sd-card/3ds/mkw-3ds'
+        verify_menu_pack(cooked)
+        if digest(SOURCE/'menu.pak')!=digest(cooked/'menu.pak'):
+            raise SystemExit('Staged menu.pak is stale: run tools/package_sd.py --no-zip')
     makerom,bannertool=tools()
     out=ROOT/'build/release';art=out/'art';out.mkdir(parents=True,exist_ok=True)
     if update:art=out/'art-update';icon,banner,sound=home_menu_art.generic(art)
@@ -53,6 +81,7 @@ def package(cci=False,version='0.1.0',output=None,update=False):
             (Path(stage)/'update.txt').write_text('Game files are read from sdmc:/3ds/mkw-3ds (made by the builder).\n');assets={}
         else:
             assets=stage_assets(Path(stage))
+            omit_packed_models(Path(stage),assets)
             # Which converted game files these are, as on the SD card: updated
             # code uses this RomFS only when it expects the same content.
             from build_cia import content_fingerprint

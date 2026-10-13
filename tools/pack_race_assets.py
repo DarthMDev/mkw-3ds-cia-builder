@@ -34,26 +34,35 @@ def main():
     header = 12 + 12 * len(names) + len(blob)
     offset = (header + 31) & ~31
     entries = []
+    # Skins repeat the same images and animation banks across vehicles. Keep
+    # every runtime name, but let identical entries share one payload offset.
+    # This also keeps the archive within the signed 32-bit fseek limit.
+    unique = {}
+    payloads = []
+    name_offset = 0
+    for n in names:
+        data = Path(listing[n]).read_bytes()
+        key = (len(data), hashlib.sha256(data).digest())
+        if key not in unique:
+            unique[key] = offset
+            payloads.append((n, len(data)))
+            offset += (len(data) + 31) & ~31
+        entries.append((name_offset, unique[key], len(data)))
+        name_offset += len(n.encode()) + 1
+    if offset >= 1 << 31:
+        raise SystemExit('race.pak exceeds the 2 GiB seek range')
     output = ASSETS / 'race.pak'
     with output.open('wb') as out:
-        sizes = [Path(listing[n]).stat().st_size for n in names]
-        name_offset = 0
-        for n, size in zip(names, sizes):
-            entries.append((name_offset, offset, size))
-            name_offset += len(n.encode()) + 1
-            offset += (size + 31) & ~31
-        if offset >= 1 << 31:
-            raise SystemExit('race.pak exceeds the 2 GiB seek range')
         out.write(b'MPK1' + struct.pack('<II', len(names), len(blob)))
         for entry in entries:
             out.write(struct.pack('<III', *entry))
         out.write(blob)
         out.write(b'\0' * (((header + 31) & ~31) - header))
-        for n, size in zip(names, sizes):
+        for n, size in payloads:
             data = Path(listing[n]).read_bytes()
             out.write(data + b'\0' * (((size + 31) & ~31) - size))
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
-    receipt = {'version': 1, 'files': len(names), 'bytes': output.stat().st_size, 'sha256': digest}
+    receipt = {'version': 1, 'files': len(names), 'payloads': len(payloads), 'bytes': output.stat().st_size, 'sha256': digest}
     (ASSETS / 'models/race-pak.json').write_text(json.dumps(receipt, indent=1) + '\n')
     print(json.dumps(receipt, indent=1))
 

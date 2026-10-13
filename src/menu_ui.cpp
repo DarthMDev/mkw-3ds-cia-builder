@@ -414,7 +414,7 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
      char authorLabel[96];
      std::snprintf(authorLabel,sizeof authorLabel,"By %s",author);
      const char* toDraw=lookup().find(authorLabel,true)<std::size(UiSprites)?authorLabel:lookup().find(author,true)<std::size(UiSprites)?author:nullptr;
-     if(toDraw)c.label(toDraw,-190.f,142.f,140.f,14.f,0xb8c0ccff,0);
+     if(toDraw)c.label(toDraw,-190.f,122.f,160.f,14.f,0xdfdfdfff,0);
     }
    }
    break;

@@ -939,19 +939,11 @@ struct SoundSystem::Impl {
   auto* self = static_cast<Impl*>(ctx);
   char full[256]; std::snprintf(full, sizeof full, "%saudio/%s", self->root.c_str(), path);
 
-  // If a custom track is active and race BGM is requested, check for custom BRSTM stream.
-  // Fanfares (STRM_O_* / *_FAN) and UI streams must NOT be replaced with the race BGM.
-  const bool isFanfareOrUI = path && (std::strstr(path, "STRM_O_") ||
-                                      std::strstr(path, "_FAN") ||
-                                      std::strstr(path, "_fan") ||
-                                      std::strstr(path, "o_Fanfare") ||
-                                      std::strstr(path, "TITLE") ||
-                                      std::strstr(path, "MENU") ||
-                                      std::strstr(path, "GOAL") ||
-                                      std::strstr(path, "WIN") ||
-                                      std::strstr(path, "LOSE") ||
-                                      std::strstr(path, "RESULT"));
-  if (path && std::strncmp(path, "strm/", 5) == 0 && !isFanfareOrUI) {
+  // Only course streams may use custom BGM. Retail intro/start/result
+  // streams use lowercase o_ names as well as mixed-case fanfare names.
+  const bool courseStream = path && (std::strncmp(path, "strm/n_", 7) == 0 ||
+      std::strncmp(path, "strm/r_", 7) == 0 || std::strncmp(path, "strm/STRM_N_", 12) == 0);
+  if (courseStream) {
       const char* activeArch = mkw::modEngine().activeTrackArchive();
       if (activeArch && *activeArch) {
           const char* slash = std::strrchr(activeArch, '/');
@@ -1035,7 +1027,12 @@ bool SoundSystem::start() {
  char cwd[256] = {};
  if (getcwd(cwd, sizeof cwd - 1)) { s->root = cwd; if (!s->root.empty() && s->root.back() != '/') s->root += '/'; }
  std::vector<u8> arc;
- if (FILE* f = std::fopen("audio/sound.arc", "rb")) {
+ char skinArc[96];
+ const unsigned driver = modEngine().activeDriverId(), skin = modEngine().characterSkin(driver);
+ std::snprintf(skinArc,sizeof skinArc,"audio/skins/%u_%u.arc",driver,skin);
+ FILE* table = skin ? std::fopen(skinArc,"rb") : nullptr;
+ if (!table) table = std::fopen("audio/sound.arc","rb");
+ if (FILE* f = table) {
   std::fseek(f, 0, SEEK_END); const long n = std::ftell(f); std::fseek(f, 0, SEEK_SET);
   if (n > 0) { arc.resize(size_t(n)); if (std::fread(arc.data(), 1, arc.size(), f) != arc.size()) arc.clear(); }
   std::fclose(f);
