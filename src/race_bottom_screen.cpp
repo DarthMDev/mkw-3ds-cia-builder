@@ -51,7 +51,7 @@ static_assert(RaceBottomScreen::QuadCapacity==220&&RaceBottomScreen::QuadCapacit
 
 struct RaceBottomScreen::Impl {
     Texture map,overview,atlas;
-    unsigned course=~0u;
+    unsigned course=~0u,skinKey=~0u;
     RaceMapCourse courseInfo{};
     char retroTexture[64]{};
     char retroOverview[64]{};
@@ -142,6 +142,9 @@ bool RaceBottomScreen::active() const {return impl_->target;}
 
 bool RaceBottomScreen::load(Renderer& renderer,unsigned course){
     auto& m=*impl_;
+    const unsigned resolvedCourse=modEngine().resolvedCourseIndex(course);
+    const unsigned driver=modEngine().activeDriverId(),skin=modEngine().characterSkin(driver);
+    const unsigned skinKey=(driver<<8)|skin;
     const RaceMapCourse* c = nullptr;
     if (mkw::modEngine().isModLoaded()) {
         const auto* track = mkw::modEngine().findTrackByIndex(mkw::modEngine().resolvedCourseIndex(course));
@@ -175,17 +178,18 @@ bool RaceBottomScreen::load(Renderer& renderer,unsigned course){
         return false;
     }
 
-    if(m.target&&m.course==course){
+    if(m.target&&m.course==resolvedCourse&&m.skinKey==skinKey){
         // A restart of the same race: reset the presentation, keep the textures.
         m.started=false;m.blend=0;m.overviewWanted=false;m.standings=0;m.rowsSet=false;
         return true;
     }
     unload(renderer);
     if(!renderer.enableBottom())return false;
-    m.target=true;m.course=course;
+    m.target=true;m.course=resolvedCourse;m.skinKey=skinKey;
     m.quads.reset(new(std::nothrow) Renderer::MaterialQuad[2*QuadCapacity]);
     if(!m.quads){unload(renderer);return false;}
-    renderer.loadVramTexture(m.atlas,RaceMapAtlasTexture);
+    char skinAtlas[96];std::snprintf(skinAtlas,sizeof skinAtlas,"textures/race_bottom_skin_%u_%u.t3x",driver,skin);
+    if(!skin||!renderer.loadVramTexture(m.atlas,skinAtlas))renderer.loadVramTexture(m.atlas,RaceMapAtlasTexture);
     renderer.loadVramTexture(m.map,c->texture);
     renderer.loadVramTexture(m.overview,c->overview);
     m.started=false;m.blend=0;m.overviewWanted=false;m.standings=0;m.rowsSet=false;

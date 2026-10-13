@@ -186,9 +186,9 @@ void ModEngine::init() {
 
     // Check for Pulsar mod manifest in standard locations
     static constexpr const char* MANIFEST_CANDIDATES[] = {
-        "sdmc:/3ds/mkw-3ds/pulsar_manifest.json",
+        "pulsar_manifest.json",
         "romfs:/pulsar_manifest.json",
-        "pulsar_manifest.json"
+        "sdmc:/3ds/mkw-3ds/pulsar_manifest.json"
     };
 
     for (const char* path : MANIFEST_CANDIDATES) {

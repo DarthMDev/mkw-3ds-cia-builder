@@ -57,7 +57,7 @@ def main():
  elf=out/'mkw-3ds.elf'
  # The background menu asset loader allocates LINEAR memory; src/linear_lock.cpp
  # serializes every LINEAR heap call, including those made inside Citro3D/libctru.
- wraps=['-Wl,--wrap='+name for name in ('linearAlloc','linearMemAlign','linearRealloc','linearGetSize','linearFree','linearSpaceFree','fopen')]
+ wraps=['-Wl,--wrap='+name for name in ('linearAlloc','linearMemAlign','linearRealloc','linearGetSize','linearFree','linearSpaceFree','fopen','abort')]
  # The object list goes through a response file: ~240 absolute paths can pass
  # the Windows command-line limit. GCC response files use / and quotes.
  objects_file=out/'objects.rsp';objects_file.write_text(''.join('"'+Path(o).as_posix()+'"\n' for o in objs))

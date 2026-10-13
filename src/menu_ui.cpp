@@ -157,6 +157,11 @@ public:
   applyMotion(x,y,w,h,alpha,p,panelFocus(key,p));
   sprite(key,x,y,w,h,alpha,0xffffffff,p);
  }
+ void arrow(bool left,Pose p){
+  // The flattened frame is empty: the imported chevron is a separate pane.
+  sprite(left?"ghost_arrow_left_ok_chara_light_01":"ghost_arrow_right_ok_chara_light_01",
+         p.x-15.5f*p.sx,-p.y-50.5f*p.sy,31.f*p.sx,101.f*p.sy,1,0xffffffff,p);
+ }
  void graph(float fraction,Pose p){
   fraction=std::clamp(fraction,0.f,1.f);if(fraction<=0)return;
   if(const auto* r=uiFindPanel("vehicle_ability_graph"))sprite(r->key,p.x+r->x*p.sx,-p.y+r->y*p.sy,r->w*p.sx*fraction,r->h*p.sy,1,0xffffffff,p);
@@ -405,10 +410,10 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
 
    if(skinCount>0){
     Pose lPose=name;lPose.x=-268.f;lPose.sx=0.32f;lPose.sy=0.32f;
-    c.panel("ghost_arrow_left_free",lPose);
+    c.arrow(true,lPose);
 
     Pose rPose=name;rPose.x=-112.f;rPose.sx=0.32f;rPose.sy=0.32f;
-    c.panel("ghost_arrow_right_free",rPose);
+    c.arrow(false,rPose);
 
     if(skinSlot>0&&author&&author[0]){
      char authorLabel[96];
@@ -496,8 +501,8 @@ static void composeMenuImpl(const MenuState& s,const UiRaceView& race,std::vecto
     char desc[48];
     std::snprintf(desc,sizeof desc,"Page %u/%u (L / R to flip)",cupPage+1,(totalCups+7)/8);
     c.chrome("Cups",desc);
-    c.panel("ghost_arrow_left_free",{-70.f,110.f,0.7f,0.7f});
-    c.panel("ghost_arrow_right_free",{270.f,110.f,0.7f,0.7f});
+    c.arrow(true,{-250.f,65.f,0.7f,0.7f});
+    c.arrow(false,{275.f,65.f,0.7f,0.7f});
    }else c.chrome("Cups");
   }else{
    for(unsigned i=0;i<4;++i){Pose p=child(courses,numbered("CourseSelectCourse",i));

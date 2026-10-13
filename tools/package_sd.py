@@ -384,32 +384,45 @@ if (skin_audio/'skins.json').is_file():
   source=skin_audio/entry['path']
   if digest_file(source)!=entry['sha256']:raise ValueError('Skin voice table is stale')
   files[source]=Path('audio')/entry['path']
+for pattern in ('race_credit_*.t3x','race_bottom_skin_*.t3x'):
+ for texture in sorted((assets/'textures').glob(pattern)):files[texture]=Path('textures')/texture.name
 for map_t3x in sorted((assets/'textures').glob('race_map_retro_*.t3x')):
  files[map_t3x]=Path('textures')/map_t3x.name
 if '--list' in sys.argv:
  print(json.dumps({rel.as_posix():str(src) for src,rel in files.items()}))
  raise SystemExit(0)
+# Validate packed textures directly against their source files before staging.
+# Copying them loose only to delete them doubled the external drive's small-file IO.
+def packed_texture_hashes(path):
+ result={};payloads={}
+ with path.open('rb') as archive:
+  magic,count,names=struct.unpack('<4sII',archive.read(12))
+  if magic!=b'MPK1' or not count or count>200000 or names>16<<20:raise ValueError('Invalid MPK1 archive: '+path.name)
+  table=archive.read(count*12);blob=archive.read(names);length=path.stat().st_size
+  for i in range(count):
+   name_at,offset,size=struct.unpack_from('<III',table,i*12)
+   if name_at>=names or offset+size>length:raise ValueError('Invalid MPK1 entry: '+path.name)
+   name=blob[name_at:blob.index(0,name_at)].decode()
+   if not name.endswith('.t3x'):continue
+   key=(offset,size)
+   if key not in payloads:
+    archive.seek(offset);data=archive.read(size)
+    if len(data)!=size:raise ValueError('Truncated MPK1 archive: '+path.name)
+    payloads[key]=hashlib.sha256(data).hexdigest()
+   result[name]=payloads[key]
+ return result
+packed={}
+for archive in ('menu.pak','race.pak'):
+ if (assets/archive).is_file():
+  for name,digest in packed_texture_hashes(assets/archive).items():packed.setdefault(name,(archive,digest))
 manifest={}
 for src,rel in files.items():
- dest=out/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest);manifest[rel.as_posix()]=hashlib.sha256(dest.read_bytes()).hexdigest()
-# FAT32 allows one folder 65,536 entries, and a long file name takes several:
-# the loose textures folder outgrew it. menu.pak and race.pak already hold every
-# texture and the game reads them first (src/renderer.cpp Texture::load), so a
-# texture inside a pak is not also copied loose. Each one is checked against
-# its pak entry, so a stale pak fails here instead of on the console.
-def pak_entries(path):
- b=path.read_bytes()
- if b[:4]!=b'MPK1':raise ValueError('Not an MPK1 archive: '+path.name)
- count,names=struct.unpack_from('<II',b,4);table=12;blob=12+12*count
- for i in range(count):
-  name_at,offset,size=struct.unpack_from('<III',b,table+i*12)
-  yield b[blob+name_at:b.index(0,blob+name_at)].decode(),b[offset:offset+size]
-for archive in ('menu.pak','race.pak'):
- if not (out/archive).is_file():continue
- for name,data in pak_entries(out/archive):
-  if name.endswith('.t3x') and name in manifest:
-   if hashlib.sha256(data).hexdigest()!=manifest[name]:raise ValueError(f'{archive} is older than {name}: run tools/pack_menu_assets.py / tools/pack_race_assets.py')
-   (out/name).unlink();del manifest[name]
+ name=rel.as_posix()
+ if name.endswith('.t3x') and name in packed:
+  archive,expected=packed[name]
+  if digest_file(src)!=expected:raise ValueError(f'{archive} is older than {name}: run tools/pack_menu_assets.py / tools/pack_race_assets.py')
+  continue
+ dest=out/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest);manifest[name]=digest_file(dest)
 controls='''MKW 3DS - native Wii menu asset port, 32 race archives and 10 arena asset sets
 Copy the 3ds folder to the SD card root. Launch mkw-3ds.3dsx with Homebrew Launcher.
 Menu: D-pad / Circle Pad choose, A confirm, B back. A or START skips the opening.
