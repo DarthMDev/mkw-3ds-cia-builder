@@ -1,13 +1,7142 @@
 {
-  "name": "Pulsar-3DS Vanilla / Retro Rewind Base",
-  "version": "1.0.0",
-  "author": "Retro Rewind Team / MKW-3DS",
-  "description": "Native modular modding manifest configuration for Mario Kart Wii (3DS)",
+  "mod_name": "RetroRewind6",
+  "version": "1.0",
+  "cups": [
+    {
+      "name": "SNES Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SNES Mario Circuit 1",
+          "course_id": 24,
+          "archive": "Race/Course/0.szs",
+          "models": "models/pulsar_track_001.list",
+          "sky": "models/pulsar_track_001_sky.list",
+          "laps": 5,
+          "music_stream_id": 24,
+          "lapCount": 5,
+          "minimap": {
+            "texture": "textures/race_map_retro_000.t3x",
+            "overview": "textures/race_map_retro_000_overview.t3x",
+            "frame": [
+              -61800.0,
+              4974.056,
+              -11729.23,
+              55044.826
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -20987.5,
+              31700.0
+            ],
+            "startRight": [
+              -17787.5,
+              31700.0
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "ZPL, Jasperr"
+        },
+        {
+          "name": "SNES Donut Plains 1",
+          "course_id": 17,
+          "archive": "Race/Course/1.szs",
+          "models": "models/pulsar_track_002.list",
+          "sky": "models/pulsar_track_002_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_001.t3x",
+            "overview": "textures/race_map_retro_001_overview.t3x",
+            "frame": [
+              -24185.785,
+              -25397.08,
+              25577.975,
+              24366.68
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -15632.958,
+              53.8
+            ],
+            "startRight": [
+              -12231.537,
+              53.8
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Luca"
+        },
+        {
+          "name": "SNES Ghost Valley 1",
+          "course_id": 25,
+          "archive": "Race/Course/2.szs",
+          "models": "models/pulsar_track_003.list",
+          "sky": "models/pulsar_track_003_sky.list",
+          "laps": 5,
+          "music_stream_id": 25,
+          "lapCount": 5,
+          "minimap": {
+            "texture": "textures/race_map_retro_002.t3x",
+            "overview": "textures/race_map_retro_002_overview.t3x",
+            "frame": [
+              -55961.887,
+              -35733.621,
+              11252.568,
+              31480.834
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -3286.382,
+              2134.448
+            ],
+            "startRight": [
+              -109.554,
+              2148.733
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "MilanDK"
+        },
+        {
+          "name": "SNES Bowser Castle 1",
+          "course_id": 30,
+          "archive": "Race/Course/3.szs",
+          "models": "models/pulsar_track_004.list",
+          "sky": "models/pulsar_track_004_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_003.t3x",
+            "overview": "textures/race_map_retro_003_overview.t3x",
+            "frame": [
+              -29768.04,
+              -27369.619,
+              24669.729,
+              27068.15
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              13814.057,
+              11057.914
+            ],
+            "startRight": [
+              18942.977,
+              11078.276
+            ]
+          },
+          "music_credit": "Square Enix",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "SNES Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SNES Mario Circuit 2",
+          "course_id": 24,
+          "archive": "Race/Course/4.szs",
+          "models": "models/pulsar_track_005.list",
+          "sky": "models/pulsar_track_005_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_004.t3x",
+            "overview": "textures/race_map_retro_004_overview.t3x",
+            "frame": [
+              -31536.6,
+              -37960.68,
+              40588.66,
+              34164.58
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              20887.138,
+              -3228.0
+            ],
+            "startRight": [
+              24040.096,
+              -3228.0
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "ZPL"
+        },
+        {
+          "name": "SNES Choco Island 1",
+          "course_id": 26,
+          "archive": "Race/Course/5.szs",
+          "models": "models/pulsar_track_006.list",
+          "sky": "models/pulsar_track_006_sky.list",
+          "laps": 5,
+          "music_stream_id": 26,
+          "lapCount": 5,
+          "minimap": {
+            "texture": "textures/race_map_retro_005.t3x",
+            "overview": "textures/race_map_retro_005_overview.t3x",
+            "frame": [
+              -20115.82,
+              -21682.416,
+              29958.311,
+              28391.715
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              18441.416,
+              8680.716
+            ],
+            "startRight": [
+              22293.404,
+              8681.475
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "SpyKid"
+        },
+        {
+          "name": "SNES Ghost Valley 2",
+          "course_id": 25,
+          "archive": "Race/Course/6.szs",
+          "models": "models/pulsar_track_007.list",
+          "sky": "models/pulsar_track_007_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_006.t3x",
+            "overview": "textures/race_map_retro_006_overview.t3x",
+            "frame": [
+              -33973.555,
+              -25391.849,
+              12146.195,
+              20727.901
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -30463.18,
+              -7533.0
+            ],
+            "startRight": [
+              -27254.425,
+              -7533.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "SNES Donut Plains 2",
+          "course_id": 17,
+          "archive": "Race/Course/7.szs",
+          "models": "models/pulsar_track_008.list",
+          "sky": "models/pulsar_track_008_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_007.t3x",
+            "overview": "textures/race_map_retro_007_overview.t3x",
+            "frame": [
+              -45352.158,
+              -32857.465,
+              10704.75,
+              23199.443
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -2155.341,
+              -1977.529
+            ],
+            "startRight": [
+              2073.43,
+              -1980.699
+            ]
+          },
+          "music_credit": "Mesmonium",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "SNES Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SNES Bowser Castle 2",
+          "course_id": 30,
+          "archive": "Race/Course/8.szs",
+          "models": "models/pulsar_track_009.list",
+          "sky": "models/pulsar_track_009_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_008.t3x",
+            "overview": "textures/race_map_retro_008_overview.t3x",
+            "frame": [
+              -25666.07,
+              -30563.062,
+              37425.602,
+              32528.609
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -20101.29,
+              -9078.517
+            ],
+            "startRight": [
+              -16110.071,
+              -9062.426
+            ]
+          },
+          "music_credit": "Turret 3471",
+          "author": "ZPL"
+        },
+        {
+          "name": "SNES Mario Circuit 3",
+          "course_id": 24,
+          "archive": "Race/Course/9.szs",
+          "models": "models/pulsar_track_010.list",
+          "sky": "models/pulsar_track_010_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_009.t3x",
+            "overview": "textures/race_map_retro_009_overview.t3x",
+            "frame": [
+              -21448.23,
+              -24473.029,
+              27015.857,
+              23991.059
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -16235.445,
+              -3239.45
+            ],
+            "startRight": [
+              -13001.991,
+              -3251.354
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "SNES Koopa Beach 1",
+          "course_id": 16,
+          "archive": "Race/Course/10.szs",
+          "models": "models/pulsar_track_011.list",
+          "sky": "models/pulsar_track_011_sky.list",
+          "laps": 5,
+          "music_stream_id": 31,
+          "lapCount": 5,
+          "minimap": {
+            "texture": "textures/race_map_retro_010.t3x",
+            "overview": "textures/race_map_retro_010_overview.t3x",
+            "frame": [
+              -19740.4,
+              -26021.92,
+              42205.918,
+              35924.398
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -12316.474,
+              -7314.934
+            ],
+            "startRight": [
+              -929.825,
+              -7320.557
+            ]
+          },
+          "music_credit": "Jojo Tunes",
+          "author": "ZPL"
+        },
+        {
+          "name": "SNES Choco Island 2",
+          "course_id": 26,
+          "archive": "Race/Course/11.szs",
+          "models": "models/pulsar_track_012.list",
+          "sky": "models/pulsar_track_012_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_011.t3x",
+            "overview": "textures/race_map_retro_011_overview.t3x",
+            "frame": [
+              -22601.37,
+              -24420.32,
+              27485.87,
+              25666.92
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -16623.162,
+              6326.313
+            ],
+            "startRight": [
+              -13816.484,
+              6340.301
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "SNES Special Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SNES Vanilla Lake 1",
+          "course_id": 27,
+          "archive": "Race/Course/12.szs",
+          "models": "models/pulsar_track_013.list",
+          "sky": "models/pulsar_track_013_sky.list",
+          "laps": 5,
+          "music_stream_id": 27,
+          "lapCount": 5,
+          "minimap": {
+            "texture": "textures/race_map_retro_012.t3x",
+            "overview": "textures/race_map_retro_012_overview.t3x",
+            "frame": [
+              -22144.602,
+              -22140.687,
+              24943.879,
+              24947.794
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -12143.799,
+              1667.626
+            ],
+            "startRight": [
+              -8665.545,
+              1675.662
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "SquireTurnbolt"
+        },
+        {
+          "name": "SNES Bowser Castle 3",
+          "course_id": 30,
+          "archive": "Race/Course/13.szs",
+          "models": "models/pulsar_track_014.list",
+          "sky": "models/pulsar_track_014_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_013.t3x",
+            "overview": "textures/race_map_retro_013_overview.t3x",
+            "frame": [
+              -32334.439,
+              -32788.721,
+              33447.891,
+              32993.609
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              23613.081,
+              -12965.199
+            ],
+            "startRight": [
+              27372.716,
+              -12975.133
+            ]
+          },
+          "music_credit": "Nah Tony",
+          "author": "DasFragezeichen, Tock, ZPL"
+        },
+        {
+          "name": "SNES Mario Circuit 4",
+          "course_id": 24,
+          "archive": "Race/Course/14.szs",
+          "models": "models/pulsar_track_015.list",
+          "sky": "models/pulsar_track_015_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_014.t3x",
+            "overview": "textures/race_map_retro_014_overview.t3x",
+            "frame": [
+              -47612.863,
+              -35971.414,
+              15476.139,
+              27117.588
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -1547.451,
+              -8037.966
+            ],
+            "startRight": [
+              1507.302,
+              -8057.551
+            ]
+          },
+          "music_credit": "The Noble Demon",
+          "author": "ZPL"
+        },
+        {
+          "name": "SNES Donut Plains 3",
+          "course_id": 17,
+          "archive": "Race/Course/15.szs",
+          "models": "models/pulsar_track_016.list",
+          "sky": "models/pulsar_track_016_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_015.t3x",
+            "overview": "textures/race_map_retro_015_overview.t3x",
+            "frame": [
+              -31294.0,
+              -30516.81,
+              30333.76,
+              31110.95
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -21749.371,
+              655.81
+            ],
+            "startRight": [
+              -18071.285,
+              655.81
+            ]
+          },
+          "music_credit": "Nintendo (MK8)",
+          "author": "ZPL, Bear"
+        }
+      ]
+    },
+    {
+      "name": "SNES Extra Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SNES Koopa Beach 2",
+          "course_id": 16,
+          "archive": "Race/Course/16.szs",
+          "models": "models/pulsar_track_017.list",
+          "sky": "models/pulsar_track_017_sky.list",
+          "laps": 3,
+          "music_stream_id": 31,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_016.t3x",
+            "overview": "textures/race_map_retro_016_overview.t3x",
+            "frame": [
+              -33357.359,
+              -32344.579,
+              33883.789,
+              34896.569
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              8320.253,
+              -8775.992
+            ],
+            "startRight": [
+              11447.672,
+              -8784.378
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "Luca"
+        },
+        {
+          "name": "SNES Ghost Valley 3",
+          "course_id": 25,
+          "archive": "Race/Course/17.szs",
+          "models": "models/pulsar_track_018.list",
+          "sky": "models/pulsar_track_018_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_017.t3x",
+            "overview": "textures/race_map_retro_017_overview.t3x",
+            "frame": [
+              -36215.344,
+              -29584.738,
+              14029.737,
+              20660.343
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -30314.79,
+              -13014.376
+            ],
+            "startRight": [
+              -27082.216,
+              -13021.708
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "ZPL, Omonimo747"
+        },
+        {
+          "name": "SNES Vanilla Lake 2",
+          "course_id": 27,
+          "archive": "Race/Course/18.szs",
+          "models": "models/pulsar_track_019.list",
+          "sky": "models/pulsar_track_019_sky.list",
+          "laps": 5,
+          "music_stream_id": 27,
+          "lapCount": 5,
+          "minimap": {
+            "texture": "textures/race_map_retro_018.t3x",
+            "overview": "textures/race_map_retro_018_overview.t3x",
+            "frame": [
+              -29807.949,
+              -28486.465,
+              29370.906,
+              30692.391
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              15271.279,
+              -568.151
+            ],
+            "startRight": [
+              20226.693,
+              -559.655
+            ]
+          },
+          "music_credit": "JoshhMarshh",
+          "author": "ZPL"
+        },
+        {
+          "name": "SNES Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/19.szs",
+          "models": "models/pulsar_track_020.list",
+          "sky": "models/pulsar_track_020_sky.list",
+          "laps": 3,
+          "music_stream_id": 13,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_019.t3x",
+            "overview": "textures/race_map_retro_019_overview.t3x",
+            "frame": [
+              -28581.181,
+              -28539.811,
+              28144.79,
+              28186.16
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -25471.59,
+              -2400.804
+            ],
+            "startRight": [
+              -15759.97,
+              -2400.804
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "xBlue98"
+        }
+      ]
+    },
+    {
+      "name": "N64 Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "N64 Luigi Raceway",
+          "course_id": 26,
+          "archive": "Race/Course/20.szs",
+          "models": "models/pulsar_track_021.list",
+          "sky": "models/pulsar_track_021_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_020.t3x",
+            "overview": "textures/race_map_retro_020_overview.t3x",
+            "frame": [
+              -23364.469,
+              -44060.547,
+              21151.031,
+              44970.453
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 73.9027,
+            "startLeft": [
+              9455.954,
+              9370.0
+            ],
+            "startRight": [
+              11763.13,
+              9370.0
+            ]
+          },
+          "music_credit": "GameGrooves",
+          "author": "ZPL, Skipper93653"
+        },
+        {
+          "name": "N64 Moo Moo Farm",
+          "course_id": 1,
+          "archive": "Race/Course/21.szs",
+          "models": "models/pulsar_track_022.list",
+          "sky": "models/pulsar_track_022_sky.list",
+          "laps": 3,
+          "music_stream_id": 1,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_021.t3x",
+            "overview": "textures/race_map_retro_021_overview.t3x",
+            "frame": [
+              -28050.029,
+              -31150.69,
+              32463.051,
+              29362.39
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -4384.53,
+              -16445.478
+            ],
+            "startRight": [
+              -4384.53,
+              -12316.102
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL"
+        },
+        {
+          "name": "N64 Koopa Troopa Beach",
+          "course_id": 16,
+          "archive": "Race/Course/22.szs",
+          "models": "models/pulsar_track_023.list",
+          "sky": "models/pulsar_track_023_sky.list",
+          "laps": 3,
+          "music_stream_id": 16,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_022.t3x",
+            "overview": "textures/race_map_retro_022_overview.t3x",
+            "frame": [
+              -82164.514,
+              -65089.141,
+              91386.025,
+              108461.398
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              14937.5,
+              1700.0
+            ],
+            "startRight": [
+              17887.5,
+              1700.0
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "zilly"
+        },
+        {
+          "name": "N64 Kalimari Desert",
+          "course_id": 21,
+          "archive": "Race/Course/23.szs",
+          "models": "models/pulsar_track_024.list",
+          "sky": "models/pulsar_track_024_sky.list",
+          "laps": 3,
+          "music_stream_id": 21,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_023.t3x",
+            "overview": "textures/race_map_retro_023_overview.t3x",
+            "frame": [
+              -65405.512,
+              -73427.562,
+              64117.992,
+              56095.941
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 107.5146,
+            "startLeft": [
+              27744.856,
+              -26720.0
+            ],
+            "startRight": [
+              31146.98,
+              -26720.0
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "Sniki"
+        }
+      ]
+    },
+    {
+      "name": "N64 Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "N64 Toad's Turnpike",
+          "course_id": 10,
+          "archive": "Race/Course/24.szs",
+          "models": "models/pulsar_track_025.list",
+          "sky": "models/pulsar_track_025_sky.list",
+          "laps": 3,
+          "music_stream_id": 10,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_024.t3x",
+            "overview": "textures/race_map_retro_024_overview.t3x",
+            "frame": [
+              -36065.672,
+              -36586.706,
+              40571.73,
+              40050.696
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -965.334,
+              -2054.868
+            ],
+            "startRight": [
+              1188.688,
+              -2054.868
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "AltairYoshi"
+        },
+        {
+          "name": "N64 Frappe Snowland",
+          "course_id": 27,
+          "archive": "Race/Course/25.szs",
+          "models": "models/pulsar_track_026.list",
+          "sky": "models/pulsar_track_026_sky.list",
+          "laps": 3,
+          "music_stream_id": 27,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_025.t3x",
+            "overview": "textures/race_map_retro_025_overview.t3x",
+            "frame": [
+              -50017.721,
+              -53718.422,
+              44701.299,
+              41000.598
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 78.6242,
+            "startLeft": [
+              -1409.864,
+              166.141
+            ],
+            "startRight": [
+              1443.313,
+              166.257
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "AltairYoshi"
+        },
+        {
+          "name": "N64 Choco Mountain",
+          "course_id": 19,
+          "archive": "Race/Course/26.szs",
+          "models": "models/pulsar_track_027.list",
+          "sky": "models/pulsar_track_027_sky.list",
+          "laps": 3,
+          "music_stream_id": 19,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_026.t3x",
+            "overview": "textures/race_map_retro_026_overview.t3x",
+            "frame": [
+              -30315.94,
+              -30754.471,
+              31170.55,
+              30732.02
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -10725.102,
+              -12863.726
+            ],
+            "startRight": [
+              -8417.0,
+              -12864.84
+            ]
+          },
+          "music_credit": "gabocarina96",
+          "author": "ZPL"
+        },
+        {
+          "name": "N64 Mario Raceway",
+          "course_id": 26,
+          "archive": "Race/Course/27.szs",
+          "models": "models/pulsar_track_028.list",
+          "sky": "models/pulsar_track_028_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_027.t3x",
+            "overview": "textures/race_map_retro_027_overview.t3x",
+            "frame": [
+              -50000.0,
+              -47400.0,
+              43700.0,
+              46300.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 77.7783,
+            "startLeft": [
+              -30637.5,
+              -10600.0
+            ],
+            "startRight": [
+              -27637.5,
+              -10600.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "N64 Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "N64 Wario Stadium",
+          "course_id": 18,
+          "archive": "Race/Course/28.szs",
+          "models": "models/pulsar_track_029.list",
+          "sky": "models/pulsar_track_029_sky.list",
+          "laps": 2,
+          "music_stream_id": 18,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_028.t3x",
+            "overview": "textures/race_map_retro_028_overview.t3x",
+            "frame": [
+              -36335.31,
+              -38159.176,
+              33466.687,
+              31642.82
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              18011.024,
+              3513.763
+            ],
+            "startRight": [
+              20937.672,
+              3506.406
+            ]
+          },
+          "music_credit": "Pokestir",
+          "author": "bugsy"
+        },
+        {
+          "name": "N64 Sherbet Land",
+          "course_id": 27,
+          "archive": "Race/Course/29.szs",
+          "models": "models/pulsar_track_030.list",
+          "sky": "models/pulsar_track_030_sky.list",
+          "laps": 3,
+          "music_stream_id": 27,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_029.t3x",
+            "overview": "textures/race_map_retro_029_overview.t3x",
+            "frame": [
+              -36242.934,
+              -43092.777,
+              49445.816,
+              42595.973
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 71.1284,
+            "startLeft": [
+              32960.555,
+              993.73
+            ],
+            "startRight": [
+              36246.033,
+              993.73
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "N64 Royal Raceway",
+          "course_id": 26,
+          "archive": "Race/Course/30.szs",
+          "models": "models/pulsar_track_031.list",
+          "sky": "models/pulsar_track_031_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_030.t3x",
+            "overview": "textures/race_map_retro_030_overview.t3x",
+            "frame": [
+              -44897.781,
+              -66208.223,
+              75903.203,
+              54592.762
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 100.2743,
+            "startLeft": [
+              25651.46,
+              9929.032
+            ],
+            "startRight": [
+              28628.567,
+              9929.032
+            ]
+          },
+          "music_credit": "insaneintherainmusic",
+          "author": "Paratroopa3"
+        },
+        {
+          "name": "N64 Bowser's Castle",
+          "course_id": 28,
+          "archive": "Race/Course/31.szs",
+          "models": "models/pulsar_track_032.list",
+          "sky": "models/pulsar_track_032_sky.list",
+          "laps": 3,
+          "music_stream_id": 28,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_031.t3x",
+            "overview": "textures/race_map_retro_031_overview.t3x",
+            "frame": [
+              -35319.334,
+              -46410.941,
+              52961.361,
+              41869.754
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 73.2799,
+            "startLeft": [
+              -19109.975,
+              11250.0
+            ],
+            "startRight": [
+              -16396.47,
+              11250.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "N64 Special Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "N64 DK's Jungle Parkway",
+          "course_id": 29,
+          "archive": "Race/Course/32.szs",
+          "models": "models/pulsar_track_033.list",
+          "sky": "models/pulsar_track_033_sky.list",
+          "laps": 3,
+          "music_stream_id": 29,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_032.t3x",
+            "overview": "textures/race_map_retro_032_overview.t3x",
+            "frame": [
+              -51600.0,
+              -46700.0,
+              33800.0,
+              38700.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 70.8887,
+            "startLeft": [
+              8800.0,
+              7162.5
+            ],
+            "startRight": [
+              8800.0,
+              3987.5
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "N64 Yoshi Valley",
+          "course_id": 20,
+          "archive": "Race/Course/33.szs",
+          "models": "models/pulsar_track_034.list",
+          "sky": "models/pulsar_track_034_sky.list",
+          "laps": 3,
+          "music_stream_id": 20,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_033.t3x",
+            "overview": "textures/race_map_retro_033_overview.t3x",
+            "frame": [
+              -41261.258,
+              -18888.149,
+              33693.852,
+              56066.96
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              19619.707,
+              22746.845
+            ],
+            "startRight": [
+              23320.037,
+              22824.322
+            ]
+          },
+          "music_credit": "Nintendo (MK8)",
+          "author": "ZPL"
+        },
+        {
+          "name": "N64 Banshee Boardwalk",
+          "course_id": 25,
+          "archive": "Race/Course/34.szs",
+          "models": "models/pulsar_track_035.list",
+          "sky": "models/pulsar_track_035_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_034.t3x",
+            "overview": "textures/race_map_retro_034_overview.t3x",
+            "frame": [
+              -66541.579,
+              -31406.16,
+              32831.421,
+              67966.84
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 82.4874,
+            "startLeft": [
+              19682.396,
+              23437.859
+            ],
+            "startRight": [
+              22158.716,
+              23437.859
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "ZPL"
+        },
+        {
+          "name": "N64 Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/35.szs",
+          "models": "models/pulsar_track_036.list",
+          "sky": "models/pulsar_track_036_sky.list",
+          "laps": 2,
+          "music_stream_id": 13,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_035.t3x",
+            "overview": "textures/race_map_retro_035_overview.t3x",
+            "frame": [
+              -55043.941,
+              -57353.506,
+              73291.43,
+              70981.865
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 106.5284,
+            "startLeft": [
+              1956.096,
+              2678.077
+            ],
+            "startRight": [
+              3244.466,
+              564.602
+            ]
+          },
+          "music_credit": "GaMetal",
+          "author": "cpfusion"
+        }
+      ]
+    },
+    {
+      "name": "GBA Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GBA Peach Circuit",
+          "course_id": 24,
+          "archive": "Race/Course/36.szs",
+          "models": "models/pulsar_track_037.list",
+          "sky": "models/pulsar_track_037_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_036.t3x",
+            "overview": "textures/race_map_retro_036_overview.t3x",
+            "frame": [
+              -37773.915,
+              -41046.859,
+              39744.835,
+              36471.891
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.3466,
+            "startLeft": [
+              -2531.789,
+              -18607.639
+            ],
+            "startRight": [
+              623.301,
+              -18603.816
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "cpfusion"
+        },
+        {
+          "name": "GBA Shy Guy Beach",
+          "course_id": 31,
+          "archive": "Race/Course/37.szs",
+          "models": "models/pulsar_track_038.list",
+          "sky": "models/pulsar_track_038_sky.list",
+          "laps": 3,
+          "music_stream_id": 31,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_037.t3x",
+            "overview": "textures/race_map_retro_037_overview.t3x",
+            "frame": [
+              -38826.293,
+              -33689.77,
+              31962.621,
+              37099.145
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              17571.807,
+              9547.422
+            ],
+            "startRight": [
+              22627.176,
+              9552.398
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "GBA Riverside Park",
+          "course_id": 29,
+          "archive": "Race/Course/38.szs",
+          "models": "models/pulsar_track_039.list",
+          "sky": "models/pulsar_track_039_sky.list",
+          "laps": 3,
+          "music_stream_id": 29,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_038.t3x",
+            "overview": "textures/race_map_retro_038_overview.t3x",
+            "frame": [
+              -40337.537,
+              -34238.32,
+              37542.584,
+              43641.801
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.6466,
+            "startLeft": [
+              -19121.23,
+              -4677.444
+            ],
+            "startRight": [
+              -16114.896,
+              -4686.246
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "ZPL"
+        },
+        {
+          "name": "GBA Bowser Castle 1",
+          "course_id": 30,
+          "archive": "Race/Course/39.szs",
+          "models": "models/pulsar_track_040.list",
+          "sky": "models/pulsar_track_040_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_039.t3x",
+            "overview": "textures/race_map_retro_039_overview.t3x",
+            "frame": [
+              -31988.029,
+              -29209.15,
+              29238.123,
+              32017.002
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              19890.077,
+              -7243.5
+            ],
+            "startRight": [
+              23349.202,
+              -7243.5
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "GBA Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GBA Mario Circuit",
+          "course_id": 0,
+          "archive": "Race/Course/40.szs",
+          "models": "models/pulsar_track_041.list",
+          "sky": "models/pulsar_track_041_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_040.t3x",
+            "overview": "textures/race_map_retro_040_overview.t3x",
+            "frame": [
+              -44826.0,
+              -24562.321,
+              11208.343,
+              31472.022
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -1686.553,
+              -2563.011
+            ],
+            "startRight": [
+              1690.971,
+              -2562.069
+            ]
+          },
+          "music_credit": "Nintendo, Cloou",
+          "author": "ZPL"
+        },
+        {
+          "name": "GBA Boo Lake",
+          "course_id": 25,
+          "archive": "Race/Course/41.szs",
+          "models": "models/pulsar_track_042.list",
+          "sky": "models/pulsar_track_042_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_041.t3x",
+            "overview": "textures/race_map_retro_041_overview.t3x",
+            "frame": [
+              -34972.551,
+              -40829.949,
+              45485.559,
+              39628.16
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 66.7865,
+            "startLeft": [
+              -30728.254,
+              -12676.64
+            ],
+            "startRight": [
+              -27444.612,
+              -12677.667
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "Slimeserver"
+        },
+        {
+          "name": "GBA Cheese Land",
+          "course_id": 21,
+          "archive": "Race/Course/42.szs",
+          "models": "models/pulsar_track_043.list",
+          "sky": "models/pulsar_track_043_sky.list",
+          "laps": 3,
+          "music_stream_id": 1,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_042.t3x",
+            "overview": "textures/race_map_retro_042_overview.t3x",
+            "frame": [
+              -43718.312,
+              -41969.32,
+              43777.68,
+              45526.672
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 72.6285,
+            "startLeft": [
+              28890.164,
+              -9200.0
+            ],
+            "startRight": [
+              33245.291,
+              -9200.0
+            ]
+          },
+          "music_credit": "Turret 3471",
+          "author": "ChaosShadow23"
+        },
+        {
+          "name": "GBA Bowser Castle 2",
+          "course_id": 30,
+          "archive": "Race/Course/43.szs",
+          "models": "models/pulsar_track_044.list",
+          "sky": "models/pulsar_track_044_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_043.t3x",
+            "overview": "textures/race_map_retro_043_overview.t3x",
+            "frame": [
+              -36613.188,
+              -35639.807,
+              34192.643,
+              35166.023
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -30509.636,
+              -9732.607
+            ],
+            "startRight": [
+              -27095.946,
+              -9735.547
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "GBA Lightning Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GBA Luigi Circuit",
+          "course_id": 26,
+          "archive": "Race/Course/44.szs",
+          "models": "models/pulsar_track_045.list",
+          "sky": "models/pulsar_track_045_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_044.t3x",
+            "overview": "textures/race_map_retro_044_overview.t3x",
+            "frame": [
+              -15426.944,
+              -8912.33,
+              61863.402,
+              68378.016
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.157,
+            "startLeft": [
+              18949.948,
+              1586.596
+            ],
+            "startRight": [
+              18945.017,
+              5339.811
+            ]
+          },
+          "music_credit": "The Noble Demon",
+          "author": "Flint"
+        },
+        {
+          "name": "GBA Sky Garden",
+          "course_id": 2,
+          "archive": "Race/Course/45.szs",
+          "models": "models/pulsar_track_046.list",
+          "sky": "models/pulsar_track_046_sky.list",
+          "laps": 3,
+          "music_stream_id": 2,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_045.t3x",
+            "overview": "textures/race_map_retro_045_overview.t3x",
+            "frame": [
+              -37221.282,
+              -35131.812,
+              33414.907,
+              35504.377
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              21383.208,
+              -10566.542
+            ],
+            "startRight": [
+              24213.903,
+              -10493.977
+            ]
+          },
+          "music_credit": "Jugebox98",
+          "author": "ZPL"
+        },
+        {
+          "name": "GBA Cheep-Cheep Island",
+          "course_id": 16,
+          "archive": "Race/Course/46.szs",
+          "models": "models/pulsar_track_047.list",
+          "sky": "models/pulsar_track_047_sky.list",
+          "laps": 3,
+          "music_stream_id": 31,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_046.t3x",
+            "overview": "textures/race_map_retro_046_overview.t3x",
+            "frame": [
+              -37675.744,
+              -45800.0,
+              55024.256,
+              46900.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 76.9482,
+            "startLeft": [
+              39823.879,
+              -730.455
+            ],
+            "startRight": [
+              46456.313,
+              -737.771
+            ]
+          },
+          "music_credit": "HEPHESTOS",
+          "author": "ChaosShadow23, ZPL"
+        },
+        {
+          "name": "GBA Sunset Wilds",
+          "course_id": 21,
+          "archive": "Race/Course/47.szs",
+          "models": "models/pulsar_track_048.list",
+          "sky": "models/pulsar_track_048_sky.list",
+          "laps": 3,
+          "music_stream_id": 21,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_047.t3x",
+            "overview": "textures/race_map_retro_047_overview.t3x",
+            "frame": [
+              -61968.438,
+              -32978.656,
+              9649.332,
+              38639.113
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -1889.341,
+              -1740.636
+            ],
+            "startRight": [
+              1619.576,
+              -1731.47
+            ]
+          },
+          "music_credit": "The Noble Demon",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "GBA Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GBA Snow Land",
+          "course_id": 27,
+          "archive": "Race/Course/48.szs",
+          "models": "models/pulsar_track_049.list",
+          "sky": "models/pulsar_track_049_sky.list",
+          "laps": 3,
+          "music_stream_id": 27,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_048.t3x",
+            "overview": "textures/race_map_retro_048_overview.t3x",
+            "frame": [
+              -35334.264,
+              -36431.539,
+              37385.994,
+              36288.719
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -25693.019,
+              3913.056
+            ],
+            "startRight": [
+              -22340.135,
+              3917.44
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "cpfusion"
+        },
+        {
+          "name": "GBA Ribbon Road",
+          "course_id": 17,
+          "archive": "Race/Course/49.szs",
+          "models": "models/pulsar_track_050.list",
+          "sky": "models/pulsar_track_050_sky.list",
+          "laps": 3,
+          "music_stream_id": 33,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_049.t3x",
+            "overview": "textures/race_map_retro_049_overview.t3x",
+            "frame": [
+              -41010.289,
+              -30941.605,
+              32388.4,
+              42457.084
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -8037.404,
+              6606.327
+            ],
+            "startRight": [
+              -5051.741,
+              6606.327
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "ZPL"
+        },
+        {
+          "name": "GBA Yoshi Desert",
+          "course_id": 21,
+          "archive": "Race/Course/50.szs",
+          "models": "models/pulsar_track_051.list",
+          "sky": "models/pulsar_track_051_sky.list",
+          "laps": 3,
+          "music_stream_id": 14,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_050.t3x",
+            "overview": "textures/race_map_retro_050_overview.t3x",
+            "frame": [
+              -30289.548,
+              -40916.133,
+              39713.282,
+              29086.697
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              20960.127,
+              -6286.029
+            ],
+            "startRight": [
+              23587.653,
+              -6316.603
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL"
+        },
+        {
+          "name": "GBA Bowser Castle 3",
+          "course_id": 30,
+          "archive": "Race/Course/51.szs",
+          "models": "models/pulsar_track_052.list",
+          "sky": "models/pulsar_track_052_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_051.t3x",
+            "overview": "textures/race_map_retro_051_overview.t3x",
+            "frame": [
+              -40375.0,
+              -31550.002,
+              32725.002,
+              41550.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              24062.5,
+              -13813.0
+            ],
+            "startRight": [
+              27062.501,
+              -13813.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "GBA Special Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GBA Lakeside Park",
+          "course_id": 19,
+          "archive": "Race/Course/52.szs",
+          "models": "models/pulsar_track_053.list",
+          "sky": "models/pulsar_track_053_sky.list",
+          "laps": 3,
+          "music_stream_id": 29,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_052.t3x",
+            "overview": "textures/race_map_retro_052_overview.t3x",
+            "frame": [
+              -37204.8,
+              -44568.57,
+              58548.45,
+              51184.68
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 79.4827,
+            "startLeft": [
+              -15287.761,
+              -8136.974
+            ],
+            "startRight": [
+              -11887.568,
+              -8138.791
+            ]
+          },
+          "music_credit": "Cochu U",
+          "author": "ChaosShadow23"
+        },
+        {
+          "name": "GBA Broken Pier",
+          "course_id": 25,
+          "archive": "Race/Course/53.szs",
+          "models": "models/pulsar_track_054.list",
+          "sky": "models/pulsar_track_054_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_053.t3x",
+            "overview": "textures/race_map_retro_053_overview.t3x",
+            "frame": [
+              -12170.904,
+              -23077.24,
+              62451.536,
+              51545.199
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -1776.44,
+              869.321
+            ],
+            "startRight": [
+              1775.727,
+              899.94
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "ZPL"
+        },
+        {
+          "name": "GBA Bowser Castle 4",
+          "course_id": 30,
+          "archive": "Race/Course/54.szs",
+          "models": "models/pulsar_track_055.list",
+          "sky": "models/pulsar_track_055_sky.list",
+          "laps": 2,
+          "music_stream_id": 30,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_054.t3x",
+            "overview": "textures/race_map_retro_054_overview.t3x",
+            "frame": [
+              -39268.95,
+              -41158.281,
+              43259.991,
+              41370.66
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 68.5055,
+            "startLeft": [
+              27665.299,
+              -4852.933
+            ],
+            "startRight": [
+              30943.554,
+              -4860.075
+            ]
+          },
+          "music_credit": "Isana Remix",
+          "author": "ChaosShadow23"
+        },
+        {
+          "name": "GBA Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/55.szs",
+          "models": "models/pulsar_track_056.list",
+          "sky": "models/pulsar_track_056_sky.list",
+          "laps": 3,
+          "music_stream_id": 13,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_055.t3x",
+            "overview": "textures/race_map_retro_055_overview.t3x",
+            "frame": [
+              -38834.578,
+              -38004.763,
+              36894.0,
+              37723.815
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -32036.859,
+              3220.742
+            ],
+            "startRight": [
+              -28661.382,
+              3231.786
+            ]
+          },
+          "music_credit": "The Noble Demon",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "GCN Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GCN Luigi Circuit",
+          "course_id": 17,
+          "archive": "Race/Course/56.szs",
+          "models": "models/pulsar_track_057.list",
+          "sky": "models/pulsar_track_057_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_056.t3x",
+            "overview": "textures/race_map_retro_056_overview.t3x",
+            "frame": [
+              -23080.147,
+              -42539.719,
+              23511.847,
+              50644.27
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 77.35,
+            "startLeft": [
+              -4278.393,
+              -21764.59
+            ],
+            "startRight": [
+              -7779.266,
+              -21764.59
+            ]
+          },
+          "music_credit": "Zame",
+          "author": "Paratroopa3"
+        },
+        {
+          "name": "GCN Peach Beach",
+          "course_id": 16,
+          "archive": "Race/Course/57.szs",
+          "models": "models/pulsar_track_058.list",
+          "sky": "models/pulsar_track_058_sky.list",
+          "laps": 3,
+          "music_stream_id": 16,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_057.t3x",
+            "overview": "textures/race_map_retro_057_overview.t3x",
+            "frame": [
+              -39980.455,
+              -43378.414,
+              47920.209,
+              44522.25
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 72.9644,
+            "startLeft": [
+              -12513.027,
+              -4534.836
+            ],
+            "startRight": [
+              -10037.928,
+              -4536.549
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "GCN Baby Park",
+          "course_id": 0,
+          "archive": "Race/Course/58.szs",
+          "models": "models/pulsar_track_059.list",
+          "sky": "models/pulsar_track_059_sky.list",
+          "laps": 7,
+          "music_stream_id": 37,
+          "lapCount": 7,
+          "minimap": {
+            "texture": "textures/race_map_retro_058.t3x",
+            "overview": "textures/race_map_retro_058_overview.t3x",
+            "frame": [
+              -11817.955,
+              -23400.0,
+              11462.045,
+              23160.0
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              5329.073,
+              228.0
+            ],
+            "startRight": [
+              773.046,
+              228.0
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "maczkopeti"
+        },
+        {
+          "name": "GCN Dry Dry Desert",
+          "course_id": 21,
+          "archive": "Race/Course/59.szs",
+          "models": "models/pulsar_track_060.list",
+          "sky": "models/pulsar_track_060_sky.list",
+          "laps": 3,
+          "music_stream_id": 14,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_059.t3x",
+            "overview": "textures/race_map_retro_059_overview.t3x",
+            "frame": [
+              -57519.965,
+              -57021.25,
+              49222.434,
+              49721.148
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 88.6045,
+            "startLeft": [
+              -31837.5,
+              -7140.0
+            ],
+            "startRight": [
+              -29112.5,
+              -7140.0
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "UltraWario"
+        }
+      ]
+    },
+    {
+      "name": "GCN Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GCN Mushroom Bridge",
+          "course_id": 10,
+          "archive": "Race/Course/60.szs",
+          "models": "models/pulsar_track_061.list",
+          "sky": "models/pulsar_track_061_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_060.t3x",
+            "overview": "textures/race_map_retro_060_overview.t3x",
+            "frame": [
+              -38334.545,
+              -62003.352,
+              62294.885,
+              38626.078
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 83.5303,
+            "startLeft": [
+              14466.39,
+              -32156.334
+            ],
+            "startRight": [
+              21866.767,
+              -32151.305
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "Tock, Jaunn666"
+        },
+        {
+          "name": "GCN Mario Circuit",
+          "course_id": 17,
+          "archive": "Race/Course/61.szs",
+          "models": "models/pulsar_track_062.list",
+          "sky": "models/pulsar_track_062_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_061.t3x",
+            "overview": "textures/race_map_retro_061_overview.t3x",
+            "frame": [
+              -40137.855,
+              -40393.109,
+              43242.816,
+              42987.562
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 69.2125,
+            "startLeft": [
+              16662.5,
+              -4200.001
+            ],
+            "startRight": [
+              19637.5,
+              -4200.002
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "GCN Daisy Cruiser",
+          "course_id": 16,
+          "archive": "Race/Course/62.szs",
+          "models": "models/pulsar_track_063.list",
+          "sky": "models/pulsar_track_063_sky.list",
+          "laps": 3,
+          "music_stream_id": 16,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_062.t3x",
+            "overview": "textures/race_map_retro_062_overview.t3x",
+            "frame": [
+              -24006.09,
+              -46143.961,
+              23974.531,
+              49817.281
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 79.6553,
+            "startLeft": [
+              -3376.618,
+              13370.64
+            ],
+            "startRight": [
+              3350.224,
+              13370.64
+            ]
+          },
+          "music_credit": "Nintendo (MK8DX)",
+          "author": "Tock"
+        },
+        {
+          "name": "GCN Waluigi Stadium",
+          "course_id": 18,
+          "archive": "Race/Course/63.szs",
+          "models": "models/pulsar_track_064.list",
+          "sky": "models/pulsar_track_064_sky.list",
+          "laps": 3,
+          "music_stream_id": 18,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_063.t3x",
+            "overview": "textures/race_map_retro_063_overview.t3x",
+            "frame": [
+              -22600.0,
+              -46150.488,
+              25383.613,
+              49816.738
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 79.6603,
+            "startLeft": [
+              -1502.746,
+              4460.0
+            ],
+            "startRight": [
+              1512.613,
+              4460.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "GCN Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GCN Sherbet Land",
+          "course_id": 27,
+          "archive": "Race/Course/64.szs",
+          "models": "models/pulsar_track_065.list",
+          "sky": "models/pulsar_track_065_sky.list",
+          "laps": 3,
+          "music_stream_id": 27,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_064.t3x",
+            "overview": "textures/race_map_retro_064_overview.t3x",
+            "frame": [
+              -30498.495,
+              -35432.959,
+              48483.983,
+              43549.52
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 65.5616,
+            "startLeft": [
+              -9262.5,
+              1625.0
+            ],
+            "startRight": [
+              -5837.5,
+              1625.0
+            ]
+          },
+          "music_credit": "The Noble Demon",
+          "author": "Tock"
+        },
+        {
+          "name": "GCN Mushroom City",
+          "course_id": 10,
+          "archive": "Race/Course/65.szs",
+          "models": "models/pulsar_track_066.list",
+          "sky": "models/pulsar_track_066_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_065.t3x",
+            "overview": "textures/race_map_retro_065_overview.t3x",
+            "frame": [
+              -23558.399,
+              -53236.801,
+              23704.44,
+              41288.879
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 78.4637,
+            "startLeft": [
+              211.492,
+              -19786.561
+            ],
+            "startRight": [
+              2511.492,
+              -19786.561
+            ]
+          },
+          "music_credit": "Cochu U",
+          "author": "Torran"
+        },
+        {
+          "name": "GCN Yoshi Circuit",
+          "course_id": 17,
+          "archive": "Race/Course/66.szs",
+          "models": "models/pulsar_track_067.list",
+          "sky": "models/pulsar_track_067_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_066.t3x",
+            "overview": "textures/race_map_retro_066_overview.t3x",
+            "frame": [
+              -34522.384,
+              -28795.039,
+              41610.054,
+              47337.398
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              4700.0,
+              42011.756
+            ],
+            "startRight": [
+              4700.0,
+              37758.981
+            ]
+          },
+          "music_credit": "Nintendo (MK8)",
+          "author": "ZPL"
+        },
+        {
+          "name": "GCN DK Mountain",
+          "course_id": 19,
+          "archive": "Race/Course/67.szs",
+          "models": "models/pulsar_track_068.list",
+          "sky": "models/pulsar_track_068_sky.list",
+          "laps": 3,
+          "music_stream_id": 19,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_067.t3x",
+            "overview": "textures/race_map_retro_067_overview.t3x",
+            "frame": [
+              -30220.126,
+              -38819.176,
+              43582.794,
+              108786.664
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              21650.092,
+              -1130.542
+            ],
+            "startRight": [
+              24621.852,
+              -912.774
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "GCN Special Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GCN Wario Colosseum",
+          "course_id": 18,
+          "archive": "Race/Course/68.szs",
+          "models": "models/pulsar_track_069.list",
+          "sky": "models/pulsar_track_069_sky.list",
+          "laps": 2,
+          "music_stream_id": 18,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_068.t3x",
+            "overview": "textures/race_map_retro_068_overview.t3x",
+            "frame": [
+              -44441.196,
+              -50781.152,
+              46266.507,
+              39926.551
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 75.2945,
+            "startLeft": [
+              -705.223,
+              20075.628
+            ],
+            "startRight": [
+              -693.883,
+              23057.783
+            ]
+          },
+          "music_credit": "JoshhMarshh",
+          "author": "MKDasher"
+        },
+        {
+          "name": "GCN Dino Dino Jungle",
+          "course_id": 19,
+          "archive": "Race/Course/69.szs",
+          "models": "models/pulsar_track_070.list",
+          "sky": "models/pulsar_track_070_sky.list",
+          "laps": 3,
+          "music_stream_id": 19,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_069.t3x",
+            "overview": "textures/race_map_retro_069_overview.t3x",
+            "frame": [
+              -64626.16,
+              -49353.881,
+              34083.551,
+              49355.83
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 81.9368,
+            "startLeft": [
+              17854.837,
+              -10192.37
+            ],
+            "startRight": [
+              21368.768,
+              -10192.37
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "Tock"
+        },
+        {
+          "name": "GCN Bowser's Castle",
+          "course_id": 30,
+          "archive": "Race/Course/70.szs",
+          "models": "models/pulsar_track_071.list",
+          "sky": "models/pulsar_track_071_sky.list",
+          "laps": 2,
+          "music_stream_id": 28,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_070.t3x",
+            "overview": "textures/race_map_retro_070_overview.t3x",
+            "frame": [
+              -70523.784,
+              -52344.609,
+              34675.056,
+              52854.23
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 87.3233,
+            "startLeft": [
+              4077.534,
+              24788.304
+            ],
+            "startRight": [
+              7803.603,
+              24824.645
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "ZPL"
+        },
+        {
+          "name": "GCN Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/71.szs",
+          "models": "models/pulsar_track_072.list",
+          "sky": "models/pulsar_track_072_sky.list",
+          "laps": 2,
+          "music_stream_id": 13,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_071.t3x",
+            "overview": "textures/race_map_retro_071_overview.t3x",
+            "frame": [
+              -76756.137,
+              -73416.844,
+              30727.687,
+              34066.98
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 89.22,
+            "startLeft": [
+              -41944.237,
+              -65318.426
+            ],
+            "startRight": [
+              -43755.573,
+              -62926.236
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "DS Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "DS Figure 8 Circuit",
+          "course_id": 17,
+          "archive": "Race/Course/72.szs",
+          "models": "models/pulsar_track_073.list",
+          "sky": "models/pulsar_track_073_sky.list",
+          "laps": 3,
+          "music_stream_id": 0,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_072.t3x",
+            "overview": "textures/race_map_retro_072_overview.t3x",
+            "frame": [
+              -28105.738,
+              -36084.962,
+              39686.418,
+              31707.194
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              11322.573,
+              -1550.634
+            ],
+            "startRight": [
+              11317.793,
+              1528.051
+            ]
+          },
+          "music_credit": "Nintendo, Splode's Studio",
+          "author": "Vanillavaquita"
+        },
+        {
+          "name": "DS Yoshi Falls",
+          "course_id": 20,
+          "archive": "Race/Course/73.szs",
+          "models": "models/pulsar_track_074.list",
+          "sky": "models/pulsar_track_074_sky.list",
+          "laps": 3,
+          "music_stream_id": 20,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_073.t3x",
+            "overview": "textures/race_map_retro_073_overview.t3x",
+            "frame": [
+              -29262.76,
+              -38853.055,
+              38376.293,
+              28785.998
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -14438.938,
+              -8126.001
+            ],
+            "startRight": [
+              -10833.204,
+              -8126.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "DS Cheep Cheep Beach",
+          "course_id": 16,
+          "archive": "Race/Course/74.szs",
+          "models": "models/pulsar_track_075.list",
+          "sky": "models/pulsar_track_075_sky.list",
+          "laps": 3,
+          "music_stream_id": 16,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_074.t3x",
+            "overview": "textures/race_map_retro_074_overview.t3x",
+            "frame": [
+              -43681.328,
+              -41075.305,
+              40219.172,
+              42825.195
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 69.644,
+            "startLeft": [
+              -23686.796,
+              -6069.288
+            ],
+            "startRight": [
+              -20856.588,
+              -6076.781
+            ]
+          },
+          "music_credit": "ArieJuice",
+          "author": "ZPL, TheZoroark007, PabloMK7"
+        },
+        {
+          "name": "DS Luigi's Mansion",
+          "course_id": 25,
+          "archive": "Race/Course/75.szs",
+          "models": "models/pulsar_track_076.list",
+          "sky": "models/pulsar_track_076_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_075.t3x",
+            "overview": "textures/race_map_retro_075_overview.t3x",
+            "frame": [
+              -35899.035,
+              -48881.262,
+              48296.857,
+              35314.631
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 69.8892,
+            "startLeft": [
+              23569.156,
+              13964.75
+            ],
+            "startRight": [
+              26094.774,
+              13964.75
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "Tock"
+        }
+      ]
+    },
+    {
+      "name": "DS Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "DS Desert Hills",
+          "course_id": 21,
+          "archive": "Race/Course/76.szs",
+          "models": "models/pulsar_track_077.list",
+          "sky": "models/pulsar_track_077_sky.list",
+          "laps": 3,
+          "music_stream_id": 21,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_076.t3x",
+            "overview": "textures/race_map_retro_076_overview.t3x",
+            "frame": [
+              -44282.907,
+              -51647.266,
+              47876.851,
+              40512.492
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 76.4998,
+            "startLeft": [
+              -17384.882,
+              -10262.154
+            ],
+            "startRight": [
+              -14432.37,
+              -10291.787
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "DS Delfino Square",
+          "course_id": 23,
+          "archive": "Race/Course/77.szs",
+          "models": "models/pulsar_track_078.list",
+          "sky": "models/pulsar_track_078_sky.list",
+          "laps": 3,
+          "music_stream_id": 23,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_077.t3x",
+            "overview": "textures/race_map_retro_077_overview.t3x",
+            "frame": [
+              -42680.879,
+              -42415.926,
+              47837.492,
+              48102.445
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 75.1373,
+            "startLeft": [
+              -32530.567,
+              12650.658
+            ],
+            "startRight": [
+              -27944.487,
+              12651.709
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "DS Waluigi Pinball",
+          "course_id": 18,
+          "archive": "Race/Course/78.szs",
+          "models": "models/pulsar_track_079.list",
+          "sky": "models/pulsar_track_079_sky.list",
+          "laps": 3,
+          "music_stream_id": 18,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_078.t3x",
+            "overview": "textures/race_map_retro_078_overview.t3x",
+            "frame": [
+              -30475.304,
+              -54018.09,
+              30935.862,
+              68804.242
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 101.9521,
+            "startLeft": [
+              15771.888,
+              49737.0
+            ],
+            "startRight": [
+              18877.881,
+              49737.0
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "Sniki"
+        },
+        {
+          "name": "DS Shroom Ridge",
+          "course_id": 10,
+          "archive": "Race/Course/79.szs",
+          "models": "models/pulsar_track_080.list",
+          "sky": "models/pulsar_track_080_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_079.t3x",
+            "overview": "textures/race_map_retro_079_overview.t3x",
+            "frame": [
+              -44189.871,
+              -30868.157,
+              37561.672,
+              50883.386
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 67.8602,
+            "startLeft": [
+              1767.871,
+              5938.639
+            ],
+            "startRight": [
+              1767.871,
+              8738.639
+            ]
+          },
+          "music_credit": "Nintendo, Splode's Studio",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "DS Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "DS DK Pass",
+          "course_id": 6,
+          "archive": "Race/Course/80.szs",
+          "models": "models/pulsar_track_081.list",
+          "sky": "models/pulsar_track_081_sky.list",
+          "laps": 3,
+          "music_stream_id": 6,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_080.t3x",
+            "overview": "textures/race_map_retro_080_overview.t3x",
+            "frame": [
+              -19226.1,
+              -54328.594,
+              39434.48,
+              62992.566
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 97.3857,
+            "startLeft": [
+              -14416.477,
+              23257.318
+            ],
+            "startRight": [
+              -11257.465,
+              23257.318
+            ]
+          },
+          "music_credit": "The Noble Demon",
+          "author": "ZPL"
+        },
+        {
+          "name": "DS Tick-Tock Clock",
+          "course_id": 4,
+          "archive": "Race/Course/81.szs",
+          "models": "models/pulsar_track_082.list",
+          "sky": "models/pulsar_track_082_sky.list",
+          "laps": 3,
+          "music_stream_id": 41,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_081.t3x",
+            "overview": "textures/race_map_retro_081_overview.t3x",
+            "frame": [
+              -50723.113,
+              -43800.0,
+              35654.965,
+              42578.078
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 71.7006,
+            "startLeft": [
+              -14160.0,
+              30985.954
+            ],
+            "startRight": [
+              -14160.0,
+              34563.921
+            ]
+          },
+          "music_credit": "Chillius",
+          "author": "maczkopeti"
+        },
+        {
+          "name": "DS Mario Circuit",
+          "course_id": 17,
+          "archive": "Race/Course/82.szs",
+          "models": "models/pulsar_track_083.list",
+          "sky": "models/pulsar_track_083_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_082.t3x",
+            "overview": "textures/race_map_retro_082_overview.t3x",
+            "frame": [
+              -35139.039,
+              -36085.47,
+              43343.5,
+              42397.069
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 65.1466,
+            "startLeft": [
+              18852.779,
+              -21501.083
+            ],
+            "startRight": [
+              18852.779,
+              -16894.045
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "ZPL"
+        },
+        {
+          "name": "DS Airship Fortress",
+          "course_id": 30,
+          "archive": "Race/Course/83.szs",
+          "models": "models/pulsar_track_084.list",
+          "sky": "models/pulsar_track_084_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_083.t3x",
+            "overview": "textures/race_map_retro_083_overview.t3x",
+            "frame": [
+              -48183.694,
+              -49722.469,
+              44149.134,
+              42610.359
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 76.6435,
+            "startLeft": [
+              7069.648,
+              15888.0
+            ],
+            "startRight": [
+              11069.813,
+              15888.0
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "DS Special Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "DS Wario Stadium",
+          "course_id": 18,
+          "archive": "Race/Course/84.szs",
+          "models": "models/pulsar_track_085.list",
+          "sky": "models/pulsar_track_085_sky.list",
+          "laps": 3,
+          "music_stream_id": 18,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_084.t3x",
+            "overview": "textures/race_map_retro_084_overview.t3x",
+            "frame": [
+              -39842.84,
+              -30634.604,
+              39332.75,
+              48540.986
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 65.7219,
+            "startLeft": [
+              1500.0,
+              1637.5
+            ],
+            "startRight": [
+              1500.0,
+              -1362.5
+            ]
+          },
+          "music_credit": "Nintendo, Splode's Studio",
+          "author": "ZPL"
+        },
+        {
+          "name": "DS Peach Gardens",
+          "course_id": 22,
+          "archive": "Race/Course/85.szs",
+          "models": "models/pulsar_track_086.list",
+          "sky": "models/pulsar_track_086_sky.list",
+          "laps": 3,
+          "music_stream_id": 22,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_085.t3x",
+            "overview": "textures/race_map_retro_085_overview.t3x",
+            "frame": [
+              -43356.898,
+              -45668.922,
+              45019.484,
+              42707.461
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 73.3593,
+            "startLeft": [
+              -1437.498,
+              21803.225
+            ],
+            "startRight": [
+              1437.502,
+              21803.225
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "DS Bowser Castle",
+          "course_id": 30,
+          "archive": "Race/Course/86.szs",
+          "models": "models/pulsar_track_087.list",
+          "sky": "models/pulsar_track_087_sky.list",
+          "laps": 3,
+          "music_stream_id": 28,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_086.t3x",
+            "overview": "textures/race_map_retro_086_overview.t3x",
+            "frame": [
+              -53716.82,
+              -23833.18,
+              43222.0,
+              73105.641
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 80.4668,
+            "startLeft": [
+              -26275.189,
+              11932.535
+            ],
+            "startRight": [
+              -26253.39,
+              17857.597
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "Sniki"
+        },
+        {
+          "name": "DS Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/87.szs",
+          "models": "models/pulsar_track_088.list",
+          "sky": "models/pulsar_track_088_sky.list",
+          "laps": 3,
+          "music_stream_id": 13,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_087.t3x",
+            "overview": "textures/race_map_retro_087_overview.t3x",
+            "frame": [
+              -38792.293,
+              -35667.283,
+              43523.855,
+              46648.865
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 68.3288,
+            "startLeft": [
+              -21544.988,
+              11035.286
+            ],
+            "startRight": [
+              -23311.152,
+              12844.716
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "Wii Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii Luigi Circuit",
+          "course_id": 0,
+          "archive": "Race/Course/88.szs",
+          "models": "models/pulsar_track_089.list",
+          "sky": "models/pulsar_track_089_sky.list",
+          "laps": 3,
+          "music_stream_id": 8,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_088.t3x",
+            "overview": "textures/race_map_retro_088_overview.t3x",
+            "frame": [
+              -40861.375,
+              -19114.212,
+              37752.836,
+              59500.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 65.2559,
+            "startLeft": [
+              -21987.5,
+              25600.0
+            ],
+            "startRight": [
+              -18212.5,
+              25600.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Moo Moo Meadows",
+          "course_id": 1,
+          "archive": "Race/Course/89.szs",
+          "models": "models/pulsar_track_090.list",
+          "sky": "models/pulsar_track_090_sky.list",
+          "laps": 3,
+          "music_stream_id": 1,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_089.t3x",
+            "overview": "textures/race_map_retro_089_overview.t3x",
+            "frame": [
+              -39475.0,
+              -63550.0,
+              22525.0,
+              -1550.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              12012.5,
+              -34800.0
+            ],
+            "startRight": [
+              15687.5,
+              -34800.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Mushroom Gorge",
+          "course_id": 2,
+          "archive": "Race/Course/90.szs",
+          "models": "models/pulsar_track_091.list",
+          "sky": "models/pulsar_track_091_sky.list",
+          "laps": 3,
+          "music_stream_id": 2,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_090.t3x",
+            "overview": "textures/race_map_retro_090_overview.t3x",
+            "frame": [
+              -58941.207,
+              -13950.0,
+              34608.793,
+              79600.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 77.6538,
+            "startLeft": [
+              16397.946,
+              45675.699
+            ],
+            "startRight": [
+              19597.947,
+              45675.699
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Toad's Factory",
+          "course_id": 4,
+          "archive": "Race/Course/91.szs",
+          "models": "models/pulsar_track_092.list",
+          "sky": "models/pulsar_track_092_sky.list",
+          "laps": 3,
+          "music_stream_id": 4,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_091.t3x",
+            "overview": "textures/race_map_retro_091_overview.t3x",
+            "frame": [
+              -45625.0,
+              -44750.0,
+              31775.0,
+              32650.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.248,
+            "startLeft": [
+              -29437.5,
+              -19700.0
+            ],
+            "startRight": [
+              -25562.5,
+              -19700.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "Wii Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii Mario Circuit",
+          "course_id": 0,
+          "archive": "Race/Course/92.szs",
+          "models": "models/pulsar_track_093.list",
+          "sky": "models/pulsar_track_093_sky.list",
+          "laps": 3,
+          "music_stream_id": 0,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_092.t3x",
+            "overview": "textures/race_map_retro_092_overview.t3x",
+            "frame": [
+              -38550.0,
+              2850.0,
+              37950.0,
+              79350.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -1362.5,
+              47875.0
+            ],
+            "startRight": [
+              1362.5,
+              47875.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Coconut Mall",
+          "course_id": 5,
+          "archive": "Race/Course/93.szs",
+          "models": "models/pulsar_track_094.list",
+          "sky": "models/pulsar_track_094_sky.list",
+          "laps": 3,
+          "music_stream_id": 5,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_093.t3x",
+            "overview": "textures/race_map_retro_093_overview.t3x",
+            "frame": [
+              -37061.474,
+              -58580.664,
+              48819.19,
+              27300.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 71.2877,
+            "startLeft": [
+              -17662.5,
+              7900.0
+            ],
+            "startRight": [
+              -13587.5,
+              7900.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii DK Summit",
+          "course_id": 6,
+          "archive": "Race/Course/94.szs",
+          "models": "models/pulsar_track_095.list",
+          "sky": "models/pulsar_track_095_sky.list",
+          "laps": 3,
+          "music_stream_id": 6,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_094.t3x",
+            "overview": "textures/race_map_retro_094_overview.t3x",
+            "frame": [
+              -26381.629,
+              -12894.567,
+              37689.121,
+              115246.933
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 106.3675,
+            "startLeft": [
+              2976.915,
+              -1358.014
+            ],
+            "startRight": [
+              2975.448,
+              1374.265
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Wario's Gold Mine",
+          "course_id": 7,
+          "archive": "Race/Course/95.szs",
+          "models": "models/pulsar_track_096.list",
+          "sky": "models/pulsar_track_096_sky.list",
+          "laps": 3,
+          "music_stream_id": 7,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_095.t3x",
+            "overview": "textures/race_map_retro_095_overview.t3x",
+            "frame": [
+              -31340.998,
+              -35477.617,
+              46378.342,
+              42241.723
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.5131,
+            "startLeft": [
+              -19557.03,
+              25720.0
+            ],
+            "startRight": [
+              -14747.332,
+              25720.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "Wii Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii Daisy Circuit",
+          "course_id": 9,
+          "archive": "Race/Course/96.szs",
+          "models": "models/pulsar_track_097.list",
+          "sky": "models/pulsar_track_097_sky.list",
+          "laps": 3,
+          "music_stream_id": 9,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_096.t3x",
+            "overview": "textures/race_map_retro_096_overview.t3x",
+            "frame": [
+              -37755.078,
+              -20587.997,
+              33420.916,
+              50587.997
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -108.595,
+              11412.5
+            ],
+            "startRight": [
+              -108.595,
+              8637.5
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Koopa Cape",
+          "course_id": 15,
+          "archive": "Race/Course/97.szs",
+          "models": "models/pulsar_track_098.list",
+          "sky": "models/pulsar_track_098_sky.list",
+          "laps": 3,
+          "music_stream_id": 15,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_097.t3x",
+            "overview": "textures/race_map_retro_097_overview.t3x",
+            "frame": [
+              -56072.748,
+              -65976.887,
+              52169.482,
+              42265.344
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 89.8495,
+            "startLeft": [
+              -5509.7,
+              15141.665
+            ],
+            "startRight": [
+              -2149.455,
+              15141.233
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Maple Treeway",
+          "course_id": 11,
+          "archive": "Race/Course/98.szs",
+          "models": "models/pulsar_track_099.list",
+          "sky": "models/pulsar_track_099_sky.list",
+          "laps": 3,
+          "music_stream_id": 11,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_098.t3x",
+            "overview": "textures/race_map_retro_098_overview.t3x",
+            "frame": [
+              -38281.387,
+              -61492.762,
+              23621.92,
+              62313.852
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 102.7692,
+            "startLeft": [
+              9219.221,
+              -28197.336
+            ],
+            "startRight": [
+              12183.773,
+              -28197.336
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Grumble Volcano",
+          "course_id": 3,
+          "archive": "Race/Course/99.szs",
+          "models": "models/pulsar_track_100.list",
+          "sky": "models/pulsar_track_100_sky.list",
+          "laps": 3,
+          "music_stream_id": 3,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_099.t3x",
+            "overview": "textures/race_map_retro_099_overview.t3x",
+            "frame": [
+              -28145.816,
+              -14965.674,
+              27847.309,
+              97020.576
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 92.9573,
+            "startLeft": [
+              -20646.427,
+              40201.162
+            ],
+            "startRight": [
+              -16244.342,
+              40203.024
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "Wii Special Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii Dry Dry Ruins",
+          "course_id": 14,
+          "archive": "Race/Course/100.szs",
+          "models": "models/pulsar_track_101.list",
+          "sky": "models/pulsar_track_101_sky.list",
+          "laps": 3,
+          "music_stream_id": 14,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_100.t3x",
+            "overview": "textures/race_map_retro_100_overview.t3x",
+            "frame": [
+              -28649.283,
+              -43283.287,
+              35612.75,
+              85240.779
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 106.685,
+            "startLeft": [
+              -9727.574,
+              -4883.957
+            ],
+            "startRight": [
+              -6476.438,
+              -4881.271
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Moonview Highway",
+          "course_id": 10,
+          "archive": "Race/Course/101.szs",
+          "models": "models/pulsar_track_102.list",
+          "sky": "models/pulsar_track_102_sky.list",
+          "laps": 3,
+          "music_stream_id": 10,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_101.t3x",
+            "overview": "textures/race_map_retro_101_overview.t3x",
+            "frame": [
+              -10901.898,
+              -43307.594,
+              44651.898,
+              67800.0
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 92.228,
+            "startLeft": [
+              -1787.5,
+              7500.0
+            ],
+            "startRight": [
+              1787.5,
+              7500.0
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Bowser's Castle",
+          "course_id": 12,
+          "archive": "Race/Course/102.szs",
+          "models": "models/pulsar_track_103.list",
+          "sky": "models/pulsar_track_103_sky.list",
+          "laps": 3,
+          "music_stream_id": 12,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_102.t3x",
+            "overview": "textures/race_map_retro_102_overview.t3x",
+            "frame": [
+              -31796.895,
+              -70117.924,
+              41644.273,
+              76764.412
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              15030.628,
+              25211.964
+            ],
+            "startRight": [
+              17980.864,
+              25202.653
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        },
+        {
+          "name": "Wii Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/103.szs",
+          "models": "models/pulsar_track_104.list",
+          "sky": "models/pulsar_track_104_sky.list",
+          "laps": 3,
+          "music_stream_id": 13,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_103.t3x",
+            "overview": "textures/race_map_retro_103_overview.t3x",
+            "frame": [
+              -65100.0,
+              -57250.0,
+              24950.0,
+              32800.0
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 74.7485,
+            "startLeft": [
+              -30100.0,
+              -36462.5
+            ],
+            "startRight": [
+              -30100.0,
+              -34112.5
+            ]
+          },
+          "music_credit": "",
+          "author": "Nintendo"
+        }
+      ]
+    },
+    {
+      "name": "3DS Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "3DS Toad Circuit",
+          "course_id": 9,
+          "archive": "Race/Course/104.szs",
+          "models": "models/pulsar_track_105.list",
+          "sky": "models/pulsar_track_105_sky.list",
+          "laps": 3,
+          "music_stream_id": 0,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_104.t3x",
+            "overview": "textures/race_map_retro_104_overview.t3x",
+            "frame": [
+              -37207.915,
+              -29270.0,
+              30179.276,
+              38117.191
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -3869.234,
+              12160.0
+            ],
+            "startRight": [
+              644.858,
+              12160.0
+            ]
+          },
+          "music_credit": "Nintendo (MK8DX)",
+          "author": "Torran, Jaunn666"
+        },
+        {
+          "name": "3DS Daisy Hills",
+          "course_id": 1,
+          "archive": "Race/Course/105.szs",
+          "models": "models/pulsar_track_106.list",
+          "sky": "models/pulsar_track_106_sky.list",
+          "laps": 3,
+          "music_stream_id": 1,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_105.t3x",
+            "overview": "textures/race_map_retro_105_overview.t3x",
+            "frame": [
+              -50632.945,
+              -43207.461,
+              31785.594,
+              39211.078
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 68.4138,
+            "startLeft": [
+              20105.877,
+              432.394
+            ],
+            "startRight": [
+              22958.512,
+              437.887
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "ZPL"
+        },
+        {
+          "name": "3DS Cheep Cheep Lagoon",
+          "course_id": 15,
+          "archive": "Race/Course/106.szs",
+          "models": "models/pulsar_track_107.list",
+          "sky": "models/pulsar_track_107_sky.list",
+          "laps": 3,
+          "music_stream_id": 16,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_106.t3x",
+            "overview": "textures/race_map_retro_106_overview.t3x",
+            "frame": [
+              -38578.961,
+              -33466.312,
+              36715.336,
+              41827.984
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -28745.951,
+              14940.96
+            ],
+            "startRight": [
+              -25770.043,
+              14918.197
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL"
+        },
+        {
+          "name": "3DS Shy Guy Bazaar",
+          "course_id": 21,
+          "archive": "Race/Course/107.szs",
+          "models": "models/pulsar_track_108.list",
+          "sky": "models/pulsar_track_108_sky.list",
+          "laps": 3,
+          "music_stream_id": 21,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_107.t3x",
+            "overview": "textures/race_map_retro_107_overview.t3x",
+            "frame": [
+              -47801.963,
+              -56857.137,
+              59900.873,
+              50845.699
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 89.4018,
+            "startLeft": [
+              -20150.168,
+              21050.202
+            ],
+            "startRight": [
+              -17270.579,
+              21050.202
+            ]
+          },
+          "music_credit": "LUCKYRiCK",
+          "author": "ZPL, Skipper93653"
+        }
+      ]
+    },
+    {
+      "name": "3DS Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "3DS Wuhu Loop",
+          "course_id": 9,
+          "archive": "Race/Course/108.szs",
+          "models": "models/pulsar_track_109.list",
+          "sky": "models/pulsar_track_109_sky.list",
+          "laps": 1,
+          "music_stream_id": 9,
+          "lapCount": 1,
+          "minimap": {
+            "texture": "textures/race_map_retro_108.t3x",
+            "overview": "textures/race_map_retro_108_overview.t3x",
+            "frame": [
+              -128580.719,
+              -116729.445,
+              82970.758,
+              94822.031
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              -35846.013,
+              61272.959
+            ],
+            "startRight": [
+              -35870.793,
+              63825.124
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL"
+        },
+        {
+          "name": "3DS Mario Circuit",
+          "course_id": 0,
+          "archive": "Race/Course/109.szs",
+          "models": "models/pulsar_track_110.list",
+          "sky": "models/pulsar_track_110_sky.list",
+          "laps": 3,
+          "music_stream_id": 0,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_109.t3x",
+            "overview": "textures/race_map_retro_109_overview.t3x",
+            "frame": [
+              -39807.719,
+              -36115.729,
+              43157.25,
+              46849.239
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 68.8674,
+            "startLeft": [
+              3334.019,
+              -19920.151
+            ],
+            "startRight": [
+              3334.019,
+              -23201.9
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL, Bri"
+        },
+        {
+          "name": "3DS Music Park",
+          "course_id": 13,
+          "archive": "Race/Course/110.szs",
+          "models": "models/pulsar_track_111.list",
+          "sky": "models/pulsar_track_111_sky.list",
+          "laps": 3,
+          "music_stream_id": 34,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_110.t3x",
+            "overview": "textures/race_map_retro_110_overview.t3x",
+            "frame": [
+              -42522.699,
+              -41311.43,
+              43815.199,
+              45026.469
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 71.6672,
+            "startLeft": [
+              -4840.428,
+              -20178.795
+            ],
+            "startRight": [
+              -4840.428,
+              -16242.03
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "Atlas"
+        },
+        {
+          "name": "3DS Rock Rock Mountain",
+          "course_id": 9,
+          "archive": "Race/Course/111.szs",
+          "models": "models/pulsar_track_112.list",
+          "sky": "models/pulsar_track_112_sky.list",
+          "laps": 3,
+          "music_stream_id": 19,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_111.t3x",
+            "overview": "textures/race_map_retro_111_overview.t3x",
+            "frame": [
+              -46619.039,
+              -44354.859,
+              47098.199,
+              49362.379
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 77.7926,
+            "startLeft": [
+              -27382.026,
+              -6400.5
+            ],
+            "startRight": [
+              -23676.839,
+              -6400.5
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "3DS Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "3DS Piranha Plant Slide",
+          "course_id": 15,
+          "archive": "Race/Course/112.szs",
+          "models": "models/pulsar_track_113.list",
+          "sky": "models/pulsar_track_113_sky.list",
+          "laps": 3,
+          "music_stream_id": 16,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_112.t3x",
+            "overview": "textures/race_map_retro_112_overview.t3x",
+            "frame": [
+              -45593.41,
+              -48256.66,
+              51197.73,
+              48534.48
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 80.3442,
+            "startLeft": [
+              32887.833,
+              20814.67
+            ],
+            "startRight": [
+              35865.129,
+              20814.67
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "ZPL"
+        },
+        {
+          "name": "3DS Wario's Shipyard",
+          "course_id": 15,
+          "archive": "Race/Course/113.szs",
+          "models": "models/pulsar_track_114.list",
+          "sky": "models/pulsar_track_114_sky.list",
+          "laps": 3,
+          "music_stream_id": 7,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_113.t3x",
+            "overview": "textures/race_map_retro_113_overview.t3x",
+            "frame": [
+              -7820.349,
+              -26630.031,
+              78946.266,
+              60136.583
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 72.0231,
+            "startLeft": [
+              12113.1,
+              19017.965
+            ],
+            "startRight": [
+              12113.1,
+              22651.734
+            ]
+          },
+          "music_credit": "Id (No Purpose)",
+          "author": "ZPL, Skipper93653"
+        },
+        {
+          "name": "3DS Neo Bowser City",
+          "course_id": 0,
+          "archive": "Race/Course/114.szs",
+          "models": "models/pulsar_track_115.list",
+          "sky": "models/pulsar_track_115_sky.list",
+          "laps": 3,
+          "music_stream_id": 10,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_114.t3x",
+            "overview": "textures/race_map_retro_114_overview.t3x",
+            "frame": [
+              -37590.424,
+              -40363.609,
+              39602.514,
+              36829.328
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0762,
+            "startLeft": [
+              -2291.914,
+              4752.909
+            ],
+            "startRight": [
+              1136.382,
+              4741.778
+            ]
+          },
+          "music_credit": "Laz",
+          "author": "ZPL"
+        },
+        {
+          "name": "3DS Maka Wuhu",
+          "course_id": 9,
+          "archive": "Race/Course/115.szs",
+          "models": "models/pulsar_track_116.list",
+          "sky": "models/pulsar_track_116_sky.list",
+          "laps": 1,
+          "music_stream_id": 9,
+          "lapCount": 1,
+          "minimap": {
+            "texture": "textures/race_map_retro_115.t3x",
+            "overview": "textures/race_map_retro_115_overview.t3x",
+            "frame": [
+              -55631.32,
+              -97886.312,
+              149686.406,
+              107431.414
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              53126.91,
+              29337.791
+            ],
+            "startRight": [
+              53126.91,
+              26410.598
+            ]
+          },
+          "music_credit": "LUCKYRiCK",
+          "author": "FunkyDude15, Wexos"
+        }
+      ]
+    },
+    {
+      "name": "3DS Special Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "3DS DK Jungle",
+          "course_id": 29,
+          "archive": "Race/Course/116.szs",
+          "models": "models/pulsar_track_117.list",
+          "sky": "models/pulsar_track_117_sky.list",
+          "laps": 3,
+          "music_stream_id": 29,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_116.t3x",
+            "overview": "textures/race_map_retro_116_overview.t3x",
+            "frame": [
+              -54548.949,
+              -42859.485,
+              55264.141,
+              66953.604
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 91.1534,
+            "startLeft": [
+              26150.0,
+              -9767.278
+            ],
+            "startRight": [
+              26150.0,
+              -12721.578
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL"
+        },
+        {
+          "name": "3DS Rosalina's Ice World",
+          "course_id": 27,
+          "archive": "Race/Course/117.szs",
+          "models": "models/pulsar_track_118.list",
+          "sky": "models/pulsar_track_118_sky.list",
+          "laps": 3,
+          "music_stream_id": 27,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_117.t3x",
+            "overview": "textures/race_map_retro_117_overview.t3x",
+            "frame": [
+              -79561.898,
+              -52233.903,
+              18054.34,
+              45382.335
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 81.0291,
+            "startLeft": [
+              -12295.413,
+              1803.763
+            ],
+            "startRight": [
+              -9440.459,
+              1730.58
+            ]
+          },
+          "music_credit": "JoshhMarshh",
+          "author": "SquireTurnbolt, Jaunn666"
+        },
+        {
+          "name": "3DS Bowser's Castle",
+          "course_id": 30,
+          "archive": "Race/Course/118.szs",
+          "models": "models/pulsar_track_119.list",
+          "sky": "models/pulsar_track_119_sky.list",
+          "laps": 3,
+          "music_stream_id": 28,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_118.t3x",
+            "overview": "textures/race_map_retro_118_overview.t3x",
+            "frame": [
+              -58907.066,
+              -62625.66,
+              57512.055,
+              53793.461
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 96.637,
+            "startLeft": [
+              18223.573,
+              16219.973
+            ],
+            "startRight": [
+              22097.527,
+              15215.449
+            ]
+          },
+          "music_credit": "Nah Tony",
+          "author": "ZPL"
+        },
+        {
+          "name": "3DS Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/119.szs",
+          "models": "models/pulsar_track_120.list",
+          "sky": "models/pulsar_track_120_sky.list",
+          "laps": 1,
+          "music_stream_id": 13,
+          "lapCount": 1,
+          "minimap": {
+            "texture": "textures/race_map_retro_119.t3x",
+            "overview": "textures/race_map_retro_119_overview.t3x",
+            "frame": [
+              -35677.84,
+              -56003.9,
+              96989.094,
+              76663.033
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              3052.364,
+              -40801.782
+            ],
+            "startRight": [
+              3977.492,
+              -37762.207
+            ]
+          },
+          "music_credit": "Panman Music",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "Wii U Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii U Mario Kart Stadium",
+          "course_id": 0,
+          "archive": "Race/Course/uMKS.szs",
+          "models": "models/pulsar_track_121.list",
+          "sky": "models/pulsar_track_121_sky.list",
+          "laps": 3,
+          "music_stream_id": 0,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_120.t3x",
+            "overview": "textures/race_map_retro_120_overview.t3x",
+            "frame": [
+              -48601.449,
+              -42915.215,
+              35661.57,
+              41347.805
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 69.9449,
+            "startLeft": [
+              -1656.547,
+              14.677
+            ],
+            "startRight": [
+              1634.527,
+              14.677
+            ]
+          },
+          "music_credit": "BadHairlineProductions",
+          "author": "ZPL"
+        },
+        {
+          "name": "Wii U Water Park",
+          "course_id": 15,
+          "archive": "Race/Course/uWP.szs",
+          "models": "models/pulsar_track_122.list",
+          "sky": "models/pulsar_track_122_sky.list",
+          "laps": 3,
+          "music_stream_id": 15,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_121.t3x",
+            "overview": "textures/race_map_retro_121_overview.t3x",
+            "frame": [
+              -51885.603,
+              -52912.34,
+              53568.206,
+              52541.469
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 87.5349,
+            "startLeft": [
+              -16737.77,
+              -7626.227
+            ],
+            "startRight": [
+              -13610.639,
+              -7620.723
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ISwearChris"
+        },
+        {
+          "name": "Wii U Sweet Sweet Canyon",
+          "course_id": 0,
+          "archive": "Race/Course/uSSC.szs",
+          "models": "models/pulsar_track_123.list",
+          "sky": "models/pulsar_track_123_sky.list",
+          "laps": 3,
+          "music_stream_id": 37,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_122.t3x",
+            "overview": "textures/race_map_retro_122_overview.t3x",
+            "frame": [
+              -55647.537,
+              -47630.156,
+              48795.51,
+              56812.891
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 86.6959,
+            "startLeft": [
+              20638.226,
+              19413.179
+            ],
+            "startRight": [
+              23553.796,
+              18808.564
+            ]
+          },
+          "music_credit": "Isana Remix",
+          "author": "ISwearChris"
+        },
+        {
+          "name": "Wii U Thwomp Ruins",
+          "course_id": 6,
+          "archive": "Race/Course/uTR.szs",
+          "models": "models/pulsar_track_124.list",
+          "sky": "models/pulsar_track_124_sky.list",
+          "laps": 3,
+          "music_stream_id": 6,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_123.t3x",
+            "overview": "textures/race_map_retro_123_overview.t3x",
+            "frame": [
+              -67791.649,
+              -50700.023,
+              30559.737,
+              47651.363
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 81.6393,
+            "startLeft": [
+              -1702.502,
+              -4979.183
+            ],
+            "startRight": [
+              1650.887,
+              -4981.622
+            ]
+          },
+          "music_credit": "Alory",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "Wii U Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii U Mario Circuit",
+          "course_id": 23,
+          "archive": "Race/Course/uMC.szs",
+          "models": "models/pulsar_track_125.list",
+          "sky": "models/pulsar_track_125_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_124.t3x",
+            "overview": "textures/race_map_retro_124_overview.t3x",
+            "frame": [
+              -30846.105,
+              -26439.707,
+              28950.596,
+              33356.994
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -1675.284,
+              -2767.086
+            ],
+            "startRight": [
+              1451.963,
+              -2914.52
+            ]
+          },
+          "music_credit": "Isana Remix",
+          "author": "ZPL"
+        },
+        {
+          "name": "Wii U Toad Harbor",
+          "course_id": 23,
+          "archive": "Race/Course/uTH.szs",
+          "models": "models/pulsar_track_126.list",
+          "sky": "models/pulsar_track_126_sky.list",
+          "laps": 3,
+          "music_stream_id": 23,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_125.t3x",
+            "overview": "textures/race_map_retro_125_overview.t3x",
+            "frame": [
+              -41044.801,
+              -46679.277,
+              48953.961,
+              43319.484
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 74.706,
+            "startLeft": [
+              -13871.543,
+              31522.804
+            ],
+            "startRight": [
+              -13480.977,
+              27333.464
+            ]
+          },
+          "music_credit": "Isana Remix",
+          "author": "ZPL"
+        },
+        {
+          "name": "Wii U Twisted Mansion",
+          "course_id": 25,
+          "archive": "Race/Course/uTM.szs",
+          "models": "models/pulsar_track_127.list",
+          "sky": "models/pulsar_track_127_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_126.t3x",
+            "overview": "textures/race_map_retro_126_overview.t3x",
+            "frame": [
+              -59882.062,
+              -73913.029,
+              15467.385,
+              76785.865
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              -16105.985,
+              20211.394
+            ],
+            "startRight": [
+              -12405.72,
+              20154.294
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ISwearChris"
+        },
+        {
+          "name": "Wii U Sunshine Airport",
+          "course_id": 9,
+          "archive": "Race/Course/uSSA.szs",
+          "models": "models/pulsar_track_128.list",
+          "sky": "models/pulsar_track_128_sky.list",
+          "laps": 3,
+          "music_stream_id": 8,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_127.t3x",
+            "overview": "textures/race_map_retro_127_overview.t3x",
+            "frame": [
+              -79525.984,
+              -4575.177,
+              -12567.369,
+              129342.054
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              -35136.206,
+              35586.283
+            ],
+            "startRight": [
+              -31562.159,
+              35670.922
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Iggy Ze Koopa"
+        }
+      ]
+    },
+    {
+      "name": "Wii U Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii U Electrodrome",
+          "course_id": 9,
+          "archive": "Race/Course/uE.szs",
+          "models": "models/pulsar_track_129.list",
+          "sky": "models/pulsar_track_129_sky.list",
+          "laps": 3,
+          "music_stream_id": 34,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_128.t3x",
+            "overview": "textures/race_map_retro_128_overview.t3x",
+            "frame": [
+              -40551.635,
+              -33232.449,
+              29013.564,
+              36332.75
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -12947.031,
+              -15251.129
+            ],
+            "startRight": [
+              -17790.641,
+              -14784.586
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "SquireTurnbolt"
+        },
+        {
+          "name": "Wii U Cloudtop Cruise",
+          "course_id": 2,
+          "archive": "Race/Course/uCC.szs",
+          "models": "models/pulsar_track_130.list",
+          "sky": "models/pulsar_track_130_sky.list",
+          "laps": 3,
+          "music_stream_id": 2,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_129.t3x",
+            "overview": "textures/race_map_retro_129_overview.t3x",
+            "frame": [
+              -56899.797,
+              -43735.816,
+              49621.984,
+              62785.965
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 88.4214,
+            "startLeft": [
+              3196.717,
+              -8215.855
+            ],
+            "startRight": [
+              2625.4,
+              -4416.588
+            ]
+          },
+          "music_credit": "Nintendo (MK8)",
+          "author": "ZPL"
+        },
+        {
+          "name": "Wii U Bone-Dry Dunes",
+          "course_id": 21,
+          "archive": "Race/Course/uBDD.szs",
+          "models": "models/pulsar_track_131.list",
+          "sky": "models/pulsar_track_131_sky.list",
+          "laps": 3,
+          "music_stream_id": 21,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_130.t3x",
+            "overview": "textures/race_map_retro_130_overview.t3x",
+            "frame": [
+              -33045.844,
+              -47799.809,
+              52364.715,
+              37610.75
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 70.8974,
+            "startLeft": [
+              -107.726,
+              11084.978
+            ],
+            "startRight": [
+              429.265,
+              9284.497
+            ]
+          },
+          "music_credit": "Isana Remix",
+          "author": "Luca"
+        },
+        {
+          "name": "Wii U Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/uRR.szs",
+          "models": "models/pulsar_track_132.list",
+          "sky": "models/pulsar_track_132_sky.list",
+          "laps": 3,
+          "music_stream_id": 13,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_131.t3x",
+            "overview": "textures/race_map_retro_131_overview.t3x",
+            "frame": [
+              -44326.875,
+              -35647.049,
+              33972.338,
+              42652.164
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.9945,
+            "startLeft": [
+              -29490.854,
+              8201.563
+            ],
+            "startRight": [
+              -26040.142,
+              8198.702
+            ]
+          },
+          "music_credit": "Neon X Game Remixes",
+          "author": "Squadaloo"
+        }
+      ]
+    },
+    {
+      "name": "Wii U Egg Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii U Excitebike Arena",
+          "course_id": 0,
+          "archive": "Race/Course/uEA.szs",
+          "models": "models/pulsar_track_133.list",
+          "sky": "models/pulsar_track_133_sky.list",
+          "laps": 3,
+          "music_stream_id": 0,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_132.t3x",
+            "overview": "textures/race_map_retro_132_overview.t3x",
+            "frame": [
+              -20737.723,
+              -43029.539,
+              22506.029,
+              43457.965
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 71.7914,
+            "startLeft": [
+              -6440.014,
+              6411.308
+            ],
+            "startRight": [
+              -3064.07,
+              6430.526
+            ]
+          },
+          "music_credit": "Arathrum",
+          "author": "ZPL"
+        },
+        {
+          "name": "Wii U Dragon Driftway",
+          "course_id": 20,
+          "archive": "Race/Course/uDD.szs",
+          "models": "models/pulsar_track_134.list",
+          "sky": "models/pulsar_track_134_sky.list",
+          "laps": 3,
+          "music_stream_id": 20,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_133.t3x",
+            "overview": "textures/race_map_retro_133_overview.t3x",
+            "frame": [
+              -37309.137,
+              -52429.711,
+              44929.129,
+              29808.555
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 68.2642,
+            "startLeft": [
+              -1597.5,
+              5454.868
+            ],
+            "startRight": [
+              1609.632,
+              5433.629
+            ]
+          },
+          "music_credit": "Johx",
+          "author": "ZPL"
+        },
+        {
+          "name": "Wii U Mute City",
+          "course_id": 8,
+          "archive": "Race/Course/uMuC.szs",
+          "models": "models/pulsar_track_135.list",
+          "sky": "models/pulsar_track_135_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_134.t3x",
+            "overview": "textures/race_map_retro_134_overview.t3x",
+            "frame": [
+              -25427.109,
+              -54918.939,
+              36855.02,
+              69645.318
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 103.3981,
+            "startLeft": [
+              1316.087,
+              -15671.78
+            ],
+            "startRight": [
+              5071.175,
+              -15671.78
+            ]
+          },
+          "music_credit": "Nintendo (MK8)",
+          "author": "Cal"
+        },
+        {
+          "name": "Wii U Hyrule Circuit",
+          "course_id": 8,
+          "archive": "Race/Course/uHC.szs",
+          "models": "models/pulsar_track_136.list",
+          "sky": "models/pulsar_track_136_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_135.t3x",
+            "overview": "textures/race_map_retro_135_overview.t3x",
+            "frame": [
+              -46254.393,
+              -36349.301,
+              28150.678,
+              38055.77
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -14700.194,
+              14466.281
+            ],
+            "startRight": [
+              -11146.721,
+              15053.581
+            ]
+          },
+          "music_credit": "Nintendo (MK8)",
+          "author": "Ermelber, ZPL"
+        }
+      ]
+    },
+    {
+      "name": "Wii U Crossing Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Wii U Wild Woods",
+          "course_id": 11,
+          "archive": "Race/Course/uWW.szs",
+          "models": "models/pulsar_track_137.list",
+          "sky": "models/pulsar_track_137_sky.list",
+          "laps": 3,
+          "music_stream_id": 11,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_136.t3x",
+            "overview": "textures/race_map_retro_136_overview.t3x",
+            "frame": [
+              -53225.988,
+              -82794.666,
+              52993.262,
+              23424.584
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 88.1703,
+            "startLeft": [
+              -24669.499,
+              -51286.232
+            ],
+            "startRight": [
+              -20217.253,
+              -51139.66
+            ]
+          },
+          "music_credit": "Johx",
+          "author": "ISwearChris"
+        },
+        {
+          "name": "Wii U Animal Crossing",
+          "course_id": 17,
+          "archive": "Race/Course/uAC.szs",
+          "models": "models/pulsar_track_138.list",
+          "sky": "models/pulsar_track_138_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_137.t3x",
+            "overview": "textures/race_map_retro_137_overview.t3x",
+            "frame": [
+              -26991.15,
+              -40190.751,
+              64080.98,
+              50881.38
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 75.597,
+            "startLeft": [
+              18896.679,
+              -8968.466
+            ],
+            "startRight": [
+              18600.86,
+              -5326.599
+            ]
+          },
+          "music_credit": "ClefferNotes",
+          "author": "ZPL"
+        },
+        {
+          "name": "Wii U Super Bell Subway",
+          "course_id": 5,
+          "archive": "Race/Course/uSS.szs",
+          "models": "models/pulsar_track_139.list",
+          "sky": "models/pulsar_track_139_sky.list",
+          "laps": 3,
+          "music_stream_id": 5,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_138.t3x",
+            "overview": "textures/race_map_retro_138_overview.t3x",
+            "frame": [
+              -37255.051,
+              -41852.176,
+              39857.77,
+              35260.645
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0097,
+            "startLeft": [
+              -6014.124,
+              16005.103
+            ],
+            "startRight": [
+              -6083.203,
+              19132.795
+            ]
+          },
+          "music_credit": "Isana Remix",
+          "author": "ISwearChris"
+        },
+        {
+          "name": "Wii U Big Blue",
+          "course_id": 15,
+          "archive": "Race/Course/uBB.szs",
+          "models": "models/pulsar_track_140.list",
+          "sky": "models/pulsar_track_140_sky.list",
+          "laps": 2,
+          "music_stream_id": 15,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_139.t3x",
+            "overview": "textures/race_map_retro_139_overview.t3x",
+            "frame": [
+              -75498.375,
+              -38554.124,
+              20369.309,
+              57313.56
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 79.5777,
+            "startLeft": [
+              -25882.91,
+              11220.219
+            ],
+            "startRight": [
+              -25881.803,
+              7678.254
+            ]
+          },
+          "music_credit": "Nintendo (MK8)",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "Tour Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SW Sky-High Sundae",
+          "course_id": 6,
+          "archive": "Race/Course/swSHS.szs",
+          "models": "models/pulsar_track_141.list",
+          "sky": "models/pulsar_track_141_sky.list",
+          "laps": 3,
+          "music_stream_id": 6,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_140.t3x",
+            "overview": "textures/race_map_retro_140_overview.t3x",
+            "frame": [
+              -33777.972,
+              -47522.242,
+              23384.838,
+              66803.379
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 94.8992,
+            "startLeft": [
+              687.061,
+              16530.039
+            ],
+            "startRight": [
+              6661.703,
+              16596.191
+            ]
+          },
+          "music_credit": "Joel Armishaw",
+          "author": "ZPL"
+        },
+        {
+          "name": "Tour Ninja Hideaway",
+          "course_id": 24,
+          "archive": "Race/Course/tNH.szs",
+          "models": "models/pulsar_track_142.list",
+          "sky": "models/pulsar_track_142_sky.list",
+          "laps": 3,
+          "music_stream_id": 41,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_141.t3x",
+            "overview": "textures/race_map_retro_141_overview.t3x",
+            "frame": [
+              -19692.446,
+              -51070.023,
+              63063.681,
+              31686.104
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 68.6941,
+            "startLeft": [
+              26652.555,
+              -4667.148
+            ],
+            "startRight": [
+              30331.772,
+              -4667.273
+            ]
+          },
+          "music_credit": "Isana Remix",
+          "author": "Iggy Ze Koopa"
+        },
+        {
+          "name": "Tour Vancouver Velocity",
+          "course_id": 10,
+          "archive": "Race/Course/tVV.szs",
+          "models": "models/pulsar_track_143.list",
+          "sky": "models/pulsar_track_143_sky.list",
+          "laps": 3,
+          "music_stream_id": 10,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_142.t3x",
+            "overview": "textures/race_map_retro_142_overview.t3x",
+            "frame": [
+              -57872.566,
+              -54434.23,
+              50481.344,
+              53919.68
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 89.9422,
+            "startLeft": [
+              -23997.03,
+              11900.0
+            ],
+            "startRight": [
+              -20818.937,
+              11900.0
+            ]
+          },
+          "music_credit": "Nintendo (MK8DX)",
+          "author": "Iggy Ze Koopa, SeaOfPixels"
+        },
+        {
+          "name": "Tour Singapore Speedway",
+          "course_id": 10,
+          "archive": "Race/Course/tSingS.szs",
+          "models": "models/pulsar_track_144.list",
+          "sky": "models/pulsar_track_144_sky.list",
+          "laps": 3,
+          "music_stream_id": 10,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_143.t3x",
+            "overview": "textures/race_map_retro_143_overview.t3x",
+            "frame": [
+              -45529.0,
+              -49144.645,
+              54463.516,
+              50847.871
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 83.0016,
+            "startLeft": [
+              -12110.775,
+              20369.746
+            ],
+            "startRight": [
+              -12062.847,
+              23654.906
+            ]
+          },
+          "music_credit": "Nintendo (MK8DX)",
+          "author": "FunkyRacer"
+        }
+      ]
+    },
+    {
+      "name": "Tour Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "Tour Athens Dash",
+          "course_id": 0,
+          "archive": "Race/Course/tAD.szs",
+          "models": "models/pulsar_track_145.list",
+          "sky": "models/pulsar_track_145_sky.list",
+          "laps": 1,
+          "music_stream_id": 0,
+          "lapCount": 1,
+          "minimap": {
+            "texture": "textures/race_map_retro_144.t3x",
+            "overview": "textures/race_map_retro_144_overview.t3x",
+            "frame": [
+              -71275.322,
+              -66543.98,
+              59303.639,
+              64034.98
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 108.3907,
+            "startLeft": [
+              5028.756,
+              15404.75
+            ],
+            "startRight": [
+              5947.055,
+              -5450.981
+            ]
+          },
+          "music_credit": "Deloof Teg Orb",
+          "author": "ISwearChris"
+        },
+        {
+          "name": "Tour Madrid Drive",
+          "course_id": 9,
+          "archive": "Race/Course/tMD.szs",
+          "models": "models/pulsar_track_146.list",
+          "sky": "models/pulsar_track_146_sky.list",
+          "laps": 3,
+          "music_stream_id": 26,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_145.t3x",
+            "overview": "textures/race_map_retro_145_overview.t3x",
+            "frame": [
+              -64579.17,
+              -54928.871,
+              59150.42,
+              68800.719
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 102.7052,
+            "startLeft": [
+              -9883.41,
+              11122.229
+            ],
+            "startRight": [
+              -9824.757,
+              8536.74
+            ]
+          },
+          "music_credit": "Katsumaru P",
+          "author": "Funky Racer"
+        },
+        {
+          "name": "RMX Mario Circuit 1",
+          "course_id": 24,
+          "archive": "Race/Course/rMC1.szs",
+          "models": "models/pulsar_track_147.list",
+          "sky": "models/pulsar_track_147_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_146.t3x",
+            "overview": "textures/race_map_retro_146_overview.t3x",
+            "frame": [
+              -38273.885,
+              -39125.5,
+              40543.467,
+              39691.852
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 65.4246,
+            "startLeft": [
+              -13449.735,
+              -15128.145
+            ],
+            "startRight": [
+              -9847.72,
+              -15129.328
+            ]
+          },
+          "music_credit": "Nintendo (SSBB)",
+          "author": "ZPL"
+        },
+        {
+          "name": "RMX Choco Island 1",
+          "course_id": 24,
+          "archive": "Race/Course/rCI1.szs",
+          "models": "models/pulsar_track_148.list",
+          "sky": "models/pulsar_track_148_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_147.t3x",
+            "overview": "textures/race_map_retro_147_overview.t3x",
+            "frame": [
+              -32679.323,
+              -29494.678,
+              31383.565,
+              34568.211
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              18591.788,
+              -2505.173
+            ],
+            "startRight": [
+              21818.692,
+              -2492.082
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL"
+        }
+      ]
+    },
+    {
+      "name": "RMX Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "RMX Choco Island 2",
+          "course_id": 24,
+          "archive": "Race/Course/rCI2.szs",
+          "models": "models/pulsar_track_149.list",
+          "sky": "models/pulsar_track_149_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_148.t3x",
+            "overview": "textures/race_map_retro_148_overview.t3x",
+            "frame": [
+              -53874.047,
+              -29884.504,
+              27339.098,
+              51328.641
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 67.4133,
+            "startLeft": [
+              -6031.801,
+              9050.966
+            ],
+            "startRight": [
+              -2555.017,
+              9147.963
+            ]
+          },
+          "music_credit": "DT Music",
+          "author": "Kozakura"
+        },
+        {
+          "name": "RMX Rainbow Road 1",
+          "course_id": 13,
+          "archive": "Race/Course/rRR1.szs",
+          "models": "models/pulsar_track_150.list",
+          "sky": "models/pulsar_track_150_sky.list",
+          "laps": 3,
+          "music_stream_id": 13,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_149.t3x",
+            "overview": "textures/race_map_retro_149_overview.t3x",
+            "frame": [
+              -39268.566,
+              -34291.199,
+              35280.875,
+              40258.242
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              16995.172,
+              -9357.959
+            ],
+            "startRight": [
+              19671.713,
+              -9342.307
+            ]
+          },
+          "music_credit": "Lucasberry Records",
+          "author": "Luca, Kozakura"
+        },
+        {
+          "name": "RMX Rainbow Road 2",
+          "course_id": 13,
+          "archive": "Race/Course/rRR2.szs",
+          "models": "models/pulsar_track_151.list",
+          "sky": "models/pulsar_track_151_sky.list",
+          "laps": 3,
+          "music_stream_id": 13,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_150.t3x",
+            "overview": "textures/race_map_retro_150_overview.t3x",
+            "frame": [
+              -39355.236,
+              -40857.578,
+              39712.564,
+              38210.223
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 65.6325,
+            "startLeft": [
+              -30832.372,
+              -1500.0
+            ],
+            "startRight": [
+              -28076.009,
+              -1500.0
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "ZPL"
+        },
+        {
+          "name": "RMX Vanilla Lake 1",
+          "course_id": 27,
+          "archive": "Race/Course/rVL1.szs",
+          "models": "models/pulsar_track_152.list",
+          "sky": "models/pulsar_track_152_sky.list",
+          "laps": 3,
+          "music_stream_id": 27,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_151.t3x",
+            "overview": "textures/race_map_retro_151_overview.t3x",
+            "frame": [
+              -36013.904,
+              -30781.779,
+              39037.309,
+              44269.434
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -11813.04,
+              21490.628
+            ],
+            "startRight": [
+              -7813.03,
+              21462.797
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "Cal"
+        }
+      ]
+    },
+    {
+      "name": "RMX Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "RMX Vanilla Lake 2",
+          "course_id": 27,
+          "archive": "Race/Course/rVL2.szs",
+          "models": "models/pulsar_track_153.list",
+          "sky": "models/pulsar_track_153_sky.list",
+          "laps": 3,
+          "music_stream_id": 27,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_152.t3x",
+            "overview": "textures/race_map_retro_152_overview.t3x",
+            "frame": [
+              -33282.641,
+              -54252.515,
+              47976.699,
+              27006.825
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 67.4516,
+            "startLeft": [
+              -1701.667,
+              -4875.208
+            ],
+            "startRight": [
+              1702.621,
+              -4889.561
+            ]
+          },
+          "music_credit": "Paulygon",
+          "author": "ZPL"
+        },
+        {
+          "name": "RMX Ghost Valley 1",
+          "course_id": 25,
+          "archive": "Race/Course/rGV1.szs",
+          "models": "models/pulsar_track_154.list",
+          "sky": "models/pulsar_track_154_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_153.t3x",
+            "overview": "textures/race_map_retro_153_overview.t3x",
+            "frame": [
+              -36161.696,
+              -31145.184,
+              23550.882,
+              28567.395
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              22.725,
+              -302.732
+            ],
+            "startRight": [
+              3825.533,
+              -290.654
+            ]
+          },
+          "music_credit": "DT Music",
+          "author": "Kozakura"
+        },
+        {
+          "name": "RMX Bowser Castle 1",
+          "course_id": 30,
+          "archive": "Race/Course/rBC1.szs",
+          "models": "models/pulsar_track_004.list",
+          "sky": "models/pulsar_track_004_sky.list",
+          "laps": 3,
+          "music_stream_id": 30,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_154.t3x",
+            "overview": "textures/race_map_retro_154_overview.t3x",
+            "frame": [
+              -30488.066,
+              -25151.786,
+              25973.686,
+              31309.966
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              2908.73,
+              -3749.89
+            ],
+            "startRight": [
+              5872.656,
+              -3749.721
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL"
+        },
+        {
+          "name": "RMX Donut Plains 1",
+          "course_id": 17,
+          "archive": "Race/Course/rDP1.szs",
+          "models": "models/pulsar_track_156.list",
+          "sky": "models/pulsar_track_156_sky.list",
+          "laps": 3,
+          "music_stream_id": 24,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_155.t3x",
+            "overview": "textures/race_map_retro_155_overview.t3x",
+            "frame": [
+              -37205.6,
+              -27709.289,
+              31415.15,
+              40911.461
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -18423.174,
+              -3564.733
+            ],
+            "startRight": [
+              -15045.407,
+              -3577.819
+            ]
+          },
+          "music_credit": "DT Music",
+          "author": "Luca"
+        }
+      ]
+    },
+    {
+      "name": "Arcade GP Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "GP Bananan Ruins",
+          "course_id": 29,
+          "archive": "Race/Course/gpBR.szs",
+          "models": "models/pulsar_track_157.list",
+          "sky": "models/pulsar_track_157_sky.list",
+          "laps": 3,
+          "music_stream_id": 29,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_156.t3x",
+            "overview": "textures/race_map_retro_156_overview.t3x",
+            "frame": [
+              -64783.77,
+              -45453.459,
+              13310.97,
+              32641.28
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.8247,
+            "startLeft": [
+              -4001.177,
+              3828.213
+            ],
+            "startRight": [
+              -1335.565,
+              3828.213
+            ]
+          },
+          "music_credit": "Bandai Namco",
+          "author": "Dylanmario"
+        },
+        {
+          "name": "GP Diamond City",
+          "course_id": 6,
+          "archive": "Race/Course/gpDC.szs",
+          "models": "models/pulsar_track_158.list",
+          "sky": "models/pulsar_track_158_sky.list",
+          "laps": 4,
+          "music_stream_id": 27,
+          "lapCount": 4,
+          "minimap": {
+            "texture": "textures/race_map_retro_157.t3x",
+            "overview": "textures/race_map_retro_157_overview.t3x",
+            "frame": [
+              -27975.72,
+              -59927.219,
+              58104.38,
+              26152.881
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 71.4532,
+            "startLeft": [
+              -1160.752,
+              -5212.264
+            ],
+            "startRight": [
+              1165.827,
+              -5212.264
+            ]
+          },
+          "music_credit": "Bandai Namco",
+          "author": "Iggy Ze Koopa"
+        },
+        {
+          "name": "GP Bowser's Castle",
+          "course_id": 30,
+          "archive": "Race/Course/gpBC.szs",
+          "models": "models/pulsar_track_159.list",
+          "sky": "models/pulsar_track_159_sky.list",
+          "laps": 3,
+          "music_stream_id": 28,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_158.t3x",
+            "overview": "textures/race_map_retro_158_overview.t3x",
+            "frame": [
+              -50274.062,
+              -64799.551,
+              64233.336,
+              49707.848
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 95.0501,
+            "startLeft": [
+              -16772.221,
+              11818.318
+            ],
+            "startRight": [
+              -12895.442,
+              11849.893
+            ]
+          },
+          "music_credit": "Bandai Namco",
+          "author": "LuigiTime202, ISwearChris"
+        },
+        {
+          "name": "SW2 Mario Bros Circuit",
+          "course_id": 17,
+          "archive": "Race/Course/sw2MBC.szs",
+          "models": "models/pulsar_track_160.list",
+          "sky": "models/pulsar_track_160_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_159.t3x",
+            "overview": "textures/race_map_retro_159_overview.t3x",
+            "frame": [
+              -36625.685,
+              -36428.949,
+              33648.554,
+              33845.289
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              15370.125,
+              -9671.496
+            ],
+            "startRight": [
+              19278.838,
+              -9701.794
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Iggy Ze Koopa, SeaOfPixels"
+        }
+      ]
+    },
+    {
+      "name": "Switch 2 Mushroom Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SW2 Crown City",
+          "course_id": 0,
+          "archive": "Race/Course/sw2CC.szs",
+          "models": "models/pulsar_track_161.list",
+          "sky": "models/pulsar_track_161_sky.list",
+          "laps": 3,
+          "music_stream_id": 10,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_160.t3x",
+            "overview": "textures/race_map_retro_160_overview.t3x",
+            "frame": [
+              -26505.337,
+              -64062.441,
+              29178.229,
+              47304.691
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 92.4434,
+            "startLeft": [
+              -6591.47,
+              -30078.232
+            ],
+            "startRight": [
+              3238.199,
+              -30096.032
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Iggy Ze Koopa, ZPL, SeaOfPixels"
+        },
+        {
+          "name": "SW2 Whistlestop Summit",
+          "course_id": 7,
+          "archive": "Race/Course/sw2WS.szs",
+          "models": "models/pulsar_track_162.list",
+          "sky": "models/pulsar_track_162_sky.list",
+          "laps": 3,
+          "music_stream_id": 7,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_161.t3x",
+            "overview": "textures/race_map_retro_161_overview.t3x",
+            "frame": [
+              -50611.456,
+              -61036.516,
+              39364.263,
+              28939.203
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 74.6869,
+            "startLeft": [
+              -2715.941,
+              -2357.88
+            ],
+            "startRight": [
+              1640.801,
+              -2332.101
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Outlaw Runner"
+        },
+        {
+          "name": "SW2 DK Spaceport",
+          "course_id": 8,
+          "archive": "Race/Course/sw2DKS.szs",
+          "models": "models/pulsar_track_163.list",
+          "sky": "models/pulsar_track_163_sky.list",
+          "laps": 1,
+          "music_stream_id": 8,
+          "lapCount": 1,
+          "minimap": {
+            "texture": "textures/race_map_retro_162.t3x",
+            "overview": "textures/race_map_retro_162_overview.t3x",
+            "frame": [
+              -79734.961,
+              -72249.785,
+              47438.809,
+              54923.984
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 105.5642,
+            "startLeft": [
+              34574.544,
+              -7825.25
+            ],
+            "startRight": [
+              38428.88,
+              -7825.25
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "JealCat, Iggy Ze Koopa"
+        },
+        {
+          "name": "SW2 Faraway Oasis",
+          "course_id": 29,
+          "archive": "Race/Course/sw2FO.szs",
+          "models": "models/pulsar_track_164.list",
+          "sky": "models/pulsar_track_164_sky.list",
+          "laps": 3,
+          "music_stream_id": 29,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_163.t3x",
+            "overview": "textures/race_map_retro_163_overview.t3x",
+            "frame": [
+              -43189.295,
+              -44527.051,
+              45873.396,
+              44535.641
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 73.929,
+            "startLeft": [
+              4315.659,
+              24659.28
+            ],
+            "startRight": [
+              8044.625,
+              24653.399
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Iggy Ze Koopa, ZPL, SeaOfPixels"
+        }
+      ]
+    },
+    {
+      "name": "Switch 2 Flower Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SW2 Peach Resort",
+          "course_id": 16,
+          "archive": "Race/Course/sw2PR.szs",
+          "models": "models/pulsar_track_165.list",
+          "sky": "models/pulsar_track_165_sky.list",
+          "laps": 2,
+          "music_stream_id": 16,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_164.t3x",
+            "overview": "textures/race_map_retro_164_overview.t3x",
+            "frame": [
+              -48841.164,
+              -96556.23,
+              47947.898,
+              97021.895
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              288.385,
+              -9644.125
+            ],
+            "startRight": [
+              9022.965,
+              -9673.446
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "JealCat, Iggy Ze Koopa, SeaOfPixels"
+        },
+        {
+          "name": "SW2 Great ? Block Ruins",
+          "course_id": 2,
+          "archive": "Race/Course/sw2QBR.szs",
+          "models": "models/pulsar_track_166.list",
+          "sky": "models/pulsar_track_166_sky.list",
+          "laps": 3,
+          "music_stream_id": 2,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_165.t3x",
+            "overview": "textures/race_map_retro_165_overview.t3x",
+            "frame": [
+              -25813.471,
+              -42958.199,
+              29179.643,
+              67028.027
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 91.2972,
+            "startLeft": [
+              4146.498,
+              2142.572
+            ],
+            "startRight": [
+              6422.185,
+              2155.255
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Fuffina"
+        },
+        {
+          "name": "SW2 Cheep Cheep Falls",
+          "course_id": 11,
+          "archive": "Race/Course/sw2CCF.szs",
+          "models": "models/pulsar_track_167.list",
+          "sky": "models/pulsar_track_167_sky.list",
+          "laps": 3,
+          "music_stream_id": 11,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_166.t3x",
+            "overview": "textures/race_map_retro_166_overview.t3x",
+            "frame": [
+              -43738.008,
+              -38960.594,
+              43680.258,
+              48457.672
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 72.564,
+            "startLeft": [
+              -6688.585,
+              9934.095
+            ],
+            "startRight": [
+              -3312.06,
+              9979.128
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Iggy Ze Koopa, JealCat, SeaOfPixels"
+        },
+        {
+          "name": "SW2 Dandelion Depths",
+          "course_id": 15,
+          "archive": "Race/Course/sw2DD.szs",
+          "models": "models/pulsar_track_168.list",
+          "sky": "models/pulsar_track_168_sky.list",
+          "laps": 3,
+          "music_stream_id": 15,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_167.t3x",
+            "overview": "textures/race_map_retro_167_overview.t3x",
+            "frame": [
+              -45233.316,
+              -50727.079,
+              43827.68,
+              38333.917
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 73.9276,
+            "startLeft": [
+              -29881.205,
+              6730.708
+            ],
+            "startRight": [
+              -25825.774,
+              6459.004
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Iggy Ze Koopa, SeaOfPixels"
+        }
+      ]
+    },
+    {
+      "name": "Switch 2 Star Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SW2 Boo Cinema",
+          "course_id": 15,
+          "archive": "Race/Course/sw2BooC.szs",
+          "models": "models/pulsar_track_169.list",
+          "sky": "models/pulsar_track_169_sky.list",
+          "laps": 3,
+          "music_stream_id": 25,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_168.t3x",
+            "overview": "textures/race_map_retro_168_overview.t3x",
+            "frame": [
+              -8807.118,
+              -36201.254,
+              61714.043,
+              34319.907
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -1720.04,
+              -774.72
+            ],
+            "startRight": [
+              1770.732,
+              -826.129
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL, SeaOfPixels"
+        },
+        {
+          "name": "SW2 Ghost Valley",
+          "course_id": 15,
+          "archive": "Race/Course/sw2GV.szs",
+          "models": "models/pulsar_track_170.list",
+          "sky": "models/pulsar_track_170_sky.list",
+          "laps": 2,
+          "music_stream_id": 25,
+          "lapCount": 2,
+          "minimap": {
+            "texture": "textures/race_map_retro_169.t3x",
+            "overview": "textures/race_map_retro_169_overview.t3x",
+            "frame": [
+              -60918.394,
+              -13919.51,
+              5210.212,
+              118337.703
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 109.7838,
+            "startLeft": [
+              -46632.323,
+              7698.712
+            ],
+            "startRight": [
+              -43000.797,
+              7722.708
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "ZPL, SeaOfPixels"
+        },
+        {
+          "name": "SW2 Bowser's Castle",
+          "course_id": 12,
+          "archive": "Race/Course/sw2BC.szs",
+          "models": "models/pulsar_track_171.list",
+          "sky": "models/pulsar_track_171_sky.list",
+          "laps": 3,
+          "music_stream_id": 12,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_170.t3x",
+            "overview": "textures/race_map_retro_170_overview.t3x",
+            "frame": [
+              -29097.76,
+              -43918.279,
+              26179.32,
+              66635.881
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 91.7686,
+            "startLeft": [
+              -1460.371,
+              11168.971
+            ],
+            "startRight": [
+              1467.814,
+              11160.188
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "FunkyRacer, TheGamingBram, Strobenz, KaneTheSnowman"
+        },
+        {
+          "name": "SW2 Mario Circuit",
+          "course_id": 24,
+          "archive": "Race/Course/sw2MC.szs",
+          "models": "models/pulsar_track_172.list",
+          "sky": "models/pulsar_track_172_sky.list",
+          "laps": 1,
+          "music_stream_id": 24,
+          "lapCount": 1,
+          "minimap": {
+            "texture": "textures/race_map_retro_171.t3x",
+            "overview": "textures/race_map_retro_171_overview.t3x",
+            "frame": [
+              -202971.879,
+              -45672.121,
+              86328.957,
+              98978.297
+            ],
+            "size": [
+              1024,
+              512
+            ],
+            "overviewSize": [
+              256,
+              128
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              -13677.983,
+              20300.538
+            ],
+            "startRight": [
+              -10321.218,
+              20300.21
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Iggy Ze Koopa, SeaOfPixels"
+        }
+      ]
+    },
+    {
+      "name": "Bonus & Beta Cup",
+      "icon": "",
+      "tracks": [
+        {
+          "name": "SW2 Peach Stadium",
+          "course_id": 0,
+          "archive": "Race/Course/sw2PS.szs",
+          "models": "models/pulsar_track_173.list",
+          "sky": "models/pulsar_track_173_sky.list",
+          "laps": 3,
+          "music_stream_id": 0,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_172.t3x",
+            "overview": "textures/race_map_retro_172_overview.t3x",
+            "frame": [
+              -42990.679,
+              -43199.078,
+              42446.149,
+              42237.75
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 70.9192,
+            "startLeft": [
+              -6291.335,
+              1622.631
+            ],
+            "startRight": [
+              236.392,
+              1626.387
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Funky Racer, TheGamingBram"
+        },
+        {
+          "name": "SW2 Rainbow Road",
+          "course_id": 13,
+          "archive": "Race/Course/sw2RR.szs",
+          "models": "models/pulsar_track_174.list",
+          "sky": "models/pulsar_track_174_sky.list",
+          "laps": 1,
+          "music_stream_id": 13,
+          "lapCount": 1,
+          "minimap": {
+            "texture": "textures/race_map_retro_173.t3x",
+            "overview": "textures/race_map_retro_173_overview.t3x",
+            "frame": [
+              -98535.984,
+              -153599.406,
+              53993.629,
+              151459.82
+            ],
+            "size": [
+              512,
+              1024
+            ],
+            "overviewSize": [
+              128,
+              256
+            ],
+            "unitsPerPixel": 110.0,
+            "startLeft": [
+              -10000.0,
+              -50000.0
+            ],
+            "startRight": [
+              9871.702,
+              -49964.508
+            ]
+          },
+          "music_credit": "Nintendo (MKW)",
+          "author": "Outlaw Runner, ZPL"
+        },
+        {
+          "name": "Beta Choco Island 3",
+          "course_id": 17,
+          "archive": "Race/Course/sfcCI3.szs",
+          "models": "models/pulsar_track_175.list",
+          "sky": "models/pulsar_track_175_sky.list",
+          "laps": 3,
+          "music_stream_id": 17,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_174.t3x",
+            "overview": "textures/race_map_retro_174_overview.t3x",
+            "frame": [
+              -26280.519,
+              -25779.668,
+              27206.306,
+              27707.156
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 64.0,
+            "startLeft": [
+              -19155.148,
+              5890.437
+            ],
+            "startRight": [
+              -16272.546,
+              5890.911
+            ]
+          },
+          "music_credit": "HEPHESTOS",
+          "author": "ZPL"
+        },
+        {
+          "name": "Beta Nokonoko Beach",
+          "course_id": 16,
+          "archive": "Race/Course/dsNB.szs",
+          "models": "models/pulsar_track_176.list",
+          "sky": "models/pulsar_track_176_sky.list",
+          "laps": 3,
+          "music_stream_id": 16,
+          "lapCount": 3,
+          "minimap": {
+            "texture": "textures/race_map_retro_175.t3x",
+            "overview": "textures/race_map_retro_175_overview.t3x",
+            "frame": [
+              -40869.09,
+              -45758.744,
+              39052.238,
+              34162.584
+            ],
+            "size": [
+              1024,
+              1024
+            ],
+            "overviewSize": [
+              256,
+              256
+            ],
+            "unitsPerPixel": 66.3409,
+            "startLeft": [
+              2488.539,
+              11844.609
+            ],
+            "startRight": [
+              2471.545,
+              13845.702
+            ]
+          },
+          "music_credit": "FatCat",
+          "author": "ZPL"
+        }
+      ]
+    }
+  ],
   "settings": {
-    "engine_class": "150cc",
     "enable_200cc": false,
-    "brake_drift": false,
-    "custom_items": false
-  },
-  "cups": []
+    "brake_drifting": true,
+    "hard_ai": false,
+    "custom_items": true,
+    "custom_items_bitfield": 524287,
+    "default_engine_class": 2
+  }
 }

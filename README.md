@@ -41,15 +41,25 @@ Prix award ceremony. Not yet: Mirror, online play.
 
 ## Building
 
-**macOS:** double-click `Build MKW CIA.command`, drag your disc image into the
-window and press Return.
+### Standard (Vanilla 32 Tracks)
+- **macOS:** double-click `Build MKW CIA.command`, drag your disc image into the window and press Return.
+- **Windows:** double-click `Build MKW CIA.bat`, drag your disc image into the window and press Enter.
 
-**Windows:** double-click `Build MKW CIA.bat`, drag your disc image into the
-window and press Enter. *(New: please report how it goes.)*
+### Retro Rewind Mod (44 Cups / 176 Custom Tracks + Skins)
+- **macOS:** double-click `Build MKW RR CIA.command`.
+- **Windows:** double-click `Build MKW RR CIA.bat`.
 
-The first build takes about 30–60 minutes. Your CIA is saved to
-`build/release/mkw-3ds.cia`. If a build stops partway, run it again: finished
-steps are skipped. If it fails, share `build-cia-log.txt` when asking for help.
+When prompted:
+1. **Disc Image**: Drag your Mario Kart Wii (USA) `.iso` or `.wbfs` into the window and press Return/Enter. (If you have already built previously, just press Return/Enter to reuse existing extracted files!)
+2. **Retro Rewind Folder (Optional)**:
+   - To use the **pre-cooked/bundled** Retro Rewind pack in this branch, simply press **Return / Enter**.
+   - If you have your own external or updated Retro Rewind folder (containing `Config.pul` / `ConfigRT.pul`, `Tracks/`, `UI/`, etc.), drag that folder into the window and press Return/Enter. The builder will automatically ingest the tracks, title art, and cup icons.
+   - Alternatively, from the command line you can pass the folder directly via `--pack`:
+     ```bash
+     python tools/release/build_cia.py "path/to/game.iso" --pack "path/to/RetroRewind"
+     ```
+
+The first build takes about 30–60 minutes (subsequent builds take only seconds). Your CIA is saved to `build/release/mkw-3ds.cia`. If a build stops partway, run it again: finished steps are skipped. If it fails, share `build-cia-log.txt` when asking for help.
 
 ## Installing
 
