@@ -2078,32 +2078,25 @@ int main() {
                         if(aByte>0){
                             const uint32_t shadowCol=(aByte&0xffu);
                             const uint32_t textCol=0xffffff00u|(aByte&0xffu);
+                            const float leftX = 14.f;
                             if(hasAuthor&&hasMusic){
                                 char authBuf[96], musBuf[96];
                                 std::snprintf(authBuf,sizeof authBuf,"Author: %s",author);
                                 std::snprintf(musBuf,sizeof musBuf,"Music: %s",credit);
-                                const float authW=float(std::strlen(authBuf))*6.f;
-                                const float musW=float(std::strlen(musBuf))*6.f;
-                                const float authX=std::max(8.f,200.f-(authW*0.5f));
-                                const float musX=std::max(8.f,200.f-(musW*0.5f));
-                                renderer.drawScreenText(authBuf,authX+1.f,14.f+1.f,1.f,shadowCol);
-                                renderer.drawScreenText(authBuf,authX,14.f,1.f,textCol);
-                                renderer.drawScreenText(musBuf,musX+1.f,25.f+1.f,1.f,shadowCol);
-                                renderer.drawScreenText(musBuf,musX,25.f,1.f,textCol);
+                                renderer.drawScreenText(authBuf,leftX+1.f,214.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(authBuf,leftX,214.f,1.f,textCol);
+                                renderer.drawScreenText(musBuf,leftX+1.f,226.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(musBuf,leftX,226.f,1.f,textCol);
                             } else if(hasAuthor){
                                 char authBuf[96];
                                 std::snprintf(authBuf,sizeof authBuf,"Author: %s",author);
-                                const float authW=float(std::strlen(authBuf))*6.f;
-                                const float authX=std::max(8.f,200.f-(authW*0.5f));
-                                renderer.drawScreenText(authBuf,authX+1.f,16.f+1.f,1.f,shadowCol);
-                                renderer.drawScreenText(authBuf,authX,16.f,1.f,textCol);
+                                renderer.drawScreenText(authBuf,leftX+1.f,224.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(authBuf,leftX,224.f,1.f,textCol);
                             } else {
                                 char musBuf[96];
                                 std::snprintf(musBuf,sizeof musBuf,"Music: %s",credit);
-                                const float musW=float(std::strlen(musBuf))*6.f;
-                                const float musX=std::max(8.f,200.f-(musW*0.5f));
-                                renderer.drawScreenText(musBuf,musX+1.f,16.f+1.f,1.f,shadowCol);
-                                renderer.drawScreenText(musBuf,musX,16.f,1.f,textCol);
+                                renderer.drawScreenText(musBuf,leftX+1.f,224.f+1.f,1.f,shadowCol);
+                                renderer.drawScreenText(musBuf,leftX,224.f,1.f,textCol);
                             }
                         }
                     }
