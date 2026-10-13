@@ -383,8 +383,10 @@ int main() {
         menuProfile->write("sdmc:/3ds/mkw-3ds/menu-performance.csv");
         if(autoplay)if(FILE* f=fopen("sdmc:/3ds/mkw-3ds/menu-autoplay-result.json","w")){fprintf(f,"{\"pass\":%s,\"races\":%u,\"failure\":\"%s\"}\n",autopilot->passed()?"true":"false",autopilot->racesStarted(),autopilot->failure());fclose(f);}
     };
+    bootLog("boot: initializing renderer...");
     mkw::Renderer renderer;
     if(!renderer.init()){report("FAIL Citro3D initialization");return startupFailure("Citro3D initialization failed.");}
+    bootLog("boot: renderer initialized, stereoCapable=%d", renderer.stereoCapable());
     // Stereo 3D (docs/STEREO_3D.md): New 3DS with a 3D screen only. QA can pin
     // the slider with stereo-slider.txt (0..1) for lockstep captures.
     if(renderer.stereoCapable()){
@@ -393,11 +395,14 @@ int main() {
         renderer.setSliderOverride(slider);
         LOGF("stereo capable slider_override=%.2f",slider);
     }else report("stereo unavailable (2D model)");
+    bootLog("boot: starting jobWorker...");
     // Second-core presentation jobs (racer posing); none run while the race steps.
     if(!mkw::jobWorker().start())report("job worker unavailable: presentation jobs run on core 0");
+    bootLog("boot: starting renderThread...");
     // Race frames draw on the second core one frame behind their recording
     // (src/render_thread.cpp); menus draw immediately.
     if(!renderer.startRenderThread())report("render thread unavailable: race frames draw on core 0");
+    bootLog("boot: creating MenuState & MenuRenderer...");
     mkw::MenuState menu;
     mkw::MenuRenderer menuRenderer;
     // Original animation banks keep palette workspaces; they must not occupy
@@ -410,6 +415,7 @@ int main() {
     // Wii presentation is confined to the upper LCD. Keep both lower buffers
     // black rather than allocating a second GPU render target.
     if(fullRace){
+        bootLog("boot: drawing start screen...");
         const int whatsNew=firstLaunchOfVersion();
         for(unsigned i=0;i<2;++i){
             u16 w=0,h=0;auto* framebuffer=gfxGetFramebuffer(GFX_BOTTOM,GFX_LEFT,&w,&h);
@@ -422,12 +428,16 @@ int main() {
             gfxSwapBuffers();
         }
         gfxFlushBuffers();
+        bootLog("boot: start screen drawn");
     }
     hidSetRepeatParameters(24,6); // Source menus repeat directions; A/B are edge-triggered.
     if(fullRace){
+        bootLog("boot: initializing MenuMovieAudio...");
         mkw::MenuMovieAudio::initialize();
+        bootLog("boot: starting SoundSystem...");
         // Retail sound engine (docs/AUDIO_SOURCE.md); silent when the DSP is unavailable.
         const bool sound=mkw::SoundSystem::instance().start();
+        bootLog("boot: SoundSystem started=%d", sound);
         LOGF("sound: %s linear_free=%lu",sound?"engine running":mkw::MenuMovieAudio::dspReady()?"archive unavailable, silent":"DSP unavailable, silent",(unsigned long)linearSpaceFree());
     }
     static mkw::MenuSound menuSound;
@@ -485,6 +495,7 @@ int main() {
     // the next menu page starts with the scene fader's fade in.
     bool sectionFadeIn=false;
     auto runMenu=[&](){
+        bootLog("runMenu: entered");
         renderer.frameSync=true;
         renderer.setDeferred(false);
         renderer.waitForGpu();
@@ -507,8 +518,10 @@ int main() {
             }
             if(!ready)return mkw::UiAction::Exit;
         }
+        bootLog("runMenu: starting AssetLoader");
         auto& loader=mkw::AssetLoader::instance();
         if(!loader.start())report("FAIL menu asset thread; loading on demand");
+        bootLog("runMenu: opening pack");
         mkw::pack::open();
         auto last=svcGetSystemTick();double pending=0;
         int activeAudio=-1;
@@ -521,18 +534,22 @@ int main() {
         // The first page appears only once resident; until then the previous
         // frame (race or black) stays on screen instead of a partial page.
         bool revealed=false;unsigned stable=0,heldFrames=0;
+        bootLog("runMenu: calling residentQuads");
         residentQuads(menu,nullptr,visualResident);
         visualKey=residencyKey(menu,nullptr);visualKeyed=true;
+        bootLog("runMenu: residentQuads done (%zu quads), calling menuRenderer.prepare", visualResident.size());
         menuRenderer.prepare(visualResident);
         revealed=true;
-        bootLog("runMenu prepared initial quads: %zu", visualResident.size());
+        bootLog("runMenu: menuRenderer.prepare done");
         auto leave=[&](mkw::UiAction action){
             loader.stop();renderer.waitForGpu();menuAudio.close();
             menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release(renderer);
             renderer.setRetailLighting(raceResident?mkw::courseLighting(Courses[courseChoice].archive):nullptr);
             renderer.waitForGpu();return action;
         };
+        static bool loopFirst=false;
         while(aptMainLoop()){
+            if(!loopFirst){loopFirst=true;bootLog("runMenu: entered aptMainLoop! page=%d", (int)menu.page);}
             // The logical page becomes Race while the pause exit still animates.
             // Keep the resident course for ResumeRace; only release when leaving
             // the race section for an unrelated menu or a different race.
@@ -752,6 +769,7 @@ int main() {
         if(varArch&&varArch[0])mkw::modEngine().setActiveTrackArchive(varArch);
         else mkw::modEngine().setActiveTrackArchive(mkw::course(courseChoice).archive);
     };
+    bootLog("boot: about to call initial runMenu()...");
     if(fullRace){if(runMenu()!=mkw::UiAction::StartRace){finishAutoplay();renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();mkw::SoundSystem::instance().stop();mkw::MenuMovieAudio::shutdown();mkw::modEngine().shutdown();renderer.shutdown();gfxExit();return 0;}applySelection();menu.raceStarted();raceLoadStart=svcGetSystemTick();}
     bool dataReady=exists("Race/Common.szs")&&courseAvailable(courseChoice);
     if(dataReady&&(kQa&&exists("sdmc:/3ds/mkw-3ds/trace-test.txt"))) {

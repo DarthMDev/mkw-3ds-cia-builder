@@ -23,12 +23,12 @@ public:
   for(unsigned row=0;row<rows;++row){
    const auto k=key_(row);
    if(find(k[0],k[1],k[2])!=Missing)continue;
-   for(uint32_t slot=hashKey(k[0],k[1],k[2])&Mask;;slot=(slot+1)&Mask)if(!slots_[slot]){slots_[slot]=uint16_t(row+1);break;}
+   for(uint32_t slot=hashKey(k[0],k[1],k[2])&Mask,probe=0;probe<(1u<<Bits);slot=(slot+1)&Mask,++probe)if(!slots_[slot]){slots_[slot]=uint16_t(row+1);break;}
   }
  }
  static constexpr unsigned Missing=~0u;
  unsigned find(const char* a,const char* b=nullptr,const char* c=nullptr)const{
-  for(uint32_t slot=hashKey(a,b,c)&Mask;slots_[slot];slot=(slot+1)&Mask){
+  for(uint32_t slot=hashKey(a,b,c)&Mask,probe=0;slots_[slot]&&probe<(1u<<Bits);slot=(slot+1)&Mask,++probe){
    const unsigned row=slots_[slot]-1u;const auto k=key_(row);
    if(!std::strcmp(k[0],a)&&same(k[1],b)&&same(k[2],c))return row;
   }
@@ -73,7 +73,7 @@ const UiMovieInfo* uiFindMovie(const char* key){
  const unsigned row=index.find(key);return row==index.Missing?nullptr:&UiMovies[row];
 }
 const UiPaneNode* uiFindPaneNode(const char* panel,const char* name){
- static const auto index=build<11>(rows(UiPaneNodes),[](unsigned i){return Keys{UiPaneNodes[i].panel,UiPaneNodes[i].name,nullptr};});
+ static const auto index=build<13>(rows(UiPaneNodes),[](unsigned i){return Keys{UiPaneNodes[i].panel,UiPaneNodes[i].name,nullptr};});
  const unsigned row=index.find(panel,name);return row==index.Missing?nullptr:&UiPaneNodes[row];
 }
 unsigned uiFindMovieRegion(const char* key){
@@ -81,7 +81,7 @@ unsigned uiFindMovieRegion(const char* key){
  const unsigned row=index.find(key);return row==index.Missing?unsigned(std::size(UiMovieRegions)):row;
 }
 unsigned uiFindSpriteKey(const char* key){
- static const auto index=build<13>(rows(UiSprites),[](unsigned i){return Keys{UiSprites[i].key,nullptr,nullptr};});
+ static const auto index=build<14>(rows(UiSprites),[](unsigned i){return Keys{UiSprites[i].key,nullptr,nullptr};});
  const unsigned row=index.find(key);return row==index.Missing?unsigned(std::size(UiSprites)):row;
 }
 }
