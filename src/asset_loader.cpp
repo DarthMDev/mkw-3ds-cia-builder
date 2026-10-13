@@ -11,7 +11,7 @@ bool AssetLoader::start(int priorityOffset){
  stopping_.store(false);
  // Lower priority (higher number) than the caller, same core: never preempts
  // frame work, and consumes the main thread's VBlank/GPU idle time instead.
- thread_=threadCreate(entry,this,96*1024,std::clamp<int>(priority+priorityOffset,0x18,0x3f),-2,false);
+ thread_=threadCreate(entry,this,96*1024,std::clamp<int>(priority+priorityOffset,0x18,0x3f),-1,false);
  return thread_!=nullptr;
 }
 void AssetLoader::stop(){

@@ -66,7 +66,7 @@ public:
   if(!thread_){s32 priority=0x30;svcGetThreadPriority(&priority,CUR_THREAD_HANDLE);
    // Between the main thread and the general asset loader: frames stay
    // timely while page textures load, and it never preempts frame work.
-   thread_=threadCreate(entry,this,32*1024,std::clamp<int>(priority+1,0x18,0x3f),-2,true);}
+   thread_=threadCreate(entry,this,32*1024,std::clamp<int>(priority+1,0x18,0x3f),-1,true);}
   LightLock_Unlock(&lock_);wake();
  }
  void wake(){LightEvent_Signal(&event_);}

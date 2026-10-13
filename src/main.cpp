@@ -1,5 +1,6 @@
 #include <mkw/display_layout.hpp>
 #include <3ds.h>
+#include <cstdarg>
 #include <mkw/renderer.hpp>
 #include <mkw/course_objects.hpp>
 #include <mkw/course_catalog.hpp>
@@ -179,6 +180,14 @@ static void saveRightEye(mkw::Renderer& renderer,const char* path){
     }else presented=false;
     if(!presented){std::string line="FAIL stereo presentation ";line+=path;report(line.c_str());}
 }
+static void bootLog(const char* fmt, ...){
+    mkdir("sdmc:/3ds",0777);mkdir("sdmc:/3ds/mkw-3ds",0777);
+    if(FILE* f=fopen("sdmc:/3ds/mkw-3ds/boot.log","a")){
+        va_list args;va_start(args,fmt);
+        vfprintf(f,fmt,args);va_end(args);
+        fprintf(f,"\n");fclose(f);
+    }
+}
 // Stereo menus (docs/STEREO_3D.md), Mario Kart 7's garage: the backdrop pane
 // (quad 0) at the garage's back wall behind the selection models, enlarged
 // about the screen centre by its shift so neither eye bares an edge; the
@@ -317,6 +326,9 @@ int main() {
     // builder put in sdmc:/3ds/mkw-3ds must match.
     const bool embedded=assets.mounted&&contentMatches("romfs:/");
     const char* assetRoot=embedded?"romfs:/":DATA;
+    bootLog("=== MKW 3DS %s boot ===", MKW_VERSION);
+    bootLog("embedded=%d (mounted=%d)", embedded, assets.mounted);
+    bootLog("assetRoot=%s", assetRoot);
     report(embedded?"assets: embedded RomFS":"assets: external SD package");
     report("version " MKW_VERSION);
 #ifndef MKW_EXTERNAL_ASSETS
@@ -336,7 +348,8 @@ int main() {
     LOGF("math_length=%.9f bits=%08lx",test.length(),(unsigned long)K::f2u(test.length()));
     if(kQa)setenv("KINOKO_FILESYSTEM_ROOT",assetRoot,1);
     // Every asset path is relative to the game files: RomFS or the SD folder.
-    if(chdir(assetRoot)!=0){report("FAIL asset directory");gfxExit();return 1;}
+    if(chdir(assetRoot)!=0){bootLog("FAIL chdir");report("FAIL asset directory");gfxExit();return 1;}
+    bootLog("chdir ok, init modEngine");
     mkw::modEngine().init();
     bool qaMode=false;if(kQa)for(const char* test:{"trace","smoke","controls","replay","effects","animation","roster","garage","garage_controls","menu","objects"}){char marker[64];snprintf(marker,sizeof marker,"sdmc:/3ds/mkw-3ds/%s-test.txt",test);qaMode|=exists(marker);}
     fullRace=!qaMode;
@@ -508,6 +521,11 @@ int main() {
         // The first page appears only once resident; until then the previous
         // frame (race or black) stays on screen instead of a partial page.
         bool revealed=false;unsigned stable=0,heldFrames=0;
+        residentQuads(menu,nullptr,visualResident);
+        visualKey=residencyKey(menu,nullptr);visualKeyed=true;
+        menuRenderer.prepare(visualResident);
+        revealed=true;
+        bootLog("runMenu prepared initial quads: %zu", visualResident.size());
         auto leave=[&](mkw::UiAction action){
             loader.stop();renderer.waitForGpu();menuAudio.close();
             menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release(renderer);
@@ -630,7 +648,19 @@ int main() {
             // A first page with a movie (the course choice after Next Race) is
             // ready only once a frame is uploaded; nothing is drawn before the
             // reveal, so the GPU is idle here.
-            if(!revealed){menuRenderer.uploadMovies();gspWaitForVBlank();menuProfile->mark(MenuStage::Begin);menuProfile->end(renderer,0);continue;}
+            if(!revealed){
+                menuRenderer.uploadMovies();
+                gspWaitForVBlank();
+                svcSleepThread(1000000ULL);
+                menuProfile->mark(MenuStage::Begin);
+                menuProfile->end(renderer,0);
+                if(++heldFrames>30){
+                    menuRenderer.prepare(visualResident);
+                    revealed=true;
+                    bootLog("forced reveal on frame %u", heldFrames);
+                }
+                continue;
+            }
             menuModels.begin(renderer);
             menuProfile->mark(MenuStage::Begin);
             // GPU idle: publish streamed movie frames for this frame.
