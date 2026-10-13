@@ -257,8 +257,13 @@ static void readContent(const char* root,char (&found)[80]){
     found[strcspn(found,"\r\n")]=0;
 }
 static bool contentMatches(const char* root){
-    char found[80];readContent(root,found);char common[64];snprintf(common,sizeof common,"%sRace/Common.szs",root);
-    return !strcmp(found,MKW_CONTENT)&&exists(common);
+    char common[64];snprintf(common,sizeof common,"%sRace/Common.szs",root);
+    if(!exists(common))return false;
+#if !MKW_QUICK_UPDATE
+    if(!strcmp(root,"romfs:/"))return true;
+#endif
+    char found[80];readContent(root,found);
+    return !strcmp(found,MKW_CONTENT);
 }
 static bool sdContentReady(){
     char found[80];readContent("sdmc:/3ds/mkw-3ds/",found);
