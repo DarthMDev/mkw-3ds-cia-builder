@@ -108,7 +108,7 @@ def main():
     p.add_argument('--ids', type=int, nargs='*')
     a = p.parse_args()
     subprocess.run(['node', 'tools/bundle_cooker.mjs'], cwd=ROOT, check=True)
-    selected = [c for c in courses() if c['kind'] == 'race' and (a.ids is None or c['id'] in a.ids)]
+    selected = [c for c in courses() if c['kind'] in ('race', 'arena') and (a.ids is None or c['id'] in a.ids)]
 
     def run(course):
         report = cook_course(course, a.force)
