@@ -126,6 +126,7 @@ bool Model::load(const char* path) {
     struct File {
         FILE* f=nullptr;char buffer[32*1024];
         const char* packedPath=nullptr;size_t packedSize=0,offset=0;
+        size_t bufferedAt=0,bufferedBytes=0;
         explicit File(const char* path){
             const long size=pack::size(path);
             if(size>=0){packedPath=path;packedSize=size_t(size);return;}
@@ -146,8 +147,24 @@ bool Model::load(const char* path) {
         bool read(void* p,size_t size){
             if(f)return std::fread(p,1,size,f)==size;
             if(!packedPath||offset>packedSize||size>packedSize-offset)return false;
-            if(!pack::readRange(packedPath,offset,p,size))return false;
-            offset+=size;return true;
+            // Keep metadata reads together even when texture loading seeks
+            // elsewhere in the same pack. Large geometry still goes directly
+            // into its final allocation, without a whole-model heap copy.
+            if(size>=sizeof buffer){
+                if(!pack::readRange(packedPath,offset,p,size))return false;
+                offset+=size;return true;
+            }
+            auto* destination=static_cast<char*>(p);
+            while(size){
+                if(!bufferedBytes||offset<bufferedAt||offset-bufferedAt>=bufferedBytes){
+                    bufferedAt=offset;bufferedBytes=std::min(sizeof buffer,packedSize-offset);
+                    if(!pack::readRange(packedPath,offset,buffer,bufferedBytes)){bufferedBytes=0;return false;}
+                }
+                const size_t at=offset-bufferedAt,count=std::min(size,bufferedBytes-at);
+                std::memcpy(destination,buffer+at,count);
+                destination+=count;offset+=count;size-=count;
+            }
+            return true;
         }
         bool atEnd(){return f?std::fgetc(f)==EOF:offset==packedSize;}
     };

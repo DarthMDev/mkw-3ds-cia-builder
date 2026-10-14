@@ -393,9 +393,10 @@ for map_t3x in sorted((assets/'textures').glob('race_map_retro_*.t3x')):
 if '--list' in sys.argv:
  print(json.dumps({rel.as_posix():str(src) for src,rel in files.items()}))
  raise SystemExit(0)
-# Validate packed textures directly against their source files before staging.
-# Copying them loose only to delete them doubled the external drive's small-file IO.
-def packed_texture_hashes(path):
+# Validate packed assets directly against their source files before staging.
+# The runtime prefers the archives for these formats. Keeping thousands of
+# redundant loose models makes metadata lookups in models/ unreliable on SD.
+def packed_asset_hashes(path):
  result={};payloads={}
  with path.open('rb') as archive:
   magic,count,names=struct.unpack('<4sII',archive.read(12))
@@ -405,7 +406,7 @@ def packed_texture_hashes(path):
    name_at,offset,size=struct.unpack_from('<III',table,i*12)
    if name_at>=names or offset+size>length:raise ValueError('Invalid MPK1 entry: '+path.name)
    name=blob[name_at:blob.index(0,name_at)].decode()
-   if not name.endswith('.t3x'):continue
+   if not name.endswith(('.t3x','.gmdl','.dskm','.dobj')):continue
    key=(offset,size)
    if key not in payloads:
     archive.seek(offset);data=archive.read(size)
@@ -416,13 +417,14 @@ def packed_texture_hashes(path):
 packed={}
 for archive in ('menu.pak','race.pak'):
  if (assets/archive).is_file():
-  for name,digest in packed_texture_hashes(assets/archive).items():packed.setdefault(name,(archive,digest))
+  for name,digest in packed_asset_hashes(assets/archive).items():packed.setdefault(name,(archive,digest))
 manifest={}
 for src,rel in files.items():
  name=rel.as_posix()
- if name.endswith('.t3x') and name in packed:
+ if name in packed:
   archive,expected=packed[name]
   if digest_file(src)!=expected:raise ValueError(f'{archive} is older than {name}: run tools/pack_menu_assets.py / tools/pack_race_assets.py')
+  (out/rel).unlink(missing_ok=True)
   continue
  dest=out/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dest);manifest[name]=digest_file(dest)
 controls='''MKW 3DS - native Wii menu asset port, 32 race archives and 10 arena asset sets

@@ -137,7 +137,9 @@ struct ModelJob final:AssetJob {
         }
     }
     void run()override{
+        if(cancelled())return;
         auto loaded=std::make_unique<Model>();if(!loaded->load(modelPath.c_str()))return;
+        if(cancelled())return;
         if(!animationPath.empty()){
             auto bank=std::make_unique<DriverAnimation>();
             if(bank->load(animationPath.c_str(),*loaded)){
@@ -146,6 +148,7 @@ struct ModelJob final:AssetJob {
                 animation=std::move(bank);
             }
         }
+        if(cancelled())return;
         // Rigid backgrounds (one bone per triangle) skin and environment-map
         // on the GPU; deforming ones keep the CPU path.
         if(kind==Background&&!(menuRigidModels&&animation&&animation->makeRigid(*loaded))){environment=environmentVertices(*loaded);mkw::environment(*loaded,environment,0.f);}

@@ -1,8 +1,4 @@
-Old 3DS optimizations by Codiak540
-Small CIA: game files now load from SD
-Custom course animation crash fixes
-Stream models to reduce heap use
-RMX variants use their own scenery
-Skin donor voices imported
-Retro Rewind brake drifting
-Lap wrap tracks narrow finish sectors
+Buffered SD model metadata reads
+Cancel menu work when starting races
+Failed course checks return to menus
+Hardware race handoff diagnostics

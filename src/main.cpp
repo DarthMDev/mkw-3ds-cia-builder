@@ -161,7 +161,21 @@ static void saveBestTimes()
     rename(Temporary, BestTimesPath);
 }
 static void formatTime(char* out,size_t size,uint32_t ms){snprintf(out,size,"%u:%02u.%03u",unsigned(ms/60000),unsigned(ms/1000%60),unsigned(ms%1000));}
-static bool courseAvailable(unsigned i){const auto& c=mkw::course(i);return c.supported&&exists("Race/Common.szs")&&exists(c.archive)&&(!*c.models||exists(c.models))&&(!*c.sky||exists(c.sky));}
+static void bootLog(const char* fmt, ...);
+static bool courseAvailable(unsigned i){
+    const auto& c=mkw::course(i);
+    bootLog("course check: index=%u supported=%d archive=%s",i,c.supported,c.archive);
+    if(!c.supported)return false;
+    const char* paths[]={"Race/Common.szs",c.archive,c.models,c.sky};
+    for(const char* path:paths){
+        if(!path||!*path)continue;
+        bootLog("course check: opening %s",path);
+        const bool ready=exists(path);
+        bootLog("course check: %s ready=%d",path,ready);
+        if(!ready)return false;
+    }
+    return true;
+}
 static void showControls(bool ready){
     consoleClear();printf("MKW/ MARIO KART RECOMPILED 3DS\n%s / manual drift\n",mkw::course(courseChoice).name);
     printf("3DS CONTROLS\nCircle Pad: steer  A: accelerate\nB: brake  R: hop/drift  L: use item\nD-pad: trick / bike wheelie\nSTART: maps/pause  SELECT: restart\nX/Y: character  B+X/Y: vehicle\n");
@@ -790,10 +804,13 @@ int main()
         bootLog("runMenu: menuRenderer.prepare done");
         auto leave=[&](mkw::UiAction action){
             bootLog("menu leave: action=%u page=%u course=%u",unsigned(action),unsigned(menu.page),menu.selection.course);
-            loader.stop();renderer.waitForGpu();menuAudio.close();
+            bootLog("menu handoff: stopping loader");loader.stop();
+            bootLog("menu handoff: waiting for GPU");renderer.waitForGpu();
+            bootLog("menu handoff: closing audio");menuAudio.close();
+            bootLog("menu handoff: releasing menu models");
             menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release(renderer);
             renderer.setRetailLighting(raceResident?mkw::courseLighting(mkw::course(courseChoice).archive):nullptr);
-            renderer.waitForGpu();return action;
+            renderer.waitForGpu();bootLog("menu handoff: complete");return action;
         };
         static bool loopFirst=false;
         while(aptMainLoop()){
@@ -1178,8 +1195,21 @@ else incomingKeyed=false;
         else mkw::modEngine().setActiveTrackArchive(mkw::course(courseChoice).archive);
     };
     bootLog("boot: about to call initial runMenu()...");
-    if(fullRace){if(runMenu()!=mkw::UiAction::StartRace){bootLog("exit: initial menu did not start a race");finishAutoplay();renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();mkw::SoundSystem::instance().stop();mkw::MenuMovieAudio::shutdown();mkw::modEngine().shutdown();renderer.shutdown();gfxExit();return 0;}applySelection();menu.raceStarted();raceLoadStart=svcGetSystemTick();}
-    bool dataReady=exists("Race/Common.szs")&&courseAvailable(courseChoice);
+    if(fullRace){if(runMenu()!=mkw::UiAction::StartRace){bootLog("exit: initial menu did not start a race");finishAutoplay();renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();mkw::SoundSystem::instance().stop();mkw::MenuMovieAudio::shutdown();mkw::modEngine().shutdown();renderer.shutdown();gfxExit();return 0;}bootLog("race selection: applying");applySelection();
+        // A failed initial availability check previously left UiPage::Race on
+        // screen with no initialized race. Return to the error menu to retry.
+        while(!courseAvailable(courseChoice)){
+            bootLog("race selection: unavailable course=%u",courseChoice);
+            menu.enter(mkw::UiPage::Error);
+            if(runMenu()!=mkw::UiAction::StartRace){
+                finishAutoplay();renderer.waitForGpu();menuModels.reset(renderer);menuIcons.reset(renderer);menuRenderer.release();
+                mkw::SoundSystem::instance().stop();mkw::MenuMovieAudio::shutdown();mkw::modEngine().shutdown();renderer.shutdown();gfxExit();return 0;
+            }
+            applySelection();
+        }
+        bootLog("race selection: ready course=%u",courseChoice);
+        menu.raceStarted();raceLoadStart=svcGetSystemTick();}
+    bool dataReady=fullRace||courseAvailable(courseChoice);
     if(dataReady&&(kQa&&exists("sdmc:/3ds/mkw-3ds/trace-test.txt"))) {
         // Invoke upstream's complete per-frame KRKG comparison, not just final position.
         freopen("trace-console.log", "w", stdout);

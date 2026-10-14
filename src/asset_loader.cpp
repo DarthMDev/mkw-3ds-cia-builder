@@ -18,6 +18,7 @@ void AssetLoader::stop(){
  if(!thread_)return;
  LightLock_Lock(&lock_);
  for(auto& queue:queues_){for(auto& job:queue){job->cancel();job->state_.store(AssetJob::Done,std::memory_order_release);}queue.clear();}
+ if(running_)running_->cancel();
  stopping_.store(true);
  LightLock_Unlock(&lock_);
  LightEvent_Signal(&wake_);
