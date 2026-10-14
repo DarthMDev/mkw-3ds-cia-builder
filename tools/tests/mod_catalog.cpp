@@ -27,6 +27,8 @@ int main(int argc, char** argv) {
             engine.setActiveTrackVariant(i, v);
             const unsigned resolved = engine.resolvedCourseIndex(i);
             assert(resolved != i);
+            // Variants must carry independent scenery, not just a new archive.
+            assert(std::strcmp(engine.courseChoice(resolved).models,engine.courseChoice(i).models));
             const auto& selected = mkw::course(i);
             assert(!std::strcmp(selected.archive, engine.activeTrackVariantArchive(i)));
             assert(!std::strcmp(selected.models, engine.courseChoice(resolved).models));

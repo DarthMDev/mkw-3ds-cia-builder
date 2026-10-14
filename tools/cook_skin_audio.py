@@ -22,22 +22,32 @@ def main():
         old_waves[i]=[struct.unpack_from('<2I',base,at+j*8) for j in range(f[4])];at+=f[4]*8
     prefix=base[file_at+nf*24:wave_at-nbridge*28]
     old_bridges=[base[wave_at-nbridge*28+i*28:wave_at-nbridge*28+(i+1)*28] for i in range(nbridge)]
-    image=bytearray(original);variants={};payloads={}
+    image=bytearray(original);variants={};payloads={};donors={};donor_files={}
     group_by_name={g['name']:g for g in r.groups}
     ids={code.upper():cid for slug,name,cid,code,size in ROSTER}
+    codes={cid:code.upper() for slug,name,cid,code,size in ROSTER}
+    donor_codes={slug:code.upper() for slug,name,cid,code,size in ROSTER}
+    sounds_by_name={s["name"]:s for s in r.sounds}
     for path in sorted((CHARACTER_DIR/'Sound').iterdir()):
-        match=re.match(r'(GRP_VO_([A-Z]+))-(\d+)(.*)\.(brwsd|brbnk)$',path.name)
+        match=re.match(r'(GRP_VO_([A-Z]+))-(\d+)(.*)\.(brwsd|brbnk)(?:\.[a-z_]+)?$',path.name)
         if match:
             group=group_by_name.get(match[1]+match[4]);cid=ids.get(match[2]);slot=int(match[3])
             if group is None or cid is None:continue
             data=path.read_bytes();magic=data[:4]
             target=next((it['fileId'] for it in group['items'] if r.file_bytes(it['fileId'])[0][:4]==magic),None)
         else:
-            match=re.match(r'(\d+)\.([a-z]+)-(\d+)\.brbnk$',path.name)
+            match=re.match(r'(\d+)\.([a-z]+)-(\d+)\.brbnk(?:\.[a-z_]+)?$',path.name)
             if not match or match[2].upper() not in ids:continue
             target=int(match[1]);cid=ids[match[2].upper()];slot=int(match[3]);data=path.read_bytes();magic=data[:4]
             if target>=nf or r.file_bytes(target)[0][:4]!=magic:continue
         if target is None:continue
+        suffix=path.name.rsplit('.',1)[-1]
+        if suffix in donor_codes and match and match[1].startswith('GRP_VO_'):
+            donor=donor_codes[suffix];donors[(cid,slot)]=donor
+            source_group=group_by_name.get((match[1]+match[4]).replace('_'+codes[cid], '_'+donor,1))
+            if source_group:
+                source_fid=next((it['fileId'] for it in source_group['items'] if r.file_bytes(it['fileId'])[0][:4]==data[:4]),None)
+                if source_fid is not None:donor_files.setdefault((cid,slot),{})[source_fid]=target
         size=struct.unpack_from('>I',data,8)[0]
         if magic not in (b'RWSD',b'RBNK') or size>len(data):raise ValueError(path)
         main=data[:size];wave_start=data.find(b'RWAR',size);wave=data[wave_start:] if wave_start>=0 else b''
@@ -75,10 +85,30 @@ def main():
             # Reach readers follow the first group location for each file.
             gid,index=rr.files[fid]['positions'][0];g=rr.groups[gid];it=g['items'][index]
             it.update(offset=mo-g['offset'],size=ms,waveDataOffset=wo-g['waveDataOffset'],waveDataSize=ws)
-        rr.sounds=[s for s in r.sounds if s['fileId'] in overrides or
+        sound_bytes=bytearray(base[64:file_at]);muted=0;selected=[];changed_sounds=set()
+        donor=donors.get((cid,slot));file_map=donor_files.get((cid,slot),{})
+        for original_sound in r.sounds:
+            sound=copy.deepcopy(original_sound)
+            if donor and ('_'+codes[cid]+'_') in sound['name']:
+                replacement=sounds_by_name.get(sound['name'].replace('_'+codes[cid]+'_','_'+donor+'_',1))
+                if replacement is None:
+                    sound_bytes[sound['id']*44]=0;muted+=1;continue
+                sound=copy.deepcopy(replacement);sound['id']=original_sound['id'];sound['name']=original_sound['name'];changed_sounds.add(sound['id'])
+                sound['fileId']=file_map.get(sound['fileId'],sound['fileId'])
+                if sound['type']==1:
+                    source_bank=r.banks[sound['seq']['bankId']]['fileId']
+                    target_bank=file_map.get(source_bank,source_bank)
+                    sound['seq']['bankId']=next(b['id'] for b in r.banks if b['fileId']==target_bank)
+                # Sound names stay in the runtime's base-character slots; their
+                # sequence/wave indices follow the donor's template layout.
+                start=sound['id']*44;source=base[64+replacement['id']*44:64+(replacement['id']+1)*44]
+                sound_bytes[start:start+44]=source
+                struct.pack_into('<I',sound_bytes,start+16,sound['fileId'])
+                if sound['type']==1:struct.pack_into('<H',sound_bytes,start+14,sound['seq']['bankId'])
+            selected.append(sound)
+        rr.sounds=[s for s in selected if s['id'] in changed_sounds or s['fileId'] in overrides or
             (s['type']==1 and r.banks[s['seq']['bankId']]['fileId'] in overrides)]
         reachable=reach(rr);pool=[];reach_entries=[]
-        sound_bytes=bytearray(base[64:file_at]);muted=0
         for s in r.sounds:
             _,ww=reachable.get(s['id'],(None,retail_reach[s['id']]));
             fid=reachable.get(s['id'],(None,[]))[0]

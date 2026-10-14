@@ -213,7 +213,7 @@ def step_fingerprint(cmd):
 # scripts that lay out the SD folder. The update CIA is compiled with it
 # (tools/build.py -> MKW_CONTENT) and the builder writes it to the SD folder
 # (content.txt), so code and game files from different builders don't mix.
-PACKAGE_SCRIPTS=('tools/package_sd.py','tools/package_standalone.py')
+PACKAGE_SCRIPTS=('tools/package_sd.py','tools/package_standalone.py','tools/cook_skin_audio.py','tools/cook_retro_variants.py')
 def content_fingerprint():
     digest=hashlib.sha256()
     for name,cmd,_ in COOK_STEPS:digest.update(f'{name}\0{step_fingerprint(cmd)}\n'.encode())

@@ -125,9 +125,10 @@ bool Model::load(const char* path) {
     // coalesces the header/submesh/name reads into few FS requests.
     struct File {
         FILE* f=nullptr;char buffer[32*1024];
-        std::vector<uint8_t> packed;size_t offset=0;
+        const char* packedPath=nullptr;size_t packedSize=0,offset=0;
         explicit File(const char* path){
-            if(pack::read(path,packed))return;
+            const long size=pack::size(path);
+            if(size>=0){packedPath=path;packedSize=size_t(size);return;}
             f=std::fopen(path,"rb");
             if(!f && path && path[0]!='/' && !std::strchr(path,':')){
                 char alt[256];
@@ -141,13 +142,14 @@ bool Model::load(const char* path) {
             if(f)std::setvbuf(f,buffer,_IOFBF,sizeof buffer);
         }
         ~File(){if(f)std::fclose(f);}
-        bool open()const{return f||!packed.empty();}
+        bool open()const{return f||packedPath;}
         bool read(void* p,size_t size){
             if(f)return std::fread(p,1,size,f)==size;
-            if(size>packed.size()-offset)return false;
-            std::memcpy(p,packed.data()+offset,size);offset+=size;return true;
+            if(!packedPath||offset>packedSize||size>packedSize-offset)return false;
+            if(!pack::readRange(packedPath,offset,p,size))return false;
+            offset+=size;return true;
         }
-        bool atEnd(){return f?std::fgetc(f)==EOF:offset==packed.size();}
+        bool atEnd(){return f?std::fgetc(f)==EOF:offset==packedSize;}
     };
     auto file=std::make_unique<File>(path);auto& f=*file;
     if(!f.open()){

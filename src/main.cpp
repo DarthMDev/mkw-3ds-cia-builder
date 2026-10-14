@@ -128,6 +128,7 @@ static unsigned engineClass = 2;
 // Time Trials: one racer, no item boxes, a Triple Mushroom at the start, and
 // the best finish per course kept on the SD card (milliseconds, 0 = none).
 static bool timeTrial = false, newRecord = false;
+extern "C" bool mkwBrakeDriftEnabled(){return fullRace&&!timeTrial&&mkw::modEngine().isBrakeDriftEnabled();}
 static std::array<uint32_t, 32> bestTimes{};
 static constexpr const char *BestTimesPath = "sdmc:/3ds/mkw-3ds/best-times.bin";
 static void loadBestTimes()
@@ -171,7 +172,7 @@ static const auto& selectedVehicle(){return mkw::GarageChoices[driverChoice*mkw:
 static void configure(K::System::RaceConfig* config,void* context) {
     if(replayData){config->setGhost(replayData);config->raceScenario().players[0].type=K::System::RaceConfig::Player::Type::Ghost;return;}
     auto& s=config->raceScenario();s.course=mkw::course(courseChoice).id;s.engineClass=u8(engineClass);
-    if(fullRace){static_cast<mkw::RaceGrid*>(context)->configure(*config,driverChoice*mkw::VehiclesPerDriver+vehicleChoice,timeTrial?1:12);s.players[0].driftIsAuto=automaticDrift;return;}
+    if(fullRace){s.gameMode=timeTrial?K::System::RaceConfig::Scenario::GameMode::Time_Trial:K::System::RaceConfig::Scenario::GameMode::Versus;static_cast<mkw::RaceGrid*>(context)->configure(*config,driverChoice*mkw::VehiclesPerDriver+vehicleChoice,timeTrial?1:12);s.players[0].driftIsAuto=automaticDrift;return;}
     auto& p=s.players[0];p.type=K::System::RaceConfig::Player::Type::Local;
     const auto& driver=selectedVehicle();
     p.character=static_cast<K::Character>(driver.character);p.vehicle=static_cast<K::Vehicle>(driver.vehicle);p.driftIsAuto=false;
