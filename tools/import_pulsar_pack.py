@@ -428,6 +428,9 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
                         szs_file = candidate
                         break
 
+            if not szs_file or not szs_file.is_file():
+                raise ValueError(f'Missing source track archive for {t_name}; check the pack folder')
+
             prefix = f"pulsar_track_{track_counter:03d}"
             target_archive_rel = f"Race/Course/{szs_file.name if szs_file else f'{prefix}.szs'}"
 
@@ -456,6 +459,16 @@ def import_pack(pack_path: Path, out_dir: Path, config_file: str = None, max_cup
         })
 
     print(f"[*] Processing {len(conversion_tasks)} track model conversions across {jobs} workers...")
+    if not conversion_tasks:
+        raise ValueError('No tracks found in the supplied pack')
+    entries = [track for cup in final_cups for track in cup['tracks']]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, jobs)) as executor:
+        futures = [executor.submit(convert_track, *task) for task in conversion_tasks]
+        for entry, future in zip(entries, futures):
+            result = future.result()
+            if not result.get('models'):
+                raise ValueError(f"Track conversion failed: {entry['name']}")
+            entry.update(result)
     # Copy custom music streams from pack's strm/ directory if present
     pack_strm = pack_path / 'strm'
     if pack_strm.is_dir():

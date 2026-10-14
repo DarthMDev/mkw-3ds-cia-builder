@@ -346,13 +346,19 @@ def main():
     p.add_argument('--pack',type=Path,help='path to a Pulsar / Retro Rewind mod pack directory')
     p.add_argument('--pack-config',type=str,default=None,help='specific Config.pul file in pack (e.g. ConfigRT.pul)')
     p.add_argument('--max-cups',type=int,default=None,help='limit number of mod cups to import')
+    p.add_argument('--require-pack',action='store_true',help='require a complete cooked Pulsar pack; never build vanilla')
     a=p.parse_args()
+    from verify_pulsar_pack import verify_pulsar_pack
+    if a.require_pack and not a.pack:
+        try:verify_pulsar_pack(ROOT/'sd-card/3ds/mkw-3ds')
+        except ValueError as error:raise SystemExit(str(error))
     stage_tools();stage_sources();stage_disc(a.disc);check_game_code(a.disc);stage_cook(a.disc,a.jobs,a.force_cook,a.check)
     if a.pack:
         log('ingesting Pulsar mod pack:',a.pack)
         cmd=[sys.executable,'tools/import_pulsar_pack.py',a.pack,'--jobs',str(a.jobs)]
         if a.pack_config:cmd+=['--config',a.pack_config]
         if a.max_cups:cmd+=['--max-cups',str(a.max_cups)]
+        if a.force_cook:cmd+=['--force']
         run(cmd)
         title_szs = a.pack / 'UI/Title.szs'
         title_u_szs = a.pack / 'UI/Title_U.szs'
@@ -369,9 +375,14 @@ def main():
             cups_dir.mkdir(parents=True, exist_ok=True)
             for tpl in (temp_ui / 'button/timg').glob('icon_*.tpl'):
                 shutil.copy2(tpl, cups_dir / tpl.name)
+        verify_pulsar_pack(ROOT/'sd-card/3ds/mkw-3ds')
         log('cooking custom menu UI')
         run([sys.executable,'tools/cook_menu_ui.py'])
         run([sys.executable,'tools/pack_menu_assets.py'])
+        run([sys.executable,'tools/pack_race_assets.py'])
+    if a.require_pack:
+        cups,tracks=verify_pulsar_pack(ROOT/'sd-card/3ds/mkw-3ds')
+        log(f'Retro Rewind assets verified: {cups} cups, {tracks} tracks')
     if a.check:log('check passed: ready to compile and package');return
     if a.cook_only:log('cook complete');return
     if not a.skip_compile:stage_compile(a.jobs)

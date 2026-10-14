@@ -51,12 +51,13 @@ Prix award ceremony. Not yet: Mirror, online play.
 
 When prompted:
 1. **Disc Image**: Drag your Mario Kart Wii (USA) `.iso` or `.wbfs` into the window and press Return/Enter. (If you have already built previously, just press Return/Enter to reuse existing extracted files!)
-2. **Retro Rewind Folder (Optional)**:
-   - To use the **pre-cooked/bundled** Retro Rewind pack in this branch, simply press **Return / Enter**.
+2. **Retro Rewind Folder**:
+   - On your first RR build, supply your own Retro Rewind pack folder. The repository contains a reference manifest, but does **not** bundle the track archives or cooked assets.
+   - Press **Return / Enter** only to reuse a complete pack already cooked on this computer. The RR builder checks that the manifest, archives and models exist and stops if they are missing.
    - If you have your own external or updated Retro Rewind folder (containing `Config.pul` / `ConfigRT.pul`, `Tracks/`, `UI/`, etc.), drag that folder into the window and press Return/Enter. The builder will automatically ingest the tracks, title art, and cup icons.
    - Alternatively, from the command line you can pass the folder directly via `--pack`:
      ```bash
-     python tools/release/build_cia.py "path/to/game.iso" --pack "path/to/RetroRewind"
+     python tools/release/build_cia.py "path/to/game.iso" --require-pack --pack "path/to/RetroRewind"
      ```
 
 The first build takes about 30–60 minutes (subsequent builds take only seconds). Your CIA is saved to `build/release/mkw-3ds.cia`. If a build stops partway, run it again: finished steps are skipped. If it fails, share `build-cia-log.txt` when asking for help.

@@ -11,7 +11,7 @@ rem 1. Disc Image: Drag your Mario Kart Wii (USA) ISO/WBFS (or press Enter to
 rem    reuse existing extracted assets if you have already built previously).
 rem 2. Retro Rewind Folder: Drag your Retro Rewind folder (containing Config.pul,
 rem    Tracks\, etc.) to ingest new/updated tracks, or press Enter to use the
-rem    built-in/pre-cooked Retro Rewind pack in this repository.
+rem    previously cooked Retro Rewind pack on this computer.
 rem ==============================================================================
 
 setlocal EnableExtensions DisableDelayedExpansion
@@ -53,23 +53,23 @@ if not exist "%disc%" goto :nodisc
 :pack_prompt
 
 echo.
-echo [Step 2/2] Retro Rewind Pack (Optional):
+echo [Step 2/2] Retro Rewind Pack:
 echo If you have a Retro Rewind mod folder (containing Config.pul, Tracks\, etc.),
-echo drag it here to ingest it. Otherwise, press Enter to use the bundled pack.
+echo drag it here to import it. Press Enter only to reuse a previously cooked pack.
 set "rr_pack="
-set /p "rr_pack=Drag Retro Rewind folder here (or press Enter for bundled pack): "
+set /p "rr_pack=Drag Retro Rewind folder here (or press Enter to reuse cooked pack): "
 
-if not defined rr_pack goto :bundled_pack
+if not defined rr_pack goto :existing_pack
 set "rr_pack=%rr_pack:"=%"
 if not exist "%rr_pack%\" goto :missing_pack
 echo [+] Using external Retro Rewind pack: "%rr_pack%"
 goto :prepare
 
 :missing_pack
-echo [-] Folder not found at: "%rr_pack%". Falling back to bundled pack.
-set "rr_pack="
-:bundled_pack
-echo [*] Using bundled Retro Rewind pack.
+echo [-] Folder not found at: "%rr_pack%".
+goto :end
+:existing_pack
+echo [*] Checking for a previously cooked Retro Rewind pack.
 
 :prepare
 
@@ -89,7 +89,7 @@ echo.
 echo [*] Building Retro Rewind 3DS CIA package...
 echo --------------------------------------------------------
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$argsList = @(); if ($env:MKW_DISC) { $argsList += $env:MKW_DISC }; if ($env:MKW_PACK) { $argsList += '--pack'; $argsList += $env:MKW_PACK }; Set-Content -Path 'build-cia-log.txt' -Value $null -Encoding UTF8; & '.venv\Scripts\python.exe' 'tools\release\build_cia.py' @argsList 2>&1 | ForEach-Object { $line=$_.ToString(); $line; Add-Content -Path 'build-cia-log.txt' -Value $line -Encoding UTF8 }; exit $LASTEXITCODE"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$argsList = @('--require-pack'); if ($env:MKW_DISC) { $argsList += $env:MKW_DISC }; if ($env:MKW_PACK) { $argsList += '--pack'; $argsList += $env:MKW_PACK }; Set-Content -Path 'build-cia-log.txt' -Value $null -Encoding UTF8; & '.venv\Scripts\python.exe' 'tools\release\build_cia.py' @argsList 2>&1 | ForEach-Object { $line=$_.ToString(); $line; Add-Content -Path 'build-cia-log.txt' -Value $line -Encoding UTF8 }; exit $LASTEXITCODE"
 
 if errorlevel 1 goto :buildfailed
 

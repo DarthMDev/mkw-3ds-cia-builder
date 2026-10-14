@@ -322,36 +322,37 @@ for archive in ('menu.pak','race.pak'):
  if (assets/archive).is_file():files[assets/archive]=Path(archive)
 pulsar_manifest_path=assets/'pulsar_manifest.json'
 if pulsar_manifest_path.is_file():
+ from verify_pulsar_pack import verify_pulsar_pack
+ verify_pulsar_pack(assets)
  files[pulsar_manifest_path]=Path('pulsar_manifest.json')
- try:
-  pulsar_data=json.loads(pulsar_manifest_path.read_text())
-  for cup in pulsar_data.get('cups',[]):
-   for track in cup.get('tracks',[]):
-    arch=track.get('archive')
-    if arch and (assets/arch).is_file():files[assets/arch]=Path(arch)
-    for key in ('models','sky'):
-     list_rel=track.get(key)
-     if list_rel and (assets/list_rel).is_file():
-      files[assets/list_rel]=Path(list_rel)
-      for model_name in (assets/list_rel).read_text().split():
-       gmdl=assets/'models'/f'{model_name}.gmdl'
-       if gmdl.is_file():
-        files[gmdl]=Path('models')/gmdl.name;b=gmdl.read_bytes()
-        magic,version,nv,ni,ns,nt=struct.unpack_from('<4s5I',b)
-        stride=GMDL_SUBMESH_BYTES[version]
-        for i in range(nt):
-         tex=b[24+ns*stride+i*64:24+ns*stride+(i+1)*64].split(b'\0')[0].decode();t3x=assets/'textures'/f'{tex}.t3x'
-         if t3x.is_file():files[t3x]=Path('textures')/t3x.name
-     if arch:
-      stem=Path(arch).stem
-      for suffix in ('_N','_n','_Final','_F','_f',''):
-       strm_rel=f'audio/strm/{stem}{suffix}.brstm'
-       if (assets/strm_rel).is_file():files[assets/strm_rel]=Path(strm_rel)
-   for var_name in ('rMC1','rDP1','rGV1','rBC1','rCI1','rCI2','rVL1','rVL2','rRR1','rRR2'):
-    for suffix in ('_N','_n','_Final','_F','_f',''):
-     strm_rel=f'audio/strm/{var_name}{suffix}.brstm'
-     if (assets/strm_rel).is_file():files[assets/strm_rel]=Path(strm_rel)
- except Exception as e:pass
+ pulsar_data=json.loads(pulsar_manifest_path.read_text())
+ for cup in pulsar_data.get('cups',[]):
+  for track in cup.get('tracks',[]):
+   arch=track.get('archive')
+   if arch and (assets/arch).is_file():files[assets/arch]=Path(arch)
+   for key in ('models','sky'):
+    list_rel=track.get(key)
+    if list_rel and (assets/list_rel).is_file():
+     files[assets/list_rel]=Path(list_rel)
+     for model_name in (assets/list_rel).read_text().split():
+      gmdl=assets/'models'/f'{model_name}.gmdl'
+      if gmdl.is_file():
+       files[gmdl]=Path('models')/gmdl.name;b=gmdl.read_bytes()
+       magic,version,nv,ni,ns,nt=struct.unpack_from('<4s5I',b)
+       stride=GMDL_SUBMESH_BYTES[version]
+       for i in range(nt):
+        tex=b[24+ns*stride+i*64:24+ns*stride+(i+1)*64].split(b'\0')[0].decode();t3x=assets/'textures'/f'{tex}.t3x'
+        if not t3x.is_file():raise ValueError('Missing Retro Rewind texture: '+t3x.name)
+        files[t3x]=Path('textures')/t3x.name
+    if arch:
+     stem=Path(arch).stem
+     for suffix in ('_N','_n','_Final','_F','_f',''):
+      strm_rel=f'audio/strm/{stem}{suffix}.brstm'
+      if (assets/strm_rel).is_file():files[assets/strm_rel]=Path(strm_rel)
+  for var_name in ('rMC1','rDP1','rGV1','rBC1','rCI1','rCI2','rVL1','rVL2','rRR1','rRR2'):
+   for suffix in ('_N','_n','_Final','_F','_f',''):
+    strm_rel=f'audio/strm/{var_name}{suffix}.brstm'
+    if (assets/strm_rel).is_file():files[assets/strm_rel]=Path(strm_rel)
 for skin_gmdl in sorted((assets/'models').glob('ui_driver_*_skin_*_000.gmdl')):
  files[skin_gmdl]=Path('models')/skin_gmdl.name
  skin_dskm=skin_gmdl.with_name(skin_gmdl.name.replace('_000.gmdl','.dskm'))

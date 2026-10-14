@@ -9,7 +9,7 @@
 #    reuse existing extracted assets if you have already built previously).
 # 2. Retro Rewind Folder: Drag your Retro Rewind folder (containing Config.pul,
 #    Tracks/, etc.) to ingest new/updated tracks, or press Return to use the
-#    built-in/pre-cooked Retro Rewind pack in this repository.
+#    previously cooked Retro Rewind pack on this computer.
 # ==============================================================================
 
 cd "$(dirname "$0")" || exit 1
@@ -47,21 +47,21 @@ else
 fi
 
 echo ""
-echo "[Step 2/2] Retro Rewind Pack (Optional):"
+echo "[Step 2/2] Retro Rewind Pack:"
 echo "If you have a Retro Rewind mod folder (containing Config.pul, Tracks/, etc.),"
-echo "drag it here to ingest it. Otherwise, press Return to use the bundled pack."
-read -p "Drag Retro Rewind folder here (or press Return for bundled pack): " rr_pack
+echo "drag it here to import it. Press Return only to reuse a previously cooked pack."
+read -p "Drag Retro Rewind folder here (or press Return to reuse cooked pack): " rr_pack
 rr_pack="${rr_pack%\"}";rr_pack="${rr_pack#\"}";rr_pack="${rr_pack%\'}";rr_pack="${rr_pack#\'}"
 
 if [ -n "$rr_pack" ]; then
     if [ -d "$rr_pack" ]; then
         echo "[+] Using external Retro Rewind pack: $rr_pack"
     else
-        echo "[-] Folder not found at: $rr_pack. Falling back to bundled pack."
-        rr_pack=""
+        echo "[-] Folder not found at: $rr_pack."
+        exit 1
     fi
 else
-    echo "[*] Using bundled Retro Rewind pack."
+    echo "[*] Checking for a previously cooked Retro Rewind pack."
 fi
 
 # Ensure vendor dependencies and python venv are present
@@ -75,7 +75,7 @@ echo ""
 echo "[*] Building Retro Rewind 3DS CIA package..."
 echo "--------------------------------------------------------"
 
-build_args=()
+build_args=(--require-pack)
 if [ -n "$disc" ] && [ -f "$disc" ]; then
     build_args+=("$disc")
 fi
@@ -83,10 +83,11 @@ if [ -n "$rr_pack" ] && [ -d "$rr_pack" ]; then
     build_args+=("--pack" "$rr_pack")
 fi
 
-if [ ${#build_args[@]} -gt 0 ]; then
-    PYTHONUNBUFFERED=1 .venv/bin/python tools/release/build_cia.py "${build_args[@]}" 2>&1 | tee build-cia-log.txt
-else
-    PYTHONUNBUFFERED=1 .venv/bin/python tools/release/build_cia.py 2>&1 | tee build-cia-log.txt
+PYTHONUNBUFFERED=1 .venv/bin/python tools/release/build_cia.py "${build_args[@]}" 2>&1 | tee build-cia-log.txt
+
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+    echo "[-] Build failed. See build-cia-log.txt for details."
+    exit 1
 fi
 
 echo ""
