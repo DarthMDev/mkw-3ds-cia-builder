@@ -91,6 +91,7 @@ def run(cmd,**kw):
     log('$',' '.join(str(c) for c in cmd))
     # PYTHONUTF8: text files are UTF-8 on every OS (Windows would default to cp1252).
     env=dict(os.environ,PYTHONUTF8='1',PYTHONPATH=os.pathsep.join(p for p in (str(ROOT/'vendor/gclib'),os.environ.get('PYTHONPATH')) if p))
+    env.update(kw.pop('env',{}))
     subprocess.run([str(c) for c in cmd],cwd=ROOT,check=True,env=env,**kw)
 
 def shared_checkout():
@@ -307,6 +308,21 @@ def stage_cook(disc,jobs,force,check=False):
         stamp.write_text(f'fingerprint {fingerprint}\n{time.monotonic()-start:.0f} s\n')
         for path in PRUNE_AFTER.get(name,()):shutil.rmtree(ROOT/path,ignore_errors=True)
 
+def stage_pack_skins(pack,jobs):
+    character=pack/'Character'
+    if not character.is_dir():
+        log('Pack has no Character folder; no skin assets to cook')
+        return
+    env={'MKW_RR_PACK':str(pack.resolve()),'MKW_SKIN_JOBS':str(max(1,jobs))}
+    scripts=[]
+    if (character/'Driver').is_dir():scripts.append('cook_character_skins.py')
+    scripts+=['cook_garage_skins.py','cook_skin_vehicles.py']
+    if (character/'AllKart').is_dir():scripts.append('cook_skin_menu_vehicles.py')
+    if (character/'Sound').is_dir():scripts.append('cook_skin_audio.py')
+    for script in scripts:
+        log('cooking Retro Rewind skins:',script)
+        run([sys.executable,'tools/'+script],env=env)
+
 def stage_compile(jobs):
     run([sys.executable,'tools/build.py','--jobs',str(jobs),'--release'])
 
@@ -376,6 +392,7 @@ def main():
             for tpl in (temp_ui / 'button/timg').glob('icon_*.tpl'):
                 shutil.copy2(tpl, cups_dir / tpl.name)
         verify_pulsar_pack(ROOT/'sd-card/3ds/mkw-3ds')
+        stage_pack_skins(a.pack,step_jobs('full roster',a.jobs))
         log('cooking custom menu UI')
         run([sys.executable,'tools/cook_menu_ui.py'])
         run([sys.executable,'tools/pack_menu_assets.py'])

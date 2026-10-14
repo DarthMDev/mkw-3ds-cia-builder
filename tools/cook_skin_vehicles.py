@@ -76,3 +76,4 @@ if __name__ == '__main__':
         for prefix,ok in pool.map(run,tasks):
             good+=ok;print('OK' if ok else 'FAIL',prefix,flush=True)
     print(f'{good}/{len(tasks)} skin vehicle archives cooked',flush=True)
+    if good != len(tasks):raise SystemExit(1)

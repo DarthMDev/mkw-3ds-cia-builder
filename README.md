@@ -54,7 +54,7 @@ When prompted:
 2. **Retro Rewind Folder**:
    - On your first RR build, supply your own Retro Rewind pack folder. The repository contains a reference manifest, but does **not** bundle the track archives or cooked assets.
    - Press **Return / Enter** only to reuse a complete pack already cooked on this computer. The RR builder checks that the manifest, archives and models exist and stops if they are missing.
-   - If you have your own external or updated Retro Rewind folder (containing `Config.pul` / `ConfigRT.pul`, `Tracks/`, `UI/`, etc.), drag that folder into the window and press Return/Enter. The builder will automatically ingest the tracks, title art, and cup icons.
+   - If you have your own external or updated Retro Rewind folder (containing `Config.pul` / `ConfigRT.pul`, `Tracks/`, `UI/`, etc.), drag that folder into the window and press Return/Enter. The builder will automatically ingest the tracks, title art, and cup icons. When the pack includes `Character/`, it also cooks character selection skins, race skins, vehicle replacements, `AllKart` menu previews, and skin voices from `Character/Sound/` before repacking the menus and race assets.
    - Alternatively, from the command line you can pass the folder directly via `--pack`:
      ```bash
      python tools/release/build_cia.py "path/to/game.iso" --require-pack --pack "path/to/RetroRewind"

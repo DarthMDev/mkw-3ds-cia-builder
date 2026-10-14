@@ -106,6 +106,39 @@ class PulsarPackTests(unittest.TestCase):
                 importer.import_pack(pack, root/'out')
             self.assertFalse((root/'out/pulsar_manifest.json').exists())
 
+    def test_pack_skins_run_in_order_with_supplied_source(self):
+        builder = load_script('test_skin_builder', TOOLS/'release/build_cia.py')
+        with tempfile.TemporaryDirectory() as folder:
+            pack = Path(folder)/'Retro Rewind (custom)'
+            for name in ('Driver', 'AllKart', 'Sound'):
+                (pack/'Character'/name).mkdir(parents=True)
+            with patch.object(builder, 'run') as run:
+                builder.stage_pack_skins(pack, 2)
+            scripts = [call.args[0][1] for call in run.call_args_list]
+            self.assertEqual(scripts, ['tools/cook_character_skins.py', 'tools/cook_garage_skins.py',
+                                      'tools/cook_skin_vehicles.py', 'tools/cook_skin_menu_vehicles.py',
+                                      'tools/cook_skin_audio.py'])
+            for call in run.call_args_list:
+                self.assertEqual(call.kwargs['env']['MKW_RR_PACK'], str(pack.resolve()))
+                self.assertEqual(call.kwargs['env']['MKW_SKIN_JOBS'], '2')
+
+    def test_track_only_pack_skips_skins(self):
+        builder = load_script('test_track_only_builder', TOOLS/'release/build_cia.py')
+        with tempfile.TemporaryDirectory() as folder, patch.object(builder, 'run') as run:
+            builder.stage_pack_skins(Path(folder), 2)
+            run.assert_not_called()
+
+    def test_skin_failure_stops_build(self):
+        import subprocess
+        builder = load_script('test_skin_failure_builder', TOOLS/'release/build_cia.py')
+        with tempfile.TemporaryDirectory() as folder:
+            pack = Path(folder)
+            (pack/'Character/Driver').mkdir(parents=True)
+            with patch.object(builder, 'run', side_effect=subprocess.CalledProcessError(1, 'skin cooker')) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    builder.stage_pack_skins(pack, 2)
+            self.assertEqual(run.call_count, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

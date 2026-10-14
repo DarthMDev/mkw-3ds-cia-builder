@@ -31,5 +31,9 @@ if __name__=='__main__':
         if len(parts)!=3 or not parts[1].isdigit():continue
         code,slot,_=parts
         if code in [d.removesuffix('_menu') for d in DRIVERS]:tasks.append((p,[d.removesuffix('_menu') for d in DRIVERS].index(code),int(slot)))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-        for name,ok in pool.map(run,tasks):print(name,ok,flush=True)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.environ.get('MKW_SKIN_JOBS','6'))) as pool:
+        failed=False
+        for name,ok in pool.map(run,tasks):
+            print(name,ok,flush=True)
+            if ok is not True:failed=True
+    if failed:raise SystemExit(1)

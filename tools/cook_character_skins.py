@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from cook_model import cook
+from retro_pack import CHARACTER_DIR
 
 DRIVERS = [
     'mr',        # 0: Mario -> mr-X.brres
@@ -74,14 +75,13 @@ def cook_skin(args):
         return prefix, False
 
 def main():
-    driver_dir = Path('/Users/michael/Library/Application Support/Dolphin/Load/Riivolution/WheelWizard/RetroRewind6/Character/Driver')
+    driver_dir = CHARACTER_DIR / 'Driver'
     if not driver_dir.is_dir():
         print(f'Directory not found: {driver_dir}')
-        return
+        raise SystemExit(1)
 
     out_dirs = [
-        ROOT / 'sd-card/3ds/mkw-3ds',
-        ROOT / 'build/release/sd-card/3ds/mkw-3ds'
+        ROOT / 'sd-card/3ds/mkw-3ds'
     ]
 
     tasks = []
@@ -92,15 +92,16 @@ def main():
                 for out_dir in out_dirs:
                     tasks.append((drv_idx, stem, slot, source, out_dir))
 
-    print(f'Found {len(tasks)//2} distinct driver skins to process.')
+    print(f'Found {len(tasks)} distinct driver skins to process.')
 
     success = 0
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=int(os.environ.get('MKW_SKIN_JOBS', '4'))) as pool:
         for prefix, ok in pool.map(cook_skin, tasks):
             if ok:
                 success += 1
 
     print(f'Done! Successfully processed {success}/{len(tasks)} targets.')
+    if success != len(tasks):raise SystemExit(1)
 
 if __name__ == '__main__':
     main()

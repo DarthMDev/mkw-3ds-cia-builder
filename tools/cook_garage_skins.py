@@ -44,7 +44,7 @@ DRIVERS = [
     ('jr', 'bowser_jr')
 ]
 
-CHARACTER_DIR = Path('/Users/michael/Library/Application Support/Dolphin/Load/Riivolution/WheelWizard/RetroRewind6/Character')
+from retro_pack import CHARACTER_DIR
 
 def extract_brres_from_szs(szs_path):
     data = Yaz0.decompress(io.BytesIO(szs_path.read_bytes())).getvalue()
@@ -100,7 +100,7 @@ def cook_task(task):
 def main():
     if not CHARACTER_DIR.is_dir():
         print(f"Character directory not found: {CHARACTER_DIR}")
-        return
+        raise SystemExit(1)
 
     out_dir = ROOT / 'sd-card/3ds/mkw-3ds'
     tasks = []
@@ -138,7 +138,7 @@ def main():
 
     print(f"Tasks to cook: {len(tasks)}")
     success = 0
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=int(os.environ.get('MKW_SKIN_JOBS', '6'))) as pool:
         for prefix, ok in pool.map(cook_task, tasks):
             if ok:
                 success += 1
@@ -147,6 +147,7 @@ def main():
                 print(f"FAIL {prefix}")
 
     print(f"Finished {success}/{len(tasks)} tasks.")
+    if success != len(tasks):raise SystemExit(1)
 
 if __name__ == '__main__':
     main()
