@@ -14,7 +14,7 @@ rem    Tracks\, etc.) to ingest new/updated tracks, or press Enter to use the
 rem    built-in/pre-cooked Retro Rewind pack in this repository.
 rem ==============================================================================
 
-setlocal
+setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0"
 
 echo ========================================================
@@ -43,10 +43,14 @@ if "%has_extracted%"=="1" (
     if not defined disc goto :nodisc
 )
 
-if defined disc (
-    set "disc=%disc:"=%"
-    if not exist "%disc%" goto :nodisc
-)
+rem Expand each path on a separate line: cmd expands a whole (...) block
+rem before running it, so stripping quotes inside that block is too late.
+rem Keep delayed expansion off so exclamation marks in paths survive.
+if not defined disc goto :pack_prompt
+set "disc=%disc:"=%"
+if not exist "%disc%" goto :nodisc
+
+:pack_prompt
 
 echo.
 echo [Step 2/2] Retro Rewind Pack (Optional):
@@ -55,17 +59,19 @@ echo drag it here to ingest it. Otherwise, press Enter to use the bundled pack.
 set "rr_pack="
 set /p "rr_pack=Drag Retro Rewind folder here (or press Enter for bundled pack): "
 
-if defined rr_pack (
-    set "rr_pack=%rr_pack:"=%"
-    if exist "%rr_pack%\" (
-        echo [+] Using external Retro Rewind pack: "%rr_pack%"
-    ) else (
-        echo [-] Folder not found at: "%rr_pack%". Falling back to bundled pack.
-        set "rr_pack="
-    )
-) else (
-    echo [*] Using bundled Retro Rewind pack.
-)
+if not defined rr_pack goto :bundled_pack
+set "rr_pack=%rr_pack:"=%"
+if not exist "%rr_pack%\" goto :missing_pack
+echo [+] Using external Retro Rewind pack: "%rr_pack%"
+goto :prepare
+
+:missing_pack
+echo [-] Folder not found at: "%rr_pack%". Falling back to bundled pack.
+set "rr_pack="
+:bundled_pack
+echo [*] Using bundled Retro Rewind pack.
+
+:prepare
 
 if not exist "vendor\gclib" (%PY% tools\bootstrap.py || goto :end)
 if not exist ".venv\Scripts\python.exe" (
@@ -83,7 +89,9 @@ echo.
 echo [*] Building Retro Rewind 3DS CIA package...
 echo --------------------------------------------------------
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$argsList = @(); if ($env:MKW_DISC) { $argsList += $env:MKW_DISC }; if ($env:MKW_PACK) { $argsList += '--pack'; $argsList += $env:MKW_PACK }; Set-Content -Path 'build-cia-log.txt' -Value $null -Encoding UTF8; & '.venv\Scripts\python.exe' 'tools\release\build_cia.py' @argsList 2>&1 | ForEach-Object { $line=$_.ToString(); $line; Add-Content -Path 'build-cia-log.txt' -Value $line -Encoding UTF8 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$argsList = @(); if ($env:MKW_DISC) { $argsList += $env:MKW_DISC }; if ($env:MKW_PACK) { $argsList += '--pack'; $argsList += $env:MKW_PACK }; Set-Content -Path 'build-cia-log.txt' -Value $null -Encoding UTF8; & '.venv\Scripts\python.exe' 'tools\release\build_cia.py' @argsList 2>&1 | ForEach-Object { $line=$_.ToString(); $line; Add-Content -Path 'build-cia-log.txt' -Value $line -Encoding UTF8 }; exit $LASTEXITCODE"
+
+if errorlevel 1 goto :buildfailed
 
 echo.
 echo ========================================================
@@ -100,6 +108,11 @@ echo                     For updates later, copy 'build\release\sd-card\3ds'
 echo                     to your SD card and install 'mkw-3ds-update.cia'.
 echo   - On Citra/Azahar: Open 'build\release\mkw-3ds.cia' or install CIA.
 echo ========================================================
+goto :end
+
+:buildfailed
+echo.
+echo [-] Build failed. See "%CD%\build-cia-log.txt" for details.
 goto :end
 
 :nopython
