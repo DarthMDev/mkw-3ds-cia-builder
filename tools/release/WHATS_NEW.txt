@@ -1,3 +1,5 @@
+Old 3DS optimizations by Codiak540
+Small CIA: game files now load from SD
 Custom course animation crash fixes
 Stream models to reduce heap use
 RMX variants use their own scenery

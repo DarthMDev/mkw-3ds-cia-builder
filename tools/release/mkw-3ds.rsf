@@ -1,8 +1,6 @@
-# All-in-one CIA: the program plus every cooked asset in its RomFS
-# (tools/release/package_cia.py passes APP_ROMFS, APP_CATEGORY, APP_REMASTER).
-# A quick update is the same program as a Patch title (0004000E): the system
-# runs its code over the installed application, whose HOME Menu art stays.
-# Platform ctr: Old 3DS and New 3DS. Old 3DS runs in the 64 MB mode the port
+# Embedded builds pass APP_ROMFS; small SD-based CIAs omit the RomFs section.
+# Application and update installers replace the same application title.
+# Platform ctr: Old 3DS and New 3DS. Old 3DS runs in the 80 MB mode;
 # is budgeted for; New 3DS gets 124 MB, 804 MHz, L2 cache and core 2 (render
 # thread, job worker and audio). Based on 2gifts/melee-3ds port/3ds/melee.rsf.
 BasicInfo:
@@ -30,7 +28,7 @@ AccessControlInfo:
    - DirectSdmc
    - DirectSdmcWrite
   MemoryType: Application
-  SystemMode: 64MB
+  SystemMode: 80MB
   SystemModeExt: 124MB
   CpuSpeed: 804MHz
   EnableL2Cache: true

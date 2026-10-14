@@ -15,8 +15,8 @@ def main():
  # DVLE 0: scene shader; DVLE 1: NW4R EF particles (src/effect.v.pica).
  subprocess.run([str(tool('picasso')),'-o',str(out/'mkw.shbin'),str(ROOT/'src/mkw.v.pica'),str(ROOT/'src/effect.v.pica')],check=True)
  # The content stamp the update CIA checks against the SD card's content.txt.
- sys.path.insert(0,str(ROOT/'tools/release'));from build_cia import content_fingerprint
- stamp='#pragma once\n// Converted game files this code expects (tools/release/build_cia.py).\n#define MKW_CONTENT "'+content_fingerprint()+'"\n'
+ sys.path.insert(0,str(ROOT/'tools/release'));from build_cia import content_fingerprint,legacy_windows_fingerprint
+ stamp='#pragma once\n// Converted game files this code expects (tools/release/build_cia.py).\n#define MKW_CONTENT "'+content_fingerprint()+'"\n// Written by Windows builders of 0.5.0 and 0.5.1 (npm.cmd in the recipe): also accepted.\n#define MKW_CONTENT_WINDOWS_LEGACY "'+legacy_windows_fingerprint()+'"\n'
  # Shown on the lower screen at start-up, so a console shows which update it runs.
  stamp+='#define MKW_VERSION "'+(ROOT/'tools/release/VERSION').read_text().strip()+'"\n'
  # Shown once on the lower screen after an update (tools/release/WHATS_NEW.txt):
@@ -29,15 +29,15 @@ def main():
  if not (out/'content_version.hpp').is_file() or (out/'content_version.hpp').read_text()!=stamp:(out/'content_version.hpp').write_text(stamp)
  (out/'shader_data.hpp').write_text('#pragma once\n#include <cstdint>\nalignas(4) static const uint8_t mkw_shader[]={'+','.join(map(str,(out/'mkw.shbin').read_bytes()))+'};\n')
  arch=['-march=armv6k','-mtune=mpcore','-mfloat-abi=hard','-mtp=soft']
- flags=arch+['-std=gnu++23','-O2','-g','-D__3DS__','-DREVOLUTION','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fcheck-new','-fno-strict-aliasing','-ffp-contract=off','-Wall','-Wno-psabi','-I'+str(kin/'include'),'-I'+str(kin/'source'),'-I'+str(ROOT/'include'),'-I'+str(ROOT/'vendor/citro3d/include'),'-I'+str(dkp/'libctru/include'),'-I'+str(out)]
+ flags=arch+['-std=gnu++23','-O3','-D__3DS__','-DREVOLUTION','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fcheck-new','-fno-strict-aliasing','-ffp-contract=off','-Wall','-Wno-psabi','-I'+str(kin/'include'),'-I'+str(kin/'source'),'-I'+str(ROOT/'include'),'-I'+str(ROOT/'vendor/citro3d/include'),'-I'+str(dkp/'libctru/include'),'-I'+str(out)]
  # Kinoko alone is built for link-time optimization: its many one-line
  # KartObjectProxy accessors live in .cc files and inline only at link time.
  # Same IEEE semantics (-ffp-contract=off, no fast-math); the app keeps
  # ordinary objects, so the linker --wrap list below is unaffected.
  if a.external_assets:flags+=['-DMKW_EXTERNAL_ASSETS']
  if a.release:flags+=['-DMKW_RELEASE','-DKINOKO_QUIET','-ffile-prefix-map='+str(ROOT)+'/=']
- lto=['-flto=auto']
- codegen=['-O2','-g','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fno-strict-aliasing','-ffp-contract=off']
+ lto=['-flto']
+ codegen=['-O3','-g','-mword-relocations','-ffunction-sections','-fdata-sections','-fno-exceptions','-fno-rtti','-fno-strict-aliasing','-ffp-contract=off']
  sources=[p for p in sorted((kin/'source').rglob('*.cc')) if not p.name.startswith('._') and p.name not in ('main.cc','KReplaySystem.cc','Context.cc')]+[p for p in sorted((ROOT/'src').glob('*.cpp')) if not p.name.startswith('._')]
  # All headers invalidate objects; conservative but reproducible.
  headers=[out/'shader_data.hpp',out/'content_version.hpp']+list(kin.rglob('*.hh'))+list((ROOT/'include').rglob('*.hpp'))+list((ROOT/'vendor/citro3d/include').rglob('*.h'))+list((dkp/'libctru/include').rglob('*.h'))

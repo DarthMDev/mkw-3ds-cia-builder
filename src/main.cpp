@@ -385,13 +385,8 @@ static void readContent(const char *root, char (&found)[80])
     found[strcspn(found, "\r\n")] = 0;
 }
 static bool contentMatches(const char* root){
-    char common[64];snprintf(common,sizeof common,"%sRace/Common.szs",root);
-    if(!exists(common))return false;
-#if !MKW_QUICK_UPDATE
-    if(!strcmp(root,"romfs:/"))return true;
-#endif
-    char found[80];readContent(root,found);
-    return !strcmp(found,MKW_CONTENT);
+    char found[80];readContent(root,found);char common[64];snprintf(common,sizeof common,"%sRace/Common.szs",root);
+    return (!strcmp(found,MKW_CONTENT)||!strcmp(found,MKW_CONTENT_WINDOWS_LEGACY))&&exists(common);
 }
 static bool sdContentReady()
 {
@@ -404,16 +399,16 @@ static bool sdContentReady()
     printf("\n  Mario Kart Wii 3DS\n\n");
     if (!found[0])
     {
-        printf("  This is a code update, not the whole game.\n\n");
+        printf("  This CIA needs the converted game files\n  on your SD card.\n\n");
         printf("  You build the game yourself, on your\n  computer, from your own Mario Kart Wii\n  disc. It can't be downloaded.\n\n");
         printf("  Builder and instructions:\n  %s\n\n", ProjectUrl);
-        printf("  Already built it? Copy build/release/\n  sd-card/3ds to the root of your SD card,\n  or install the full CIA you built.\n");
+        printf("  Already built it? Copy build/release/\n  sd-card/3ds to the root of your SD card,\n  then install the CIA you built.\n");
     }
     else
     {
         printf("  Your game files are from a different\n  builder version than this update.\n\n");
         printf("  Run the latest builder again (it only redoes\n  what changed), then copy\n  build/release/sd-card/3ds to your SD card.\n\n");
-        printf("  Installed a newer full CIA? Install the\n  latest quick update too, or delete the old\n  update in FBI (Titles).\n\n");
+        printf("  If an older patch is still installed,\n  delete that update in FBI (Titles).\n\n");
         printf("  Help: %s\n", ProjectUrl);
     }
     printf("\n  Press any button to exit.");
@@ -463,20 +458,15 @@ int main()
             fclose(f);
         }
     // Embedded assets are read in place; writable diagnostics stay on SD.
-    struct AssetMount
-    {
-        bool mounted = R_SUCCEEDED(romfsInit());
-        ~AssetMount()
-        {
-            if (mounted)
-                romfsExit();
-        }
+    struct AssetMount {
+        bool mounted=R_SUCCEEDED(romfsInit());
+        // menu.pak and race.pak stay open for the session; with them in the CIA's
+        // RomFS, the C library would close them at exit after the RomFS device is
+        // gone (a data abort in _close_r on every exit, 0.5.0).
+        ~AssetMount(){mkw::pack::close();if(mounted)romfsExit();}
     } assets;
-    // The full CIA carries the game files in its RomFS. A quick update is
-    // installed over it and runs this code with that RomFS, so the files there
-    // are used only when they are the content this code expects (content.txt,
-    // MKW_CONTENT; full CIAs before 0.4.2 have none). Otherwise the files the
-    // builder put in sdmc:/3ds/mkw-3ds must match.
+    // Release CIAs read their matching converted assets from SD. Embedded
+    // builds (CCI or --embedded-assets) use RomFS when its content stamp matches.
     const bool embedded=assets.mounted&&contentMatches("romfs:/");
     const char* assetRoot=embedded?"romfs:/":DATA;
     bootLog("=== MKW 3DS %s boot ===", MKW_VERSION);
