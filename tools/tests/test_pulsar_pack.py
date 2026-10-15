@@ -44,6 +44,42 @@ class PulsarPackTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Missing Retro Rewind asset: models/a_000.gmdl'):
                 verify_pulsar_pack(root)
 
+    def test_empty_optional_sky_list_is_valid_but_missing_assets_are_not(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'models').mkdir()
+            (root/'track.szs').write_bytes(b'archive')
+            (root/'models/course.list').write_text('course_000\n')
+            (root/'models/course_000.gmdl').write_bytes(b'model')
+            sky = root/'models/sky.list'
+            sky.write_text('')
+            track = dict(archive='track.szs', models='models/course.list', sky='models/sky.list')
+            (root/'pulsar_manifest.json').write_text(json.dumps(dict(cups=[dict(tracks=[track])])))
+            self.assertEqual(verify_pulsar_pack(root), (1, 1))
+            sky.write_text('missing_sky_000\n')
+            with self.assertRaisesRegex(ValueError, 'Missing Retro Rewind asset: models/missing_sky_000.gmdl'):
+                verify_pulsar_pack(root)
+            sky.unlink()
+            with self.assertRaisesRegex(ValueError, 'Missing Retro Rewind asset: models/sky.list'):
+                verify_pulsar_pack(root)
+            sky.write_text('')
+            (root/'models/course.list').write_text('')
+            with self.assertRaisesRegex(ValueError, 'Missing Retro Rewind asset: models/course.list'):
+                verify_pulsar_pack(root)
+
+    def test_cached_track_does_not_reference_empty_sky(self):
+        importer = self.importer()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root/'models').mkdir()
+            (root/'models/pulsar_track_171.list').write_text('course_000\n')
+            (root/'models/pulsar_track_171_sky.list').write_text('')
+            result = importer.convert_track(root/'unused.szs', root, 'pulsar_track_171')
+            self.assertEqual(result['sky'], '')
+            (root/'models/pulsar_track_171_sky.list').write_text('sky_000\n')
+            result = importer.convert_track(root/'unused.szs', root, 'pulsar_track_171')
+            self.assertEqual(result['sky'], 'models/pulsar_track_171_sky.list')
+
     def test_empty_manifest_rejected(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

@@ -14,12 +14,12 @@ def verify_pulsar_pack(assets):
     if not cups or any(not cup.get('tracks') or len(cup['tracks']) > 4 for cup in cups):
         raise ValueError('Retro Rewind manifest must contain cups with 1 to 4 tracks')
 
-    def require(relative):
+    def require(relative, allow_empty=False):
         path = Path(relative)
         if not relative or path.is_absolute() or '..' in path.parts:
             raise ValueError('Invalid Retro Rewind asset path: ' + str(relative))
         source = assets / path
-        if not source.is_file() or not source.stat().st_size:
+        if not source.is_file() or (not allow_empty and not source.stat().st_size):
             raise ValueError('Missing Retro Rewind asset: ' + str(relative) + '; re-import the pack')
         return source
 
@@ -31,8 +31,10 @@ def verify_pulsar_pack(assets):
                 relative = track.get(key, '')
                 if key == 'sky' and not relative:
                     continue
-                names = require(relative).read_text().split()
-                if not names:
+                # A source sky BRRES can legitimately cook to zero geometry.
+                # Keep requiring the referenced list, but allow it to be empty.
+                names = require(relative, allow_empty=(key == 'sky')).read_text().split()
+                if not names and key != 'sky':
                     raise ValueError('Empty Retro Rewind model list: ' + relative)
                 for name in names:
                     if any(c not in 'abcdefghijklmnopqrstuvwxyz_0123456789' for c in name):

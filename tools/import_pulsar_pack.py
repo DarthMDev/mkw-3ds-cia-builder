@@ -240,7 +240,7 @@ def convert_track(szs_path: Path, out_dir: Path, track_prefix: str, force: bool 
     if not force and course_list_path.is_file() and course_list_path.stat().st_size > 0:
         return {
             'models': f'models/{track_prefix}.list',
-            'sky': f'models/{track_prefix}_sky.list' if sky_list_path.is_file() else ''
+            'sky': f'models/{track_prefix}_sky.list' if sky_list_path.is_file() and sky_list_path.read_text().strip() else ''
         }
 
     build_export.mkdir(parents=True, exist_ok=True)
@@ -294,8 +294,8 @@ def convert_track(szs_path: Path, out_dir: Path, track_prefix: str, force: bool 
                 ['node', str(exporter_bundle), str(sky_brres), str(exported_sky)],
                 env=sky_env, stdout=log, stderr=subprocess.STDOUT, check=True
             )
-        cook(exported_sky, out_dir, f'{track_prefix}_sky', max_texture=256)
-        has_sky = True
+        sky_parts = cook(exported_sky, out_dir, f'{track_prefix}_sky', max_texture=256)
+        has_sky = bool(sky_parts)
 
     return {
         'models': f'models/{track_prefix}.list',
